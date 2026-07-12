@@ -1,0 +1,2 @@
+"""Catalog widgets."""
+

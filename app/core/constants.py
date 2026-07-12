@@ -1,0 +1,4 @@
+APP_NAME = "Velora"
+APP_VERSION = "AW0.01"
+ACCENT = "#8B5CF6"
+

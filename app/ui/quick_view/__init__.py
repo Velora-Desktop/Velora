@@ -1,0 +1,2 @@
+"""Quick view widgets."""
+
