@@ -3,17 +3,18 @@ from PySide6.QtWidgets import QMenu
 
 
 class VMenu(QMenu):
-    placeholder_requested = Signal()
+    settings_requested = Signal()
+    about_requested = Signal()
+    changelog_requested = Signal()
+    support_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.addSection("VELORA AW0.01")
-        for title in (
-            "Настройки", "Проверить обновления", "О проекте", "GitHub", "YouTube",
-            "Поддержать Velora", "История изменений", "Дорожная карта", "Сообщить об ошибке",
-        ):
-            action = self.addAction(title)
-            action.triggered.connect(self.placeholder_requested)
+        self.addSection("VELORA AW0.02")
+        self.addAction("Настройки").triggered.connect(self.settings_requested)
+        self.addAction("О проекте").triggered.connect(self.about_requested)
+        self.addAction("История изменений").triggered.connect(self.changelog_requested)
+        self.addAction("Поддержать Velora").triggered.connect(self.support_requested)
         self.addSeparator()
         self.addAction("Выход").triggered.connect(self._quit)
 
@@ -21,4 +22,3 @@ class VMenu(QMenu):
     def _quit() -> None:
         from PySide6.QtWidgets import QApplication
         QApplication.quit()
-
