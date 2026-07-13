@@ -58,20 +58,15 @@ class ProfilePage(QWidget):
         started = [g for g in self.games if g.status != "НЕ НАЧИНАЛ"]
         completed = [g for g in self.games if g.status == "ПРОШЁЛ"]
         average = sum(float(g.personal_score) for g in rated) / len(rated) if rated else None
-        total_hours = sum(self._hours(game.playtime) for game in self.games)
+        total_hours = sum(game.playtime_hours for game in self.games)
         lines = ["ОБЩАЯ СТАТИСТИКА", "", f"Объектов: {len(self.games)}", f"Оценено: {len(rated)}", f"Начато: {len(started)}", f"Завершено: {len(completed)}", f"В избранном: {len(favorites)}", f"Общее время в играх: {total_hours:g} ч", f"Средняя личная оценка: {average:.1f}" if average is not None else "Средняя личная оценка: —"]
         for media_type in ("Игры", "Фильмы", "Сериалы", "Программы"):
             objects = [game for game in self.games if game.media_type == media_type]
             media_rated = [game for game in objects if game.personal_score != "—"]
             media_favorites = [game for game in objects if game.favorite]
             lines += ["", media_type.upper(), f"Всего: {len(objects)} · Оценено: {len(media_rated)} · Избранное: {len(media_favorites)}"]
-            if media_type == "Игры": lines.append(f"Время: {sum(self._hours(game.playtime) for game in objects):g} ч")
+            if media_type == "Игры": lines.append(f"Время: {sum(game.playtime_hours for game in objects):g} ч")
         self.statistics.setText("\n".join(lines))
-
-    @staticmethod
-    def _hours(value: str) -> float:
-        try: return float(value.replace("ч", "").strip().replace(",", "."))
-        except ValueError: return 0.0
 
     @staticmethod
     def _fill(table: QTableWidget, rows) -> None:

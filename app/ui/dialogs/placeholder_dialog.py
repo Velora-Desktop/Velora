@@ -4,10 +4,10 @@ from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QVBoxLayout
 class PlaceholderDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Velora AW0.03")
+        self.setWindowTitle("Velora AW0.04")
         self.setModal(True)
         layout = QVBoxLayout(self)
-        label = QLabel("Функция появится\nв одной из следующих версий Velora.\n\nТекущая версия: AW0.03")
+        label = QLabel("Функция появится\nв одной из следующих версий Velora.\n\nТекущая версия: AW0.04")
         label.setMinimumWidth(340)
         layout.addWidget(label)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)

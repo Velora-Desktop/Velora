@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from app.ui.catalog.game_row import GameData
+from app.models.game import GameData
 
 
 CATALOG_DB = Path(__file__).resolve().parents[2] / "data" / "catalog.db"

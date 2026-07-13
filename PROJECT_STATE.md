@@ -1,6 +1,6 @@
 # Velora project state
 
-- Version: AW0.03 (Alpha Windows 0.03)
+- Version: AW0.04 (Alpha Windows 0.04)
 - Python: 3.12.13
 - PySide6: 6.11.1
 
@@ -31,10 +31,14 @@
 - Real cover assets have not yet been added through Studio.
 - Studio and Velora packaging/installers are not included.
 
-## AW0.04 first task
+## AW0.04 architecture
 
-- Move `GameData` from `app/ui/catalog/game_row.py` to `app/models/game.py`.
-- Make repositories and UI depend on the domain model rather than data access depending on UI.
+- `GameData` and `GAME_STATUSES` moved from UI to `app/models/game.py`.
+- Repositories and UI now depend on the domain model; the data layer no longer imports widgets.
+- Persistent `user_activity` timeline stores old/new values for ratings, statuses, playtime, favorites and hidden state.
+- Domain model stores playtime as numeric `playtime_hours: float`; localized text formatting is owned by UI widgets.
+- First-run onboarding offers optional local profile creation and requires an explicit 18+ choice; adult content is hidden until completion.
+- Quick View refactoring started: rating and playtime dialogs moved to dedicated modules.
 
 ## Do not break
 

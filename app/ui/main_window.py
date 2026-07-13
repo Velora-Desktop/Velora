@@ -9,6 +9,7 @@ from app.ui.dialogs.placeholder_dialog import show_placeholder
 from app.ui.dialogs.about_dialog import AboutDialog
 from app.ui.dialogs.changelog_dialog import ChangelogDialog
 from app.ui.dialogs.settings_dialog import SettingsDialog
+from app.ui.dialogs.first_run_dialog import FirstRunDialog
 from app.ui.navigation.top_bar import TopBar
 from app.ui.quick_view.quick_view import QuickView
 from app.ui.game_detail.game_detail_page import GameDetailPage
@@ -20,12 +21,12 @@ from app.ui.profile.profile_page import ProfilePage
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Velora AW0.03")
+        self.setWindowTitle("Velora AW0.04")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
         self.user_repository = UserRepository()
-        self.hide_adult_content = self.settings.value("content/hide_adult", False, type=bool)
+        self.hide_adult_content = self.settings.value("content/hide_adult", True, type=bool)
         self.navigation_history = []
         self.navigation_index = -1
         self._navigating_history = False
@@ -105,6 +106,25 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+F"), self, activated=self._placeholder)
         QShortcut(QKeySequence("Ctrl+W"), self, activated=self.quick_view.hide)
         self._push_navigation(("category", "ШУТЕРЫ"))
+        self._run_first_launch_if_needed()
+
+    def _run_first_launch_if_needed(self) -> None:
+        if self.settings.value("onboarding/completed", False, type=bool):
+            return
+        # Content stays hidden unless the user explicitly completes the dialog
+        # and chooses to show it.
+        self.hide_adult_content = True
+        self.catalog.set_hide_adult_content(True)
+        dialog = FirstRunDialog(self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        if dialog.profile_requested:
+            profile = self.user_repository.load_profile()
+            profile.display_name = dialog.display_name
+            self.user_repository.save_profile(profile)
+        self._set_hide_adult_content(dialog.hide_adult_content)
+        self.settings.setValue("onboarding/profile_created", dialog.profile_requested)
+        self.settings.setValue("onboarding/completed", True)
 
     def _placeholder(self) -> None:
         show_placeholder(self)

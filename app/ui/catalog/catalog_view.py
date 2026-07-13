@@ -4,7 +4,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QComboBox, QFrame, QGridLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget, QHBoxLayout
 
-from app.ui.catalog.game_row import COLUMN_WIDTHS, GameData, GameRow
+from app.models.game import GameData
+from app.ui.catalog.game_row import COLUMN_WIDTHS, GameRow
 
 
 class CatalogView(QWidget):
@@ -14,15 +15,15 @@ class CatalogView(QWidget):
 
     GROUPS = {
         "ОТ ПЕРВОГО ЛИЦА": (
-            GameData("CALL OF DUTY", "9.1", "—", "НЕ НАЧИНАЛ", "Infinity Ward", "2003", "PC/PS3/X360", "1P/MULTI", "—", publisher="Activision", age_rating=16, catalog_id="g-shooter-fps-001", subgroup="От первого лица", critic_scores={"Metacritic": 9.1, "IGN": None, "DualShockers": None, "PC Gamer": None}),
+            GameData("CALL OF DUTY", "9.1", "—", "НЕ НАЧИНАЛ", "Infinity Ward", "2003", "PC/PS3/X360", "1P/MULTI", publisher="Activision", age_rating=16, catalog_id="g-shooter-fps-001", subgroup="От первого лица", critic_scores={"Metacritic": 9.1, "IGN": None, "DualShockers": None, "PC Gamer": None}),
             GameData("DOOM ETERNAL", "9.2", "—", "НЕ НАЧИНАЛ", "id Software", "2020", "PC/PS4/XONE", "1P/MULTI", age_rating=18, catalog_id="g-shooter-fps-002", subgroup="От первого лица", critic_scores={"Metacritic": 8.9, "IGN": 9.5, "DualShockers": 9.0, "PC Gamer": 9.4}),
             GameData("HALF-LIFE 2", "9", "—", "НЕ НАЧИНАЛ", "Valve", "2004", "PC", "1P", age_rating=16),
             GameData("BORDERLANDS 2", "8", "—", "НЕ НАЧИНАЛ", "Gearbox Software", "2012", "PC/PS3/X360", "1P/CO-OP", age_rating=18),
             GameData("MEDAL OF HONOR", "7", "—", "НЕ НАЧИНАЛ", "EA DICE", "2010", "PC/PS3/X360", "1P/MULTI", age_rating=16),
         ),
         "ОТ ТРЕТЬЕГО ЛИЦА": (
-            GameData("MAX PAYNE 3", "5", "—", "НЕ НАЧИНАЛ", "Rockstar Studios", "2012", "PC/PS3/X360", "1P", "—", age_rating=18),
-            GameData("RESIDENT EVIL 4", "9", "—", "НЕ НАЧИНАЛ", "Capcom", "2005", "PC/PS2/PS3", "1P", "—", age_rating=18),
+            GameData("MAX PAYNE 3", "5", "—", "НЕ НАЧИНАЛ", "Rockstar Studios", "2012", "PC/PS3/X360", "1P", age_rating=18),
+            GameData("RESIDENT EVIL 4", "9", "—", "НЕ НАЧИНАЛ", "Capcom", "2005", "PC/PS2/PS3", "1P", age_rating=18),
         ),
     }
 

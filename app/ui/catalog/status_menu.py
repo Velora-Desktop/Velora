@@ -3,7 +3,7 @@ from collections.abc import Callable
 from PySide6.QtWidgets import QMenu, QPushButton, QWidgetAction
 
 from app.core.constants import DANGER, SUCCESS, WARNING
-from app.ui.catalog.game_row import GAME_STATUSES
+from app.models.game import GAME_STATUSES
 
 
 STATUS_COLORS = {

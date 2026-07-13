@@ -30,7 +30,7 @@ class AboutDialog(QDialog):
         credits = QLabel(
             "Автор: Станислав Смирнов\n"
             "Разработчик: Станислав Смирнов\n"
-            "Версия: AW0.03 — Alpha Windows"
+            "Версия: AW0.04 — Alpha Windows"
         )
         credits.setStyleSheet("color:#C9A7FF; font-weight:500;")
         root.addWidget(credits)

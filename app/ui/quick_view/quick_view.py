@@ -18,15 +18,17 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.constants import ACCENT, DANGER, SUCCESS, WARNING
-from app.ui.catalog.game_row import GameData
+from app.models.game import GameData
 from app.ui.catalog.status_menu import build_status_menu
+from app.ui.quick_view.rating_dialog import request_rating
+from app.ui.quick_view.playtime_dialog import request_total_playtime
 
 
 class QuickView(QFrame):
     placeholder_requested = Signal()
     closed = Signal()
     status_changed = Signal(object, str)
-    playtime_changed = Signal(object, str)
+    playtime_changed = Signal(object, float)
     rating_changed = Signal(object, str)
     favorite_changed = Signal(object, bool)
     detail_requested = Signal(object)
@@ -292,7 +294,7 @@ class QuickView(QFrame):
             f"font-family:'Segoe UI Symbol'; font-size:19pt; color:{personal_color};"
         )
         self.status.setText(game.status)
-        self.playtime.setText(game.playtime)
+        self.playtime.setText(self._format_hours(game.playtime_hours) if game.playtime_hours else "—")
         self.favorite_button.setText("★" if game.favorite else "☆")
         self._update_status_style(game.status)
         self._refresh_history()
@@ -332,32 +334,8 @@ class QuickView(QFrame):
     def _open_rating_dialog(self) -> None:
         if self.current_game is None:
             return
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Моя оценка")
-        layout = QVBoxLayout(dialog)
-        intro = QLabel("Оцените каждый критерий от 1 до 10.\nИтог — среднее арифметическое пяти значений.")
-        intro.setWordWrap(True)
-        layout.addWidget(intro)
-        criteria = ("Графика", "Саундтрек", "Сюжет", "Геймплей", "Атмосфера")
-        editors: dict[str, QSpinBox] = {}
-        form = QGridLayout()
-        for row, criterion in enumerate(criteria):
-            form.addWidget(QLabel(criterion), row, 0)
-            editor = QSpinBox()
-            editor.setRange(1, 10)
-            editor.setValue(self.current_game.rating_criteria.get(criterion, 5))
-            editor.setSuffix(" / 10")
-            editors[criterion] = editor
-            form.addWidget(editor, row, 1)
-        layout.addLayout(form)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Рассчитать и сохранить")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Отмена")
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self._record_rating({name: editor.value() for name, editor in editors.items()})
+        criteria = request_rating(self.current_game.rating_criteria, self)
+        if criteria is not None: self._record_rating(criteria)
 
     def _record_rating(self, criteria: dict[str, int]) -> None:
         if self.current_game is None or not criteria:
@@ -381,45 +359,24 @@ class QuickView(QFrame):
     def _open_playtime_dialog(self) -> None:
         if self.current_game is None:
             return
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Общее игровое время")
-        layout = QVBoxLayout(dialog)
-        current = self._parse_hours(self.current_game.playtime)
-        layout.addWidget(QLabel(
-            f"Сколько часов вы наиграли всего?\n"
-            f"Сейчас сохранено: {self._format_hours(current)}"
-        ))
-        hours = QDoubleSpinBox()
-        hours.setRange(0.0, 10000.0)
-        hours.setDecimals(1)
-        hours.setSingleStep(0.5)
-        hours.setSuffix(" ч")
-        hours.setValue(current)
-        layout.addWidget(hours)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Сохранить")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Отмена")
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self._record_total_playtime(hours.value())
+        total = request_total_playtime(self.current_game.playtime_hours, self)
+        if total is not None: self._record_total_playtime(total)
 
     def _record_total_playtime(self, total_hours: float) -> None:
         if self.current_game is None or total_hours < 0:
             return
-        current = self._parse_hours(self.current_game.playtime)
+        current = self.current_game.playtime_hours
         difference = total_hours - current
         if abs(difference) < 0.05:
             return
         total_text = self._format_hours(total_hours)
         timestamp = datetime.now().strftime("%d.%m.%Y %H:%M")
-        self.current_game.playtime = total_text
+        self.current_game.playtime_hours = total_hours
         change = f"+{difference:g} ч" if difference > 0 else f"коррекция {difference:g} ч"
         self.current_game.history.append(f"{timestamp} — всего {total_text} ({change})")
         self.playtime.setText(total_text)
         self._refresh_history()
-        self.playtime_changed.emit(self.current_game, total_text)
+        self.playtime_changed.emit(self.current_game, total_hours)
 
     def _refresh_history(self) -> None:
         if self.current_game is None or not self.current_game.history:

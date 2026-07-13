@@ -8,7 +8,7 @@ from app.ui.main_window import MainWindow
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Velora")
-    app.setApplicationVersion("AW0.03")
+    app.setApplicationVersion("AW0.04")
     window = MainWindow()
     window.showMaximized()
     return app.exec()

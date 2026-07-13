@@ -1,4 +1,4 @@
-# Velora AW0.03
+# Velora AW0.04
 
 - Python 3.12.13, PySide6 6.11.1, UTF-8, Windows.
 - Follow the approved UX; do not redesign or add unrequested features.

@@ -6,7 +6,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from app.core.constants import ACCENT, SUCCESS, WARNING
-from app.ui.catalog.game_row import GameData
+from app.models.game import GameData
 
 
 class GameDetailPage(QScrollArea):
@@ -95,7 +95,8 @@ class GameDetailPage(QScrollArea):
         self._style_status(game.status)
         for source, label in self.critic_values.items():
             value = game.critic_scores.get(source); label.setText("—" if value is None else f"{value:.1f}")
-        self.stats_text.setText(f"Статус: {game.status}\nВремя в игре: {game.playtime}\nИзбранное: {'Да' if game.favorite else 'Нет'}\nДобавлено: 12.05.2024")
+        playtime_text = f"{game.playtime_hours:g} ч" if game.playtime_hours else "—"
+        self.stats_text.setText(f"Статус: {game.status}\nВремя в игре: {playtime_text}\nИзбранное: {'Да' if game.favorite else 'Нет'}\nДобавлено: 12.05.2024")
         self.criteria_text.setText("\n".join(f"{name}: {value}/10" for name, value in game.rating_criteria.items()) or "Личная оценка ещё не заполнена")
         self.activity_text.setText("\n".join(reversed(game.history[-5:])) or "Изменений пока нет")
         self.favorite.setText("★ В ИЗБРАННОМ" if game.favorite else "☆ В ИЗБРАННОЕ")
