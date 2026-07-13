@@ -29,3 +29,4 @@ class GameData:
     critic_scores: dict[str, float | None] = field(default_factory=dict)
     media_type: str = "Игры"
     hidden: bool = False
+    user_interacted: bool = False

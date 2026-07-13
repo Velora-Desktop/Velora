@@ -1,6 +1,6 @@
 # Velora project state
 
-- Version: AW0.04 (Alpha Windows 0.04)
+- Version: AW0.05 (Alpha Windows 0.05)
 - Python: 3.12.13
 - PySide6: 6.11.1
 
@@ -39,6 +39,17 @@
 - Domain model stores playtime as numeric `playtime_hours: float`; localized text formatting is owned by UI widgets.
 - First-run onboarding offers optional local profile creation and requires an explicit 18+ choice; adult content is hidden until completion.
 - Quick View refactoring started: rating and playtime dialogs moved to dedicated modules.
+- Animated V splash screen and two-step first-run profile/content choice.
+- Settings can reset all local profile data with confirmation while preserving `catalog.db`.
+- My Velora statistics replaced by a visual dashboard with KPI cards, rating/status bars, type donut, platform/year rankings, time leaders, favorite genres, records and taste comparison.
+- Statistics use only user-interacted records, with a circular fixed-size donut, descending score ranges and SVG platform icons.
+- Rating editor redesigned with SVG criteria icons, sliders, color feedback, live arithmetic mean and direct catalog-cell access.
+- My Ratings and Favorites use responsive catalog-style sortable tables with explicit media type, category and subgroup columns.
+- Titles in My Ratings and Favorites are hover-highlighted links to full item pages and remain correct after sorting.
+- Internal item links resolve through stable `catalog_id` values, preparing canonical `velora://catalog/<id>` routes.
+- Canonical routes are implemented as `velora://catalog/<id>`; navigation history stores IDs and central pages are mutually exclusive.
+- Internal links restore their section and category from catalog data; history no longer hardcodes the Shooters category.
+- AW0.05 release notes are available from the scrollable built-in changelog.
 
 ## Do not break
 

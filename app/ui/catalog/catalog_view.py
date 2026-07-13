@@ -12,6 +12,7 @@ class CatalogView(QWidget):
     game_selected = Signal(object)
     placeholder_requested = Signal()
     status_changed = Signal(object, str)
+    rating_requested = Signal(object)
 
     GROUPS = {
         "ОТ ПЕРВОГО ЛИЦА": (
@@ -111,6 +112,7 @@ class CatalogView(QWidget):
                 row.placeholder_requested.connect(self.placeholder_requested)
                 row.status_changed.connect(self.status_changed)
                 row.favorite_changed.connect(lambda game, selected: self._apply_view())
+                row.rating_requested.connect(self.rating_requested)
                 self.rows.append(row)
                 self.row_groups[row] = group_name
                 self.group_rows[group_name].append(row)

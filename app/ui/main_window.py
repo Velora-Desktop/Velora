@@ -1,7 +1,7 @@
 from PySide6.QtCore import QSettings, QUrl
 from PySide6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QMainWindow, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QVBoxLayout, QWidget
 
 from app.styles.theme import application_stylesheet
 from app.ui.catalog.catalog_view import CatalogView
@@ -21,7 +21,7 @@ from app.ui.profile.profile_page import ProfilePage
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Velora AW0.04")
+        self.setWindowTitle("Velora AW0.05")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
@@ -58,6 +58,7 @@ class MainWindow(QMainWindow):
         self.game_detail = GameDetailPage()
         self.game_detail.hide()
         self.profile_page = ProfilePage(self.user_repository)
+        self.profile_page.catalog_item_requested.connect(self.open_catalog_item)
         self.profile_page.hide()
         self.empty_section = QLabel()
         self.empty_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -86,6 +87,7 @@ class MainWindow(QMainWindow):
         self.catalog.placeholder_requested.connect(self._placeholder)
         self.catalog.game_selected.connect(self._on_game_selected)
         self.catalog.status_changed.connect(self.quick_view.set_external_status)
+        self.catalog.rating_requested.connect(self._rate_from_catalog)
         self.quick_view.placeholder_requested.connect(self._placeholder)
         self.quick_view.status_changed.connect(self.catalog.set_game_status)
         self.quick_view.rating_changed.connect(self.catalog.set_game_score)
@@ -118,10 +120,9 @@ class MainWindow(QMainWindow):
         dialog = FirstRunDialog(self)
         if dialog.exec() != dialog.DialogCode.Accepted:
             return
-        if dialog.profile_requested:
-            profile = self.user_repository.load_profile()
-            profile.display_name = dialog.display_name
-            self.user_repository.save_profile(profile)
+        profile = self.user_repository.load_profile()
+        profile.display_name = dialog.display_name
+        self.user_repository.save_profile(profile)
         self._set_hide_adult_content(dialog.hide_adult_content)
         self.settings.setValue("onboarding/profile_created", dialog.profile_requested)
         self.settings.setValue("onboarding/completed", True)
@@ -138,7 +139,7 @@ class MainWindow(QMainWindow):
         self.catalog.show()
         self.quick_view.set_game(game)
         if not self._navigating_history:
-            self._push_navigation(("game", game))
+            self._push_navigation(("game", game.catalog_id))
         self._update_history_buttons()
 
     def _on_category_selected(self, category: str) -> None:
@@ -154,21 +155,52 @@ class MainWindow(QMainWindow):
             self._push_navigation(("category", category))
 
     def _on_detail_requested(self, game) -> None:
-        self.empty_section.hide()
-        self.top_bar.set_profile_active(False)
+        self.top_bar.set_active_space("ИГРЫ")
         self.sidebar.show()
+        self.sidebar.select_category(game.category.upper())
+        self.catalog.set_category(game.category.upper())
         if not self._navigating_history:
-            self._push_navigation(("detail", game))
+            self._push_navigation(("detail", game.catalog_id))
         self.game_detail.set_game(game)
-        self.catalog.hide()
-        self.quick_view.hide()
-        self.game_detail.show()
+        self._show_center_page(self.game_detail)
 
     def _show_profile(self) -> None:
         self.top_bar.set_profile_active(True)
         self.profile_page.refresh(row.game for row in self.catalog.rows)
         self.sidebar.hide()
         self.catalog.hide(); self.quick_view.hide(); self.game_detail.hide(); self.empty_section.hide(); self.profile_page.show()
+
+    def _show_center_page(self, page) -> None:
+        """Guarantee that central workspaces never overlap in the layout."""
+        for widget in (self.catalog, self.quick_view, self.game_detail, self.profile_page, self.empty_section):
+            widget.setVisible(widget is page)
+
+    def open_catalog_item(self, catalog_id: str) -> None:
+        """Resolve a stable catalog link and open its canonical detail page."""
+        row = self._catalog_row(catalog_id)
+        if row is None:
+            return
+        self._on_detail_requested(row.game)
+
+    def _catalog_row(self, catalog_id: str):
+        """Resolve an official catalog object by its stable database ID."""
+        return next(
+            (row for row in self.catalog.rows if row.game.catalog_id == catalog_id),
+            None,
+        )
+
+    def _restore_catalog_context(self, catalog_id: str):
+        """Restore the section and category from catalog data."""
+        row = self._catalog_row(catalog_id)
+        if row is None:
+            return None
+        game = row.game
+        self.top_bar.set_active_space("ИГРЫ")
+        self.top_bar.set_profile_active(False)
+        self.sidebar.show()
+        self.sidebar.select_category(game.category.upper())
+        self.catalog.set_category(game.category.upper())
+        return row
 
     def _on_section_selected(self, section: str) -> None:
         if not self._navigating_history:
@@ -217,22 +249,15 @@ class MainWindow(QMainWindow):
                 self.quick_view.hide()
             elif kind == "game":
                 self.empty_section.hide()
-                self.top_bar.set_profile_active(False)
-                self.sidebar.show()
                 self.profile_page.hide()
                 self.game_detail.hide()
                 self.catalog.show()
-                self.sidebar.select_category("ШУТЕРЫ")
-                self.catalog.set_category("ШУТЕРЫ")
-                self.catalog.select_game(value)
+                row = self._restore_catalog_context(value)
+                if row is not None: self.catalog.select_game(row.game)
             elif kind == "detail":
                 self.empty_section.hide()
-                self.top_bar.set_profile_active(False)
-                self.sidebar.show()
                 self.profile_page.hide()
-                self.sidebar.select_category("ШУТЕРЫ")
-                self.catalog.set_category("ШУТЕРЫ")
-                self._on_detail_requested(value)
+                self.open_catalog_item(value)
             elif kind == "profile":
                 self._show_profile()
             elif kind == "section":
@@ -251,10 +276,18 @@ class MainWindow(QMainWindow):
         dialog = SettingsDialog(self.hide_adult_content, (row.game for row in self.catalog.rows), self)
         dialog.adult_filter_changed.connect(self._set_hide_adult_content)
         dialog.hidden_restored.connect(self._restore_hidden_game)
+        dialog.profile_reset_requested.connect(self._reset_local_profile)
         dialog.exec()
 
     def _restore_hidden_game(self, game) -> None:
         self.user_repository.save_game_state(game); self.catalog.refresh_filters()
+
+    def _reset_local_profile(self) -> None:
+        self.user_repository.reset_local_profile()
+        self.settings.remove("onboarding")
+        self.settings.setValue("content/hide_adult", True)
+        QMessageBox.information(self, "Velora", "Локальный профиль сброшен.\nПри следующем запуске откроется мастер первого запуска.")
+        QApplication.quit()
 
     def _set_hide_adult_content(self, enabled: bool) -> None:
         self.hide_adult_content = enabled
@@ -280,6 +313,11 @@ class MainWindow(QMainWindow):
         self.quick_view.hide()
         self.game_detail.set_game(game)
         self.game_detail.show()
+
+    def _rate_from_catalog(self, game) -> None:
+        self.quick_view.current_game = game
+        self.quick_view._open_rating_dialog()
+        self.quick_view.hide()
 
     def _hide_game(self, game) -> None:
         game.hidden = True

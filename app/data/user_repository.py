@@ -93,6 +93,7 @@ class UserRepository:
             game.favorite = bool(state["favorite"])
             game.rating_criteria = json.loads(state["rating_criteria_json"] or "{}")
             game.hidden = bool(state["hidden"])
+            game.user_interacted = True
             game.history = [self._format_activity(row) for row in activities.get(game.catalog_id, [])]
 
     def save_game_state(self, game) -> None:
@@ -100,6 +101,7 @@ class UserRepository:
         except ValueError: personal_score = None
         playtime = float(game.playtime_hours)
         if not game.catalog_id: return
+        game.user_interacted = True
         connection = sqlite3.connect(self.path); connection.row_factory = sqlite3.Row
         try:
             previous = connection.execute("SELECT * FROM user_game_state WHERE catalog_id=?", (game.catalog_id,)).fetchone()
@@ -135,6 +137,21 @@ class UserRepository:
         try: rows = connection.execute("SELECT * FROM user_activity WHERE catalog_id=? ORDER BY created_at,id", (catalog_id,)).fetchall()
         finally: connection.close()
         return [dict(row) for row in rows]
+
+    def reset_local_profile(self) -> None:
+        """Delete user-owned state without touching the official catalog."""
+        connection = sqlite3.connect(self.path)
+        try:
+            connection.execute("DELETE FROM user_activity")
+            connection.execute("DELETE FROM user_game_state")
+            now = datetime.now(timezone.utc).isoformat()
+            connection.execute(
+                "UPDATE local_profile SET display_name=?, bio='', avatar_path='', updated_at=? WHERE profile_id=1",
+                ("Velore", now),
+            )
+            connection.commit()
+        finally:
+            connection.close()
 
     @staticmethod
     def _text(value) -> str | None:

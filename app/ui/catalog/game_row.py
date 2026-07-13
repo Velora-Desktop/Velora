@@ -25,6 +25,7 @@ class GameRow(QFrame):
     placeholder_requested = Signal()
     status_changed = Signal(object, str)
     favorite_changed = Signal(object, bool)
+    rating_requested = Signal(object)
 
     def __init__(self, game: GameData, parent=None) -> None:
         super().__init__(parent)
@@ -71,15 +72,19 @@ class GameRow(QFrame):
                 self.status_button.setMenu(build_status_menu(self.status_button, self.set_status))
                 layout.addWidget(self.status_button)
                 continue
-            label = QLabel(display_text)
+            label = QPushButton(display_text) if column == 1 else QLabel(display_text)
             label.setFixedWidth(width)
             if column in (0, 1):
-                label.setAlignment(__import__("PySide6.QtCore", fromlist=["Qt"]).Qt.AlignmentFlag.AlignCenter)
+                if column == 0:
+                    label.setAlignment(__import__("PySide6.QtCore", fromlist=["Qt"]).Qt.AlignmentFlag.AlignCenter)
                 label.setStyleSheet(f"font-family:'Segoe UI'; font-size:12pt; font-weight:600; color:{self._score_color(text)};")
                 if column == 0:
                     self.general_score_label = label
                 else:
                     self.personal_score_label = label
+                    label.setCursor(__import__("PySide6.QtCore", fromlist=["Qt"]).Qt.CursorShape.PointingHandCursor)
+                    label.setToolTip("Поставить или изменить личную оценку")
+                    label.clicked.connect(lambda checked=False: self.rating_requested.emit(self.game))
             layout.addWidget(label)
         more = QPushButton("•••")
         more.setFixedWidth(COLUMN_WIDTHS["more"])
