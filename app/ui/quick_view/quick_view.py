@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMenu,
+    QInputDialog,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -22,6 +23,7 @@ from app.models.game import GameData
 from app.ui.catalog.status_menu import build_status_menu
 from app.ui.quick_view.rating_dialog import request_rating
 from app.ui.quick_view.playtime_dialog import request_total_playtime
+from app.ui.quick_view.series_progress_dialog import request_series_progress
 
 
 class QuickView(QFrame):
@@ -37,12 +39,12 @@ class QuickView(QFrame):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setObjectName("quickView")
-        self.setMinimumHeight(250)
-        self.setMaximumHeight(300)
+        self.setMinimumHeight(315)
+        self.setMaximumHeight(380)
         self.current_game: GameData | None = None
 
         root = QHBoxLayout(self)
-        root.setContentsMargins(10, 10, 8, 10)
+        root.setContentsMargins(10, 4, 8, 8)
         root.setSpacing(14)
 
         # Cover and primary action.
@@ -105,10 +107,19 @@ class QuickView(QFrame):
             ("Издатель:", self.publisher, "Кол-во игроков:", self.mode),
             ("Возрастной рейтинг:", self.age, "", empty_value),
         )
+        self.meta_captions = []
         for row, (left_title, left_value, right_title, right_value) in enumerate(pairs):
-            meta.addLayout(self._meta_pair(left_title, left_value), row, 0)
-            meta.addLayout(self._meta_pair(right_title, right_value), row, 1)
+            left_layout, left_caption = self._meta_pair(left_title, left_value)
+            right_layout, right_caption = self._meta_pair(right_title, right_value)
+            self.meta_captions.extend((left_caption, right_caption))
+            meta.addLayout(left_layout, row, 0)
+            meta.addLayout(right_layout, row, 1)
         info.addLayout(meta)
+        self.summary = QLabel()
+        self.summary.setWordWrap(True)
+        self.summary.setMaximumHeight(62)
+        self.summary.setStyleSheet("color:#AEB9C2;font-size:9.5pt;padding-top:4px;")
+        info.addWidget(self.summary)
         info.addStretch()
         actions = QPushButton("ДЕЙСТВИЯ")
         actions.setFixedSize(145, 36)
@@ -121,8 +132,8 @@ class QuickView(QFrame):
             else:
                 action.triggered.connect(self._request_hide)
         actions.setMenu(actions_menu)
-        info.addWidget(actions)
-        root.addLayout(info, 2)
+        cover_column.addWidget(actions)
+        root.addLayout(info, 3)
 
         root.addWidget(self._divider())
 
@@ -139,20 +150,21 @@ class QuickView(QFrame):
             "QFrame#ratingCard QPushButton { background:transparent; }"
         )
         rating_layout = QHBoxLayout(rating_card)
-        rating_layout.setContentsMargins(18, 12, 18, 12)
-        rating_layout.setSpacing(18)
+        rating_layout.setContentsMargins(14, 12, 14, 12)
+        rating_layout.setSpacing(12)
 
         general = QVBoxLayout()
         general.addWidget(self._rating_heading("ОБЩАЯ ОЦЕНКА"))
         self.general_score = QLabel()
         self.general_score.setStyleSheet(f"font-size:25pt; font-weight:600; color:{SUCCESS};")
         general.addWidget(self.general_score)
-        self.vote_count = QLabel()
-        self.vote_count.setObjectName("muted")
-        general.addWidget(self.vote_count)
         self.general_stars = QLabel("☆☆☆☆☆")
         self.general_stars.setStyleSheet(f"font-family:'Segoe UI Symbol'; font-size:19pt; color:{SUCCESS};")
         general.addWidget(self.general_stars)
+        self.vote_count = QLabel()
+        self.vote_count.setObjectName("muted")
+        self.vote_count.setWordWrap(True)
+        general.addWidget(self.vote_count)
         general.addStretch()
         rating_layout.addLayout(general, 1)
 
@@ -179,32 +191,32 @@ class QuickView(QFrame):
         personal.addStretch()
         rating_layout.addLayout(personal, 1)
         rating_column.addWidget(rating_card, 1)
-        root.addLayout(rating_column, 3)
+        root.addLayout(rating_column, 2)
 
         root.addWidget(self._divider())
 
         # Time and scrollable interaction chronology.
         timeline_column = QVBoxLayout()
-        timeline_title = QLabel("ВРЕМЯ И ХРОНОЛОГИЯ")
-        timeline_title.setObjectName("caption")
-        timeline_column.addWidget(timeline_title)
+        self.timeline_title = QLabel("ВРЕМЯ И ХРОНОЛОГИЯ")
+        self.timeline_title.setObjectName("caption")
+        timeline_column.addWidget(self.timeline_title)
         activity = QGridLayout()
         activity.setHorizontalSpacing(34)
         added_title = QLabel("ДОБАВЛЕНО")
         added_title.setObjectName("caption")
-        time_title = QLabel("ВРЕМЯ В ИГРЕ")
-        time_title.setObjectName("caption")
+        self.time_title = QLabel("ВРЕМЯ В ИГРЕ")
+        self.time_title.setObjectName("caption")
         activity.addWidget(added_title, 0, 0)
-        activity.addWidget(time_title, 0, 1)
+        activity.addWidget(self.time_title, 0, 1)
         self.added = QLabel("12.05.2024")
         self.playtime = QLabel()
         activity.addWidget(self.added, 1, 0)
         activity.addWidget(self.playtime, 1, 1)
         timeline_column.addLayout(activity)
-        time_button = QPushButton("ИЗМЕНИТЬ ОБЩЕЕ ВРЕМЯ")
-        time_button.setStyleSheet("border:1px solid #2A3540; background:#0B131A; text-align:left;")
-        time_button.clicked.connect(self._open_playtime_dialog)
-        timeline_column.addWidget(time_button)
+        self.time_button = QPushButton("ИЗМЕНИТЬ ОБЩЕЕ ВРЕМЯ")
+        self.time_button.setStyleSheet("border:1px solid #2A3540; background:#0B131A; text-align:left;")
+        self.time_button.clicked.connect(self._open_media_progress_dialog)
+        timeline_column.addWidget(self.time_button)
         history_title = QLabel("ПОСЛЕДНИЕ ИЗМЕНЕНИЯ")
         history_title.setObjectName("caption")
         timeline_column.addWidget(history_title)
@@ -242,14 +254,14 @@ class QuickView(QFrame):
         return label
 
     @staticmethod
-    def _meta_pair(title: str, value: QLabel) -> QVBoxLayout:
+    def _meta_pair(title: str, value: QLabel):
         layout = QVBoxLayout()
         layout.setSpacing(1)
         caption = QLabel(title)
         caption.setObjectName("muted")
         layout.addWidget(caption)
         layout.addWidget(value)
-        return layout
+        return layout, caption
 
     @staticmethod
     def _rating_heading(text: str) -> QLabel:
@@ -273,15 +285,25 @@ class QuickView(QFrame):
         return divider
 
     def set_game(self, game: GameData) -> None:
+        self.status.setMenu(build_status_menu(self.status, self._change_status, game.media_type))
         self.current_game = game
+        labels = {
+            "Игры": ("Жанр:","Год выхода:","Разработчик:","Платформа:","Издатель:","Кол-во игроков:","Возраст:",""),
+            "Фильмы": ("Жанр:","Год выхода:","Режиссёр:","Где смотреть:","Студия:","Длительность:","Возраст:",""),
+            "Сериалы": ("Жанр:","Год выхода:","Создатель:","Где смотреть:","Студия:","Сезоны:","Возраст:",""),
+            "Программы": ("Категория:","Год выхода:","Разработчик:","Платформа:","Издатель:","Тип:","Возраст:",""),
+        }[game.media_type]
+        for caption, text in zip(self.meta_captions, labels): caption.setText(text)
         self.title_button.setText(game.title)
-        self.genre.setText("Шутер от первого лица")
+        self.genre.setText(" · ".join(part for part in (game.category, game.subgroup) if part))
         self.year.setText(game.year)
         self.developer.setText(game.developer)
         self.platform.setText(game.platform)
         self.publisher.setText(game.publisher)
         self.mode.setText(game.mode)
         self.age.setText(f"{game.age_rating}+")
+        summary = game.description.strip()
+        self.summary.setText(summary if len(summary) <= 190 else summary[:187].rstrip() + "…")
         self.general_score.setText(self._format_score(game.general_score))
         sources = [name for name, value in game.critic_scores.items() if value is not None]
         self.vote_count.setText("На основе: " + (", ".join(sources) if sources else "источники не указаны"))
@@ -294,7 +316,7 @@ class QuickView(QFrame):
             f"font-family:'Segoe UI Symbol'; font-size:19pt; color:{personal_color};"
         )
         self.status.setText(game.status)
-        self.playtime.setText(self._format_hours(game.playtime_hours) if game.playtime_hours else "—")
+        self._configure_media_progress(game)
         self.favorite_button.setText("★" if game.favorite else "☆")
         self._update_status_style(game.status)
         self._refresh_history()
@@ -318,14 +340,8 @@ class QuickView(QFrame):
         self.status_changed.emit(self.current_game, status)
 
     def _update_status_style(self, status: str) -> None:
-        if status == "ПРОХОЖУ":
-            color, border, background = WARNING, "#775000", "#251A07"
-        elif status == "ПРОШЁЛ":
-            color, border, background = SUCCESS, "#1B6D35", "#092013"
-        elif status == "БРОСИЛ":
-            color, border, background = DANGER, "#7A2828", "#251010"
-        else:
-            color, border, background = "#8A929A", "#38434D", "#111820"
+        from app.ui.catalog.status_menu import status_visual
+        color, border, background = status_visual(status)
         self.status.setStyleSheet(
             f"color:{color}; border:1px solid {border}; border-radius:5px; "
             f"background:{background}; font-weight:600;"
@@ -334,7 +350,7 @@ class QuickView(QFrame):
     def _open_rating_dialog(self) -> None:
         if self.current_game is None:
             return
-        criteria = request_rating(self.current_game.rating_criteria, self)
+        criteria = request_rating(self.current_game.rating_criteria, self, self.current_game.media_type)
         if criteria is not None: self._record_rating(criteria)
 
     def _record_rating(self, criteria: dict[str, int]) -> None:
@@ -356,11 +372,68 @@ class QuickView(QFrame):
         self._refresh_history()
         self.rating_changed.emit(self.current_game, score_text)
 
-    def _open_playtime_dialog(self) -> None:
+    def _open_media_progress_dialog(self) -> None:
         if self.current_game is None:
+            return
+        if self.current_game.media_type == "Фильмы":
+            value, accepted = QInputDialog.getInt(self, "Просмотры", "Сколько раз вы посмотрели фильм?", self.current_game.watch_count, 0, 999)
+            if accepted:
+                self.current_game.watch_count = value
+                self.current_game.history.append(f"{datetime.now():%d.%m.%Y %H:%M} — просмотров: {value}")
+                self._configure_media_progress(self.current_game); self._refresh_history(); self.playtime_changed.emit(self.current_game, self.current_game.playtime_hours)
+            return
+        if self.current_game.media_type == "Сериалы":
+            states = request_series_progress(
+                self.current_game.seasons or 1,
+                self.current_game.episode_states,
+                self,
+            )
+            if states is not None:
+                self.current_game.episode_states = states
+                marked = []
+                for key, state in states.items():
+                    if state in ("watched", "watching"):
+                        season, episode = (int(value) for value in key.split(":"))
+                        marked.append((season, episode))
+                self.current_game.season_number, self.current_game.episode_number = max(marked, default=(0, 0))
+                total = max(1, self.current_game.seasons or 1) * 10
+                watched = sum(state == "watched" for state in states.values())
+                if any(state == "watching" for state in states.values()):
+                    status = "СМОТРЮ"
+                elif any(state == "dropped" for state in states.values()):
+                    status = "БРОСИЛ"
+                elif watched >= total:
+                    status = "ПОСМОТРЕЛ"
+                elif watched:
+                    status = "СМОТРЮ"
+                else:
+                    status = "НЕ СМОТРЕЛ"
+                self.current_game.history.append(
+                    f"{datetime.now():%d.%m.%Y %H:%M} — серии: просмотрено {watched} из {total}"
+                )
+                self._change_status(status)
+                self._configure_media_progress(self.current_game)
+                self._refresh_history()
+                self.playtime_changed.emit(self.current_game, self.current_game.playtime_hours)
             return
         total = request_total_playtime(self.current_game.playtime_hours, self)
         if total is not None: self._record_total_playtime(total)
+
+    def _configure_media_progress(self, game: GameData) -> None:
+        if game.media_type == "Фильмы":
+            self.timeline_title.setText("ПРОСМОТРЫ И ХРОНОЛОГИЯ"); self.time_title.setText("ПРОСМОТРОВ"); self.time_button.setText("ИЗМЕНИТЬ КОЛИЧЕСТВО ПРОСМОТРОВ"); self.playtime.setText(str(game.watch_count))
+        elif game.media_type == "Сериалы":
+            watched = sum(state == "watched" for state in game.episode_states.values())
+            total = max(1, game.seasons or 1) * 10
+            self.timeline_title.setText("СЕРИИ И ХРОНОЛОГИЯ")
+            self.time_title.setText("ПРОГРЕСС ПРОСМОТРА")
+            self.time_button.setText("ОТКРЫТЬ СЕЗОНЫ И СЕРИИ")
+            current = f" · S{game.season_number} E{game.episode_number}" if game.season_number else ""
+            self.playtime.setText(f"{watched}/{total}{current}")
+        elif game.media_type == "Программы":
+            self.timeline_title.setText("ИСПОЛЬЗОВАНИЕ И ХРОНОЛОГИЯ"); self.time_title.setText("ВРЕМЯ ИСПОЛЬЗОВАНИЯ"); self.time_button.setText("ИЗМЕНИТЬ ВРЕМЯ ИСПОЛЬЗОВАНИЯ"); self.playtime.setText(self._format_hours(game.playtime_hours) if game.playtime_hours else "—")
+        else:
+            self.timeline_title.setText("ВРЕМЯ И ХРОНОЛОГИЯ"); self.time_title.setText("ВРЕМЯ В ИГРЕ"); self.time_button.setText("ИЗМЕНИТЬ ОБЩЕЕ ВРЕМЯ"); self.playtime.setText(self._format_hours(game.playtime_hours) if game.playtime_hours else "—")
 
     def _record_total_playtime(self, total_hours: float) -> None:
         if self.current_game is None or total_hours < 0:

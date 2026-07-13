@@ -1,7 +1,18 @@
 from dataclasses import dataclass, field
 
 
-GAME_STATUSES = ("НЕ НАЧИНАЛ", "ПРОХОЖУ", "ПРОШЁЛ", "БРОСИЛ")
+MEDIA_STATUSES = {
+    "Игры": ("НЕ НАЧИНАЛ", "ПРОХОЖУ", "ПРОШЁЛ", "БРОСИЛ"),
+    "Фильмы": ("НЕ СМОТРЕЛ", "СМОТРЮ", "ПОСМОТРЕЛ", "БРОСИЛ"),
+    "Сериалы": ("НЕ СМОТРЕЛ", "СМОТРЮ", "ПОСМОТРЕЛ", "ЖДУ НОВЫЙ СЕЗОН", "БРОСИЛ"),
+    "Программы": ("НЕ ИСПОЛЬЗОВАЛ", "ИСПОЛЬЗУЮ", "ИСПОЛЬЗОВАЛ", "ОТКАЗАЛСЯ"),
+}
+
+GAME_STATUSES = MEDIA_STATUSES["Игры"]
+
+
+def default_status(media_type: str) -> str:
+    return MEDIA_STATUSES.get(media_type, GAME_STATUSES)[0]
 
 
 @dataclass
@@ -30,3 +41,23 @@ class GameData:
     media_type: str = "Игры"
     hidden: bool = False
     user_interacted: bool = False
+    duration_minutes: int | None = None
+    seasons: int | None = None
+    availability: str = ""
+    watch_count: int = 0
+    season_number: int = 0
+    episode_number: int = 0
+    episode_states: dict[str, str] = field(default_factory=dict)
+    publisher_countries: list[str] = field(default_factory=list)
+    interface_languages: list[str] = field(default_factory=list)
+    system_requirements: dict[str, str] = field(default_factory=dict)
+    awards: list[str] = field(default_factory=list)
+    dlc: list[str] = field(default_factory=list)
+    cast: list[dict[str, str]] = field(default_factory=list)
+    source_code_type: str = ""
+    architectures: list[str] = field(default_factory=list)
+    programming_languages: list[str] = field(default_factory=list)
+    distribution_model: str = ""
+    stores: list[str] = field(default_factory=list)
+    budget_amount: float | None = None
+    budget_currency: str = ""

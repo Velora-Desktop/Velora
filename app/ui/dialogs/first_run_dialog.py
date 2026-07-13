@@ -4,14 +4,14 @@ from PySide6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QLabel, QLineEdit
 class FirstRunDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent); self.setWindowTitle("Первый запуск Velora"); self.setModal(True); self.setMinimumSize(600, 390)
-        self.custom_profile_created = False; self._display_name = "Velore"
+        self.custom_profile_created = False; self._display_name = "Velora"
         root=QVBoxLayout(self); self.pages=QStackedWidget(); root.addWidget(self.pages)
         self.pages.addWidget(self._profile_page()); self.pages.addWidget(self._content_page())
 
     def _profile_page(self) -> QWidget:
         page=QWidget(); layout=QVBoxLayout(page); layout.setSpacing(14)
         title=QLabel("ДОБРО ПОЖАЛОВАТЬ В VELORA"); title.setStyleSheet("font-size:18pt;font-weight:600;"); layout.addWidget(title)
-        text=QLabel("Создайте имя для локального профиля или продолжите с именем Velore.\nВсе личные данные останутся только на этом компьютере."); text.setObjectName("muted"); text.setWordWrap(True); layout.addWidget(text)
+        text=QLabel("Создайте имя для локального профиля или продолжите с именем Velora.\nВсе личные данные останутся только на этом компьютере."); text.setObjectName("muted"); text.setWordWrap(True); layout.addWidget(text)
         self.profile_name=QLineEdit(); self.profile_name.setPlaceholderText("Введите имя профиля"); self.profile_name.setMinimumHeight(40); layout.addWidget(self.profile_name); layout.addStretch()
         create=QPushButton("СОЗДАТЬ ЛОКАЛЬНЫЙ ПРОФИЛЬ"); create.setMinimumHeight(42); create.setStyleSheet("background:#6E1BC4;border:1px solid #A54BFF;font-weight:600;"); create.clicked.connect(self._create_profile); layout.addWidget(create)
         skip=QPushButton("ПРОДОЛЖИТЬ БЕЗ ПРОФИЛЯ"); skip.setMinimumHeight(40); skip.setStyleSheet("background:#171E25;border:1px solid #35414B;color:#BFC7CE;"); skip.clicked.connect(self._skip_profile); layout.addWidget(skip); return page
@@ -39,7 +39,7 @@ class FirstRunDialog(QDialog):
         self.custom_profile_created=True; self._display_name=name; self.pages.setCurrentIndex(1)
 
     def _skip_profile(self) -> None:
-        self.custom_profile_created=False; self._display_name="Velore"; self.pages.setCurrentIndex(1)
+        self.custom_profile_created=False; self._display_name="Velora"; self.pages.setCurrentIndex(1)
 
     def _finish(self) -> None:
         if not self.hide_adult.isChecked() and not self.show_adult.isChecked(): self.hide_adult.setChecked(True)

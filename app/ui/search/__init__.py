@@ -1,0 +1,1 @@
+"""Global catalog search UI."""

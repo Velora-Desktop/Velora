@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QPushButton
 
 from app.core.constants import ACCENT, DANGER, SUCCESS, WARNING
 from app.models.game import GameData
@@ -26,6 +26,8 @@ class GameRow(QFrame):
     status_changed = Signal(object, str)
     favorite_changed = Signal(object, bool)
     rating_requested = Signal(object)
+    detail_requested = Signal(object)
+    hidden_requested = Signal(object)
 
     def __init__(self, game: GameData, parent=None) -> None:
         super().__init__(parent)
@@ -69,7 +71,7 @@ class GameRow(QFrame):
                 self.status_button.setMinimumHeight(34)
                 self.status_button.setStyleSheet(self._status_style(text))
                 from app.ui.catalog.status_menu import build_status_menu
-                self.status_button.setMenu(build_status_menu(self.status_button, self.set_status))
+                self.status_button.setMenu(build_status_menu(self.status_button, self.set_status, game.media_type))
                 layout.addWidget(self.status_button)
                 continue
             label = QPushButton(display_text) if column == 1 else QLabel(display_text)
@@ -88,7 +90,14 @@ class GameRow(QFrame):
             layout.addWidget(label)
         more = QPushButton("•••")
         more.setFixedWidth(COLUMN_WIDTHS["more"])
-        more.clicked.connect(self.placeholder_requested)
+        menu = QMenu(more)
+        open_action = menu.addAction("Открыть страницу")
+        open_action.triggered.connect(lambda: self.detail_requested.emit(self.game))
+        favorite_action = menu.addAction("Добавить/убрать из избранного")
+        favorite_action.triggered.connect(self._toggle_star)
+        hide_action = menu.addAction("Скрыть у меня")
+        hide_action.triggered.connect(lambda: self.hidden_requested.emit(self.game))
+        more.setMenu(menu)
         layout.addWidget(more)
 
     def mousePressEvent(self, event) -> None:
@@ -163,14 +172,9 @@ class GameRow(QFrame):
 
     @staticmethod
     def _status_style(status: str) -> str:
-        if status == "ПРОХОЖУ":
-            color, border, background = WARNING, "1px solid #7D5100", "#251A07"
-        elif status == "ПРОШЁЛ":
-            color, border, background = SUCCESS, "0", "transparent"
-        elif status == "БРОСИЛ":
-            color, border, background = DANGER, "0", "transparent"
-        else:
-            color, border, background = "#88919A", "0", "transparent"
+        from app.ui.catalog.status_menu import status_visual
+        color, border_color, background = status_visual(status)
+        border = f"1px solid {border_color}" if background != "transparent" else "0"
         return (
             f"QPushButton {{ color:{color}; border:{border}; border-radius:5px; "
             f"padding:3px 22px 3px 8px; background:{background}; text-align:center; }}"

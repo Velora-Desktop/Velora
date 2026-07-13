@@ -1,0 +1,3 @@
+ALTER TABLE user_game_state ADD COLUMN watch_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE user_game_state ADD COLUMN season_number INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE user_game_state ADD COLUMN episode_number INTEGER NOT NULL DEFAULT 0;

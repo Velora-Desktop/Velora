@@ -1,9 +1,39 @@
-from PySide6.QtWidgets import QDialog, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
+
+from app.data.catalog_repository import CATALOG_DB
+from app.services.catalog_update_service import CatalogUpdateService
 
 
-CHANGELOG = """AW0.05
+CHANGELOG = """AW0.06
+• исправлено сохранение активного раздела: выбор жанров фильмов, сериалов и программ больше не возвращает подсветку на «Игры»;
+• добавлена отдельная страница глобального поиска по названиям, категориям, авторам и платформам всех официальных разделов;
+• все категории официальной базы получили SVG-иконки в боковой панели;
+• сводная оценка каждой тестовой карточки теперь формируется из четырёх профильных источников;
+• Quick View показывает краткое описание и адаптирует хронологию: игровое время, просмотры фильмов, сезоны/серии и время использования программ;
+• прогресс сериалов редактируется в таблице сезонов и серий и сохраняется в локальной базе;
+• меню «•••» повторяет действия Quick View: открыть страницу, изменить избранное и скрыть объект;
+• сортировка и подписи фильтров перестраиваются согласно выбранному типу контента;
+• история изменений разделена на версии приложения и микропатчи официального каталога;
+• статистика расширена повторными просмотрами фильмов, прогрессом сериалов и использованием программ;
+• верхняя навигация дополнена разделом «Программы»; игры, фильмы, сериалы и программы открывают реальные каталоги;
+• официальный тестовый каталог расширен до 40 карточек: по 10 объектов каждого типа;
+• добавлены отдельные карточки Windows 10 (Windows/ПК) и iOS 18 (iOS/iPhone);
+• категории, подгруппы, счётчики и колонки каталога перестраиваются по типу контента;
+• статистика получила переключатель разделов и использует соответствующие статусы каждого типа;
+• личная оценка использует отдельные критерии для игр, фильмов, сериалов и программ;
+• стабильные ID продолжают открывать одну каноническую карточку из каталога, профиля и избранного;
+• пользовательское пространство окончательно переименовано в «Мой Velora»;
+• профиль без собственного имени создаётся с именем Velora;
+• история изменений показывает состав каждого микропатча официального каталога;
+• исправлено выравнивание числовых счётчиков в статистике;
+• добавлены сервисы, миграции SQLite и структурированные каталоги ресурсов.
+• Studio 0.03 расширила официальный каталог странами, языками, требованиями, наградами, DLC, актёрским составом и сведениями о ПО;
+• добавлены структурированные бюджеты с валютами и проверенные бюджеты всех 10 тестовых фильмов;
+• официальный каталог обновлён до микропатча AW0.068 без изменения локальных пользовательских данных.
+
+AW0.05
 • добавлена анимированная заставка запуска с фирменной буквой V;
-• переработан первый запуск: создание именного локального профиля или продолжение с профилем Velore;
+• переработан первый запуск: создание именного локального профиля или продолжение с профилем Velora;
 • выбор отображения контента 18+ вынесен в отдельный обязательный шаг, безопасное значение по умолчанию — скрывать;
 • в общие настройки добавлен полный сброс локального профиля с подтверждением без удаления официального каталога;
 • раздел «Мой Velora» получил новые сортируемые таблицы «Мои оценки» и «Избранное» в стиле основного каталога;
@@ -43,6 +73,28 @@ AW0.01
 """
 
 
+def catalog_changelog_text() -> str:
+    history = CatalogUpdateService.history(CATALOG_DB)
+    if not history:
+        return "ОБНОВЛЕНИЯ КАТАЛОГА\nИстория микропатчей пока отсутствует."
+    type_order = ("Игры", "Фильмы", "Сериалы", "Программы")
+    blocks = []
+    for change in reversed(history):
+        additions = [f"+{change.added[name]} {name.lower()}" for name in type_order if change.added.get(name)]
+        additions.extend(
+            f"+{count} {name.lower()}"
+            for name, count in change.added.items()
+            if name not in type_order and count
+        )
+        details = additions or ["без новых объектов"]
+        if change.updated:
+            details.append(f"обновлено карточек: {change.updated}")
+        if change.removed:
+            details.append(f"удалено карточек: {change.removed}")
+        blocks.append(f"{change.version}\n" + " · ".join(details))
+    return "ОБНОВЛЕНИЯ КАТАЛОГА\n\n" + "\n\n".join(blocks)
+
+
 class ChangelogDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -56,12 +108,27 @@ class ChangelogDialog(QDialog):
         root.addWidget(title)
 
         content = QWidget()
-        content_layout = QVBoxLayout(content)
+        content_layout = QHBoxLayout(content)
+        content_layout.setSpacing(14)
+        program_column = QVBoxLayout()
+        program_title = QLabel("ВЕРСИИ ПРИЛОЖЕНИЯ")
+        program_title.setStyleSheet("font-size:12pt;font-weight:700;color:#F0F1F4;")
+        program_column.addWidget(program_title)
         changes = QLabel(CHANGELOG)
         changes.setWordWrap(True)
-        changes.setTextInteractionFlags(changes.textInteractionFlags())
-        content_layout.addWidget(changes)
-        content_layout.addStretch()
+        program_column.addWidget(changes)
+        program_column.addStretch()
+        content_layout.addLayout(program_column, 3)
+        catalog_column = QVBoxLayout()
+        catalog_title = QLabel("МИКРОПАТЧИ КАТАЛОГА")
+        catalog_title.setStyleSheet("font-size:12pt;font-weight:700;color:#CFA1FF;")
+        catalog_column.addWidget(catalog_title)
+        catalog_changes = QLabel(catalog_changelog_text())
+        catalog_changes.setWordWrap(True)
+        catalog_changes.setStyleSheet("background:#0B141C;border:1px solid #2D3A44;border-radius:8px;padding:14px;color:#CFA1FF;")
+        catalog_column.addWidget(catalog_changes)
+        catalog_column.addStretch()
+        content_layout.addLayout(catalog_column, 2)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)

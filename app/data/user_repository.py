@@ -6,8 +6,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.database.migration_runner import MigrationRunner
+
 
 USER_DB = Path.home() / "AppData" / "Local" / "Velora" / "user.db"
+USER_MIGRATIONS = Path(__file__).resolve().parents[1] / "database" / "migrations" / "user"
 
 
 @dataclass(slots=True)
@@ -21,39 +24,9 @@ class UserRepository:
     def __init__(self, path: Path = USER_DB) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        MigrationRunner(USER_MIGRATIONS).migrate(self.path)
         connection = sqlite3.connect(self.path)
         try:
-            connection.executescript("""
-                CREATE TABLE IF NOT EXISTS local_profile (
-                    profile_id INTEGER PRIMARY KEY CHECK(profile_id = 1),
-                    display_name TEXT NOT NULL,
-                    bio TEXT NOT NULL DEFAULT '',
-                    avatar_path TEXT NOT NULL DEFAULT '',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS user_game_state (
-                    catalog_id TEXT PRIMARY KEY,
-                    personal_score REAL,
-                    status TEXT,
-                    playtime_hours REAL NOT NULL DEFAULT 0,
-                    favorite INTEGER NOT NULL DEFAULT 0,
-                    rating_criteria_json TEXT NOT NULL DEFAULT '{}',
-                    updated_at TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS user_activity (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    catalog_id TEXT NOT NULL,
-                    event_type TEXT NOT NULL,
-                    old_value TEXT,
-                    new_value TEXT,
-                    total_playtime REAL,
-                    note TEXT NOT NULL DEFAULT '',
-                    created_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_user_activity_catalog_time
-                ON user_activity(catalog_id, created_at);
-            """)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(user_game_state)")}
             if "hidden" not in columns:
                 connection.execute("ALTER TABLE user_game_state ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
@@ -83,16 +56,23 @@ class UserRepository:
             activities: dict[str, list[sqlite3.Row]] = {}
             for row in connection.execute("SELECT * FROM user_activity ORDER BY created_at, id"):
                 activities.setdefault(row["catalog_id"], []).append(row)
+            episode_states: dict[str, dict[str, str]] = {}
+            for row in connection.execute("SELECT catalog_id,season_number,episode_number,state FROM series_episode_state"):
+                episode_states.setdefault(row["catalog_id"], {})[f"{row['season_number']}:{row['episode_number']}"] = row["state"]
         finally: connection.close()
         for game in games:
             state = states.get(game.catalog_id)
             if state is None: continue
             game.personal_score = "—" if state["personal_score"] is None else f'{state["personal_score"]:.1f}'
-            game.status = state["status"] or "НЕ НАЧИНАЛ"
+            game.status = state["status"] or game.status
             game.playtime_hours = float(state["playtime_hours"] or 0.0)
             game.favorite = bool(state["favorite"])
             game.rating_criteria = json.loads(state["rating_criteria_json"] or "{}")
             game.hidden = bool(state["hidden"])
+            game.watch_count = int(state["watch_count"] or 0)
+            game.season_number = int(state["season_number"] or 0)
+            game.episode_number = int(state["episode_number"] or 0)
+            game.episode_states = episode_states.get(game.catalog_id, {})
             game.user_interacted = True
             game.history = [self._format_activity(row) for row in activities.get(game.catalog_id, [])]
 
@@ -112,7 +92,11 @@ class UserRepository:
                 "favorite": bool(previous["favorite"]) if previous else False,
                 "hidden": bool(previous["hidden"]) if previous else False,
             }
-            new = {"rating": personal_score, "status": game.status, "playtime": playtime, "favorite": bool(game.favorite), "hidden": bool(game.hidden)}
+            old.update({
+                "watch_count": int(previous["watch_count"] or 0) if previous else 0,
+                "series_progress": f"{int(previous['season_number'] or 0)}:{int(previous['episode_number'] or 0)}" if previous else "0:0",
+            })
+            new = {"rating": personal_score, "status": game.status, "playtime": playtime, "favorite": bool(game.favorite), "hidden": bool(game.hidden), "watch_count": int(game.watch_count), "series_progress": f"{int(game.season_number)}:{int(game.episode_number)}"}
             now = datetime.now(timezone.utc).isoformat()
             for event_type, new_value in new.items():
                 old_value = old[event_type]
@@ -122,13 +106,26 @@ class UserRepository:
                         (game.catalog_id, event_type, self._text(old_value), self._text(new_value), playtime, "", now),
                     )
             connection.execute("""
-                INSERT INTO user_game_state(catalog_id, personal_score, status, playtime_hours, favorite, rating_criteria_json, updated_at, hidden)
-                VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO user_game_state(catalog_id, personal_score, status, playtime_hours, favorite, rating_criteria_json, updated_at, hidden, watch_count, season_number, episode_number)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(catalog_id) DO UPDATE SET personal_score=excluded.personal_score,
                     status=excluded.status, playtime_hours=excluded.playtime_hours,
                     favorite=excluded.favorite, rating_criteria_json=excluded.rating_criteria_json,
-                    updated_at=excluded.updated_at, hidden=excluded.hidden
-            """, (game.catalog_id, personal_score, game.status, playtime, int(game.favorite), json.dumps(game.rating_criteria, ensure_ascii=False), now, int(game.hidden)))
+                    updated_at=excluded.updated_at, hidden=excluded.hidden,
+                    watch_count=excluded.watch_count, season_number=excluded.season_number,
+                    episode_number=excluded.episode_number
+            """, (game.catalog_id, personal_score, game.status, playtime, int(game.favorite), json.dumps(game.rating_criteria, ensure_ascii=False), now, int(game.hidden), int(game.watch_count), int(game.season_number), int(game.episode_number)))
+            previous_episode_states = {f"{row[0]}:{row[1]}": row[2] for row in connection.execute("SELECT season_number,episode_number,state FROM series_episode_state WHERE catalog_id=?", (game.catalog_id,))}
+            if previous_episode_states != game.episode_states:
+                connection.execute(
+                    "INSERT INTO user_activity(catalog_id,event_type,old_value,new_value,total_playtime,note,created_at) VALUES(?,?,?,?,?,?,?)",
+                    (game.catalog_id, "episode_map", self._episode_summary(previous_episode_states), self._episode_summary(game.episode_states), playtime, "", now),
+                )
+                connection.execute("DELETE FROM series_episode_state WHERE catalog_id=?", (game.catalog_id,))
+                connection.executemany(
+                    "INSERT INTO series_episode_state(catalog_id,season_number,episode_number,state,updated_at) VALUES(?,?,?,?,?)",
+                    [(game.catalog_id, int(key.split(':')[0]), int(key.split(':')[1]), state, now) for key, state in game.episode_states.items()],
+                )
             connection.commit()
         finally: connection.close()
 
@@ -144,10 +141,11 @@ class UserRepository:
         try:
             connection.execute("DELETE FROM user_activity")
             connection.execute("DELETE FROM user_game_state")
+            connection.execute("DELETE FROM series_episode_state")
             now = datetime.now(timezone.utc).isoformat()
             connection.execute(
                 "UPDATE local_profile SET display_name=?, bio='', avatar_path='', updated_at=? WHERE profile_id=1",
-                ("Velore", now),
+                ("Velora", now),
             )
             connection.commit()
         finally:
@@ -161,9 +159,14 @@ class UserRepository:
 
     @staticmethod
     def _format_activity(row: sqlite3.Row) -> str:
-        labels = {"rating":"оценка", "status":"статус", "playtime":"время", "favorite":"избранное", "hidden":"скрытие"}
+        labels = {"rating":"оценка", "status":"статус", "playtime":"время", "favorite":"избранное", "hidden":"скрытие", "watch_count":"просмотры", "series_progress":"серия", "episode_map":"эпизоды"}
         timestamp = datetime.fromisoformat(row["created_at"]).astimezone().strftime("%d.%m.%Y %H:%M")
         old_value = row["old_value"] if row["old_value"] not in (None, "") else "—"
         new_value = row["new_value"] if row["new_value"] not in (None, "") else "—"
         suffix = f", всего {row['total_playtime']:g} ч" if row["total_playtime"] is not None and row["event_type"] in ("rating", "playtime") else ""
         return f"{timestamp} — {labels.get(row['event_type'], row['event_type'])}: {old_value} → {new_value}{suffix}"
+
+    @staticmethod
+    def _episode_summary(states: dict[str, str]) -> str:
+        counts = {name: list(states.values()).count(name) for name in ("watched", "watching", "dropped")}
+        return f"просмотрено {counts['watched']}, смотрю {counts['watching']}, брошено {counts['dropped']}"

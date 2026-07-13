@@ -5,21 +5,28 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QSlider, QVBoxLayout, QWidget
 
 
-CRITERIA = (
+GAME_CRITERIA = (
     ("Графика", "graphics.svg"), ("Саундтрек", "soundtrack.svg"),
     ("Сюжет", "story.svg"), ("Геймплей", "gameplay.svg"),
     ("Атмосфера", "atmosphere.svg"),
 )
 
+CRITERIA_BY_MEDIA = {
+    "Игры": GAME_CRITERIA,
+    "Фильмы": (("Сюжет", "story.svg"), ("Актёрская игра", "atmosphere.svg"), ("Режиссура", "gameplay.svg"), ("Саундтрек", "soundtrack.svg"), ("Визуал", "graphics.svg")),
+    "Сериалы": (("Сюжет", "story.svg"), ("Персонажи", "atmosphere.svg"), ("Темп", "gameplay.svg"), ("Саундтрек", "soundtrack.svg"), ("Визуал", "graphics.svg")),
+    "Программы": (("Функциональность", "gameplay.svg"), ("Удобство", "atmosphere.svg"), ("Интерфейс", "graphics.svg"), ("Стабильность", "story.svg"), ("Производительность", "soundtrack.svg")),
+}
 
-def request_rating(current: dict[str, int], parent=None) -> dict[str, int] | None:
+
+def request_rating(current: dict[str, int], parent=None, media_type: str = "Игры") -> dict[str, int] | None:
     dialog=QDialog(parent); dialog.setWindowTitle("Моя оценка"); dialog.setMinimumWidth(640)
     dialog.setStyleSheet("QDialog{background:#070D12;} QLabel{color:#E9EDF1;} QPushButton{min-height:36px;}")
     root=QVBoxLayout(dialog); root.setContentsMargins(22,18,22,18); root.setSpacing(12)
-    title=QLabel("ОЦЕНИТЕ ИГРУ"); title.setStyleSheet("font-size:17pt;font-weight:700;"); root.addWidget(title)
+    title=QLabel("ОЦЕНИТЕ ОБЪЕКТ"); title.setStyleSheet("font-size:17pt;font-weight:700;"); root.addWidget(title)
     hint=QLabel("Перемещайте ползунки от 1 до 10. Средняя оценка рассчитывается сразу."); hint.setObjectName("muted"); root.addWidget(hint)
     editors={}; values={}; icon_root=Path(__file__).resolve().parents[3]/"assets"/"icons"/"rating"
-    for name,icon_name in CRITERIA:
+    for name,icon_name in CRITERIA_BY_MEDIA.get(media_type, GAME_CRITERIA):
         row=QWidget(); layout=QHBoxLayout(row); layout.setContentsMargins(0,4,0,4); layout.setSpacing(12)
         icon=QLabel(); icon.setFixedSize(28,28); icon.setPixmap(QIcon(str(icon_root/icon_name)).pixmap(22,22)); layout.addWidget(icon)
         label=QLabel(name); label.setMinimumWidth(105); label.setStyleSheet("font-size:11pt;font-weight:550;"); layout.addWidget(label)

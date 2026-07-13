@@ -16,12 +16,13 @@ from app.ui.game_detail.game_detail_page import GameDetailPage
 from app.ui.sidebar.sidebar import Sidebar
 from app.data.user_repository import UserRepository
 from app.ui.profile.profile_page import ProfilePage
+from app.ui.search.search_page import SearchPage
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Velora AW0.05")
+        self.setWindowTitle("Velora AW0.06")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
@@ -48,7 +49,7 @@ class MainWindow(QMainWindow):
         center_layout.setContentsMargins(0, 0, 0, 0)
         center_layout.setSpacing(10)
         self.catalog = CatalogView()
-        self.user_repository.apply_game_states(row.game for row in self.catalog.rows)
+        self.user_repository.apply_game_states(self.catalog.items)
         for row in self.catalog.rows:
             row.sync_from_game()
         self.catalog.setObjectName("catalogPanel")
@@ -60,6 +61,10 @@ class MainWindow(QMainWindow):
         self.profile_page = ProfilePage(self.user_repository)
         self.profile_page.catalog_item_requested.connect(self.open_catalog_item)
         self.profile_page.hide()
+        self.search_page = SearchPage()
+        self.search_page.set_items(self.catalog.items)
+        self.search_page.item_requested.connect(self.open_catalog_item)
+        self.search_page.hide()
         self.empty_section = QLabel()
         self.empty_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_section.setStyleSheet("font-family:Georgia; font-size:24pt; color:#89949E;")
@@ -68,6 +73,7 @@ class MainWindow(QMainWindow):
         center_layout.addWidget(self.quick_view)
         center_layout.addWidget(self.game_detail, 1)
         center_layout.addWidget(self.profile_page, 1)
+        center_layout.addWidget(self.search_page, 1)
         center_layout.addWidget(self.empty_section, 1)
         body.addWidget(center, 1)
         root.addLayout(body, 1)
@@ -82,12 +88,17 @@ class MainWindow(QMainWindow):
         self.top_bar.forward_requested.connect(self._go_forward)
         self.top_bar.profile_requested.connect(self._open_profile)
         self.top_bar.section_requested.connect(self._on_section_selected)
+        self.top_bar.search_requested.connect(self._open_global_search)
         self.sidebar.placeholder_requested.connect(self._placeholder)
         self.sidebar.category_selected.connect(self._on_category_selected)
         self.catalog.placeholder_requested.connect(self._placeholder)
         self.catalog.game_selected.connect(self._on_game_selected)
         self.catalog.status_changed.connect(self.quick_view.set_external_status)
         self.catalog.rating_requested.connect(self._rate_from_catalog)
+        self.catalog.detail_requested.connect(self._on_detail_requested)
+        self.catalog.hidden_requested.connect(self._hide_game)
+        self.catalog.favorite_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
+        self.catalog.favorite_changed.connect(self.catalog.refresh_filters)
         self.quick_view.placeholder_requested.connect(self._placeholder)
         self.quick_view.status_changed.connect(self.catalog.set_game_status)
         self.quick_view.rating_changed.connect(self.catalog.set_game_score)
@@ -105,9 +116,9 @@ class MainWindow(QMainWindow):
         self.game_detail.status_changed.connect(self.quick_view.set_external_status)
         self.game_detail.favorite_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
 
-        QShortcut(QKeySequence("Ctrl+F"), self, activated=self._placeholder)
+        QShortcut(QKeySequence("Ctrl+F"), self, activated=self._open_global_search)
         QShortcut(QKeySequence("Ctrl+W"), self, activated=self.quick_view.hide)
-        self._push_navigation(("category", "ШУТЕРЫ"))
+        self._push_navigation(("category", ("Игры", "ШУТЕРЫ")))
         self._run_first_launch_if_needed()
 
     def _run_first_launch_if_needed(self) -> None:
@@ -133,8 +144,10 @@ class MainWindow(QMainWindow):
     def _on_game_selected(self, game) -> None:
         self.empty_section.hide()
         self.top_bar.set_profile_active(False)
+        self.top_bar.set_search_active(False)
         self.sidebar.show()
         self.profile_page.hide()
+        self.search_page.hide()
         self.game_detail.hide()
         self.catalog.show()
         self.quick_view.set_game(game)
@@ -145,20 +158,24 @@ class MainWindow(QMainWindow):
     def _on_category_selected(self, category: str) -> None:
         self.empty_section.hide()
         self.top_bar.set_profile_active(False)
+        self.top_bar.set_search_active(False)
         self.sidebar.show()
         self.profile_page.hide()
+        self.search_page.hide()
         self.game_detail.hide()
         self.catalog.show()
         self.catalog.set_category(category)
         self.quick_view.hide()
         if not self._navigating_history:
-            self._push_navigation(("category", category))
+            self._push_navigation(("category", (self.catalog.current_media_type, category)))
 
     def _on_detail_requested(self, game) -> None:
-        self.top_bar.set_active_space("ИГРЫ")
+        self.top_bar.set_active_space(game.media_type.upper())
+        self.top_bar.set_search_active(False)
         self.sidebar.show()
+        self.catalog.set_media_type(game.media_type, game.category)
+        self.sidebar.set_categories(self.catalog.categories_for(game.media_type))
         self.sidebar.select_category(game.category.upper())
-        self.catalog.set_category(game.category.upper())
         if not self._navigating_history:
             self._push_navigation(("detail", game.catalog_id))
         self.game_detail.set_game(game)
@@ -166,51 +183,52 @@ class MainWindow(QMainWindow):
 
     def _show_profile(self) -> None:
         self.top_bar.set_profile_active(True)
-        self.profile_page.refresh(row.game for row in self.catalog.rows)
+        self.profile_page.refresh(self.catalog.items)
         self.sidebar.hide()
-        self.catalog.hide(); self.quick_view.hide(); self.game_detail.hide(); self.empty_section.hide(); self.profile_page.show()
+        self.catalog.hide(); self.quick_view.hide(); self.game_detail.hide(); self.search_page.hide(); self.empty_section.hide(); self.profile_page.show()
 
     def _show_center_page(self, page) -> None:
         """Guarantee that central workspaces never overlap in the layout."""
-        for widget in (self.catalog, self.quick_view, self.game_detail, self.profile_page, self.empty_section):
+        for widget in (self.catalog, self.quick_view, self.game_detail, self.profile_page, self.search_page, self.empty_section):
             widget.setVisible(widget is page)
 
     def open_catalog_item(self, catalog_id: str) -> None:
         """Resolve a stable catalog link and open its canonical detail page."""
-        row = self._catalog_row(catalog_id)
-        if row is None:
+        game = self._catalog_row(catalog_id)
+        if game is None:
             return
-        self._on_detail_requested(row.game)
+        self._on_detail_requested(game)
 
     def _catalog_row(self, catalog_id: str):
         """Resolve an official catalog object by its stable database ID."""
-        return next(
-            (row for row in self.catalog.rows if row.game.catalog_id == catalog_id),
-            None,
-        )
+        return next((game for game in self.catalog.items if game.catalog_id == catalog_id), None)
 
     def _restore_catalog_context(self, catalog_id: str):
         """Restore the section and category from catalog data."""
-        row = self._catalog_row(catalog_id)
-        if row is None:
+        game = self._catalog_row(catalog_id)
+        if game is None:
             return None
-        game = row.game
-        self.top_bar.set_active_space("ИГРЫ")
+        self.top_bar.set_active_space(game.media_type.upper())
         self.top_bar.set_profile_active(False)
         self.sidebar.show()
+        self.catalog.set_media_type(game.media_type, game.category)
+        self.sidebar.set_categories(self.catalog.categories_for(game.media_type))
         self.sidebar.select_category(game.category.upper())
-        self.catalog.set_category(game.category.upper())
-        return row
+        return game
 
     def _on_section_selected(self, section: str) -> None:
         if not self._navigating_history:
             self._push_navigation(("section", section))
         self.top_bar.set_active_space(section)
-        self.profile_page.hide(); self.game_detail.hide(); self.quick_view.hide(); self.empty_section.hide()
-        if section == "ИГРЫ":
-            self.sidebar.show(); self.catalog.show(); self.sidebar.select_category("ШУТЕРЫ"); self.catalog.set_category("ШУТЕРЫ")
-        else:
-            self.sidebar.hide(); self.catalog.hide(); self.empty_section.setText(f"{section}\n\nКаталог пока пуст"); self.empty_section.show()
+        self.top_bar.set_search_active(False)
+        self.profile_page.hide(); self.search_page.hide(); self.game_detail.hide(); self.quick_view.hide(); self.empty_section.hide()
+        media_type = {"ИГРЫ": "Игры", "ФИЛЬМЫ": "Фильмы", "СЕРИАЛЫ": "Сериалы", "ПРОГРАММЫ": "Программы"}.get(section)
+        if media_type:
+            self.catalog.set_media_type(media_type)
+            self.sidebar.set_categories(self.catalog.categories_for(media_type))
+            self.sidebar.show(); self.catalog.show()
+            if self.catalog.current_category:
+                self.sidebar.select_category(self.catalog.current_category)
 
     def _push_navigation(self, entry: tuple[str, object]) -> None:
         if self.navigation_index >= 0 and self.navigation_history[self.navigation_index] == entry:
@@ -238,28 +256,32 @@ class MainWindow(QMainWindow):
         try:
             kind, value = self.navigation_history[self.navigation_index]
             if kind == "category":
+                media_type, category = value if isinstance(value, tuple) else ("Игры", value)
                 self.empty_section.hide()
                 self.top_bar.set_profile_active(False)
                 self.sidebar.show()
                 self.profile_page.hide()
                 self.game_detail.hide()
                 self.catalog.show()
-                self.sidebar.select_category(value)
-                self.catalog.set_category(value)
+                self.catalog.set_media_type(media_type, category)
+                self.sidebar.set_categories(self.catalog.categories_for(media_type))
+                self.sidebar.select_category(category)
                 self.quick_view.hide()
             elif kind == "game":
                 self.empty_section.hide()
                 self.profile_page.hide()
                 self.game_detail.hide()
                 self.catalog.show()
-                row = self._restore_catalog_context(value)
-                if row is not None: self.catalog.select_game(row.game)
+                game = self._restore_catalog_context(value)
+                if game is not None: self.catalog.select_game(game)
             elif kind == "detail":
                 self.empty_section.hide()
                 self.profile_page.hide()
                 self.open_catalog_item(value)
             elif kind == "profile":
                 self._show_profile()
+            elif kind == "search":
+                self._open_global_search()
             elif kind == "section":
                 self._on_section_selected(value)
         finally:
@@ -273,7 +295,7 @@ class MainWindow(QMainWindow):
         )
 
     def _open_settings(self) -> None:
-        dialog = SettingsDialog(self.hide_adult_content, (row.game for row in self.catalog.rows), self)
+        dialog = SettingsDialog(self.hide_adult_content, self.catalog.items, self)
         dialog.adult_filter_changed.connect(self._set_hide_adult_content)
         dialog.hidden_restored.connect(self._restore_hidden_game)
         dialog.profile_reset_requested.connect(self._reset_local_profile)
@@ -304,6 +326,16 @@ class MainWindow(QMainWindow):
         if not self._navigating_history:
             self._push_navigation(("profile", None))
         self._show_profile()
+
+    def _open_global_search(self) -> None:
+        if not self._navigating_history:
+            self._push_navigation(("search", None))
+        self.top_bar.set_profile_active(False)
+        self.top_bar.set_search_active(True)
+        self.sidebar.hide()
+        self.search_page.set_items(self.catalog.items)
+        self._show_center_page(self.search_page)
+        self.search_page.focus_search()
 
     def _rate_from_detail(self, game) -> None:
         # The rating editor is shared with Quick View, but opening it from the

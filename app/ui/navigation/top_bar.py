@@ -11,6 +11,7 @@ class TopBar(QFrame):
     forward_requested = Signal()
     profile_requested = Signal()
     section_requested = Signal(str)
+    search_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -44,10 +45,10 @@ class TopBar(QFrame):
         self.forward_button.clicked.connect(self.forward_requested)
 
         self.section_buttons = []
-        for index, text in enumerate(("ИГРЫ", "ФИЛЬМЫ", "СЕРИАЛЫ")):
+        for index, text in enumerate(("ИГРЫ", "ФИЛЬМЫ", "СЕРИАЛЫ", "ПРОГРАММЫ")):
             button = QPushButton(text)
             button.setFixedHeight(50)
-            button.setMinimumWidth(125)
+            button.setMinimumWidth(118)
             button.setStyleSheet("font-family:'Segoe UI'; font-size:13pt; letter-spacing:0.5px; padding:8px 16px;")
             button.setProperty("active", index == 0)
             if index == 0:
@@ -63,7 +64,11 @@ class TopBar(QFrame):
         for text in ("⌕", "+"):
             button = QPushButton(text)
             button.setToolTip("Глобальный поиск" if text == "⌕" else "Создать раздел")
-            button.clicked.connect(self.placeholder_requested)
+            if text == "⌕":
+                self.search_button = button
+                button.clicked.connect(self.search_requested)
+            else:
+                button.clicked.connect(self.placeholder_requested)
             button.setFixedSize(44, 40)
             if text == "+":
                 button.setStyleSheet("font-family:'Segoe UI'; font-size:18pt; border:1px solid #27313A; border-radius:7px; background:#070B10;")
@@ -72,7 +77,7 @@ class TopBar(QFrame):
             layout.addWidget(button)
 
         layout.addStretch(1)
-        self.profile_button = QPushButton("МОЙ VELORE")
+        self.profile_button = QPushButton("МОЙ VELORA")
         self.profile_button.setStyleSheet("font-family: Georgia; font-size:20pt; letter-spacing:2px; padding:8px 18px;")
         profile_glow = QGraphicsDropShadowEffect(self.profile_button)
         profile_glow.setBlurRadius(12)
@@ -83,10 +88,22 @@ class TopBar(QFrame):
         layout.addWidget(self.profile_button)
 
     def set_profile_active(self, active: bool) -> None:
-        self.set_active_space("МОЙ VELORE" if active else "ИГРЫ")
+        self.profile_button.setProperty("active", active)
+        if active:
+            for button in self.section_buttons:
+                button.setProperty("active", False)
+                button.style().unpolish(button); button.style().polish(button)
+        self.profile_button.style().unpolish(self.profile_button); self.profile_button.style().polish(self.profile_button)
+
+    def set_search_active(self, active: bool) -> None:
+        self.search_button.setProperty("active", active)
+        self.search_button.setStyleSheet(
+            "font-family:'Segoe UI Symbol'; font-size:17pt; "
+            + ("color:#C286FF; border-bottom:2px solid #8B2CF5;" if active else "")
+        )
 
     def set_active_space(self, name: str) -> None:
-        self.profile_button.setProperty("active", name == "МОЙ VELORE")
+        self.profile_button.setProperty("active", name == "МОЙ VELORA")
         for button in self.section_buttons:
             button.setProperty("active", button.text() == name)
             button.style().unpolish(button); button.style().polish(button)

@@ -1,8 +1,40 @@
 # Velora project state
 
-- Version: AW0.05 (Alpha Windows 0.05)
+- Version: AW0.06 (Alpha Windows 0.06, released)
 - Python: 3.12.13
 - PySide6: 6.11.1
+
+## Каталог AW0.068
+
+- Подключена схема официальных метаданных Studio 0.03.
+- Полные страницы показывают страны, языки, требования, награды, DLC, актёрский состав и сведения о ПО.
+- Studio и полные страницы поддерживают бюджет с отдельной суммой и символом валюты; неизвестное значение показывается прочерком.
+- Для всех 10 фильмов тестового каталога добавлены проверенные бюджеты съёмок; неподтверждённые бюджеты остальных типов остаются пустыми.
+- Личная статистика дополнена распределением по странам и языкам, а также сводкой наград, DLC, актёров и открытого ПО.
+
+## AW0.06 — completed
+
+- Official catalog updates are independent database micro-patches (`AW0.061`, `.062`, and later).
+- Studio publishes only `catalog.db`; local profiles, ratings, statuses, history and custom data remain in `user.db`.
+- Catalog schema v2 reserves dynamic critic sources, watch availability, film duration and series season count.
+- Status dictionaries are now media-aware for games, films, series and programs.
+- Added `app/services` with age filtering and validated atomic catalog micro-patch installation.
+- Added numbered SQLite migration chains for official catalog and local user data; `UserRepository` now runs user migrations.
+- Added the stable assets structure for icons, logos, covers, placeholders, fonts, styles and composite UI resources.
+- Catalog metadata keeps cumulative micro-patch history with per-media added counts plus updated/removed card totals.
+- Built-in changelog renders entries such as `AW0.061 · +190 игр · +10 сериалов` directly from `catalog.db`.
+- User workspace and fallback local profile are consistently named `Мой Velora` / `Velora`.
+- User migration `002` renames only the legacy fallback profile `Velore`; custom profile names remain unchanged.
+- Statistics bar counters use a fixed aligned column and no longer detach as a stray `0` when panels resize.
+- Top navigation and the official catalog now support Games, Films, Series and Programs as live workspaces.
+- Development catalog patch `AW0.062` contains 40 official cards: 10 per media type.
+- Program catalog includes independently ratable Windows 10 (`Windows; PC`) and iOS 18 (`iOS; iPhone`) cards.
+- Sidebar categories, subgroup rows, catalog columns, statuses and rating criteria are media-aware.
+- My Velora statistics can be filtered by official media section while remaining based on personal interactions.
+- Global search is a dedicated active workspace and resolves results through stable catalog IDs.
+- Local media progress migration `003` stores film watch count and series season/episode independently from playtime.
+- Quick View and full pages use media-aware metadata, descriptions, sources and interaction labels.
+- Catalog micro-patch `AW0.063` adds four critic sources and expanded descriptions to all 40 official cards.
 
 ## AW0.03 completed
 
@@ -26,7 +58,6 @@
 
 ## Placeholder or future scope
 
-- Movie, series and program catalogs currently have empty workspaces.
 - Global search and custom catalog creation remain placeholders.
 - Real cover assets have not yet been added through Studio.
 - Studio and Velora packaging/installers are not included.
