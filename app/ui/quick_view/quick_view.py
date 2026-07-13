@@ -30,6 +30,7 @@ class QuickView(QFrame):
     rating_changed = Signal(object, str)
     favorite_changed = Signal(object, bool)
     detail_requested = Signal(object)
+    hidden_requested = Signal(object)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -111,9 +112,12 @@ class QuickView(QFrame):
         actions.setFixedSize(145, 36)
         actions.setStyleSheet("border:1px solid #2A3540; background:#0B131A; text-align:left;")
         actions_menu = QMenu(actions)
-        for action_text in ("Открыть страницу", "Добавить в коллекцию", "Скрыть у меня"):
+        for action_text in ("Открыть страницу", "Скрыть у меня"):
             action = actions_menu.addAction(action_text)
-            action.triggered.connect(self.placeholder_requested)
+            if action_text == "Открыть страницу":
+                action.triggered.connect(self._request_detail)
+            else:
+                action.triggered.connect(self._request_hide)
         actions.setMenu(actions_menu)
         info.addWidget(actions)
         root.addLayout(info, 2)
@@ -141,7 +145,7 @@ class QuickView(QFrame):
         self.general_score = QLabel()
         self.general_score.setStyleSheet(f"font-size:25pt; font-weight:600; color:{SUCCESS};")
         general.addWidget(self.general_score)
-        self.vote_count = QLabel("На основе 25 341 оценки")
+        self.vote_count = QLabel()
         self.vote_count.setObjectName("muted")
         general.addWidget(self.vote_count)
         self.general_stars = QLabel("☆☆☆☆☆")
@@ -277,6 +281,8 @@ class QuickView(QFrame):
         self.mode.setText(game.mode)
         self.age.setText(f"{game.age_rating}+")
         self.general_score.setText(self._format_score(game.general_score))
+        sources = [name for name, value in game.critic_scores.items() if value is not None]
+        self.vote_count.setText("На основе: " + (", ".join(sources) if sources else "источники не указаны"))
         self.personal_score.setText(self._format_score(game.personal_score))
         self.general_stars.setText(self._stars_for_score(game.general_score))
         self.personal_stars.setText(self._stars_for_score(game.personal_score))
@@ -449,6 +455,10 @@ class QuickView(QFrame):
     def _request_detail(self) -> None:
         if self.current_game is not None:
             self.detail_requested.emit(self.current_game)
+
+    def _request_hide(self) -> None:
+        if self.current_game is not None:
+            self.hidden_requested.emit(self.current_game)
 
     @staticmethod
     def _format_score(value: str) -> str:

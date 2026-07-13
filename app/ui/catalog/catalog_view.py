@@ -14,25 +14,29 @@ class CatalogView(QWidget):
 
     GROUPS = {
         "ОТ ПЕРВОГО ЛИЦА": (
-            GameData("CALL OF DUTY", "10", "1", "ПРОХОЖУ", "Activision", "1999", "WIN/PS2/PS3", "1P/MULTI/CO-OP", "6 ч", publisher="Activision", age_rating=16),
-            GameData("DOOM ETERNAL", "9", "7", "ПРОШЁЛ", "id Software", "2020", "PC/PS4/XONE", "1P/MULTI", age_rating=18),
-            GameData("HALF-LIFE 2", "9", "8", "ПРОШЁЛ", "Valve", "2004", "PC", "1P", age_rating=16),
-            GameData("BORDERLANDS 2", "8", "5", "ПРОШЁЛ", "Gearbox Software", "2012", "PC/PS3/X360", "1P/CO-OP", age_rating=18),
+            GameData("CALL OF DUTY", "9.1", "—", "НЕ НАЧИНАЛ", "Infinity Ward", "2003", "PC/PS3/X360", "1P/MULTI", "—", publisher="Activision", age_rating=16, catalog_id="g-shooter-fps-001", subgroup="От первого лица", critic_scores={"Metacritic": 9.1, "IGN": None, "DualShockers": None, "PC Gamer": None}),
+            GameData("DOOM ETERNAL", "9.2", "—", "НЕ НАЧИНАЛ", "id Software", "2020", "PC/PS4/XONE", "1P/MULTI", age_rating=18, catalog_id="g-shooter-fps-002", subgroup="От первого лица", critic_scores={"Metacritic": 8.9, "IGN": 9.5, "DualShockers": 9.0, "PC Gamer": 9.4}),
+            GameData("HALF-LIFE 2", "9", "—", "НЕ НАЧИНАЛ", "Valve", "2004", "PC", "1P", age_rating=16),
+            GameData("BORDERLANDS 2", "8", "—", "НЕ НАЧИНАЛ", "Gearbox Software", "2012", "PC/PS3/X360", "1P/CO-OP", age_rating=18),
             GameData("MEDAL OF HONOR", "7", "—", "НЕ НАЧИНАЛ", "EA DICE", "2010", "PC/PS3/X360", "1P/MULTI", age_rating=16),
         ),
         "ОТ ТРЕТЬЕГО ЛИЦА": (
-            GameData("MAX PAYNE 3", "5", "10", "ПРОШЁЛ", "Rockstar Studios", "2012", "PC/PS3/X360", "1P", "13 ч", age_rating=18),
-            GameData("RESIDENT EVIL 4", "9", "9", "ПРОШЁЛ", "Capcom", "2005", "PC/PS2/PS3", "1P", "6 ч", age_rating=18),
+            GameData("MAX PAYNE 3", "5", "—", "НЕ НАЧИНАЛ", "Rockstar Studios", "2012", "PC/PS3/X360", "1P", "—", age_rating=18),
+            GameData("RESIDENT EVIL 4", "9", "—", "НЕ НАЧИНАЛ", "Capcom", "2005", "PC/PS2/PS3", "1P", "—", age_rating=18),
         ),
     }
 
     @classmethod
     def category_counts(cls) -> dict[str, int]:
         """Return counts derived from the cards currently loaded in the catalog."""
-        return {"ШУТЕРЫ": sum(len(games) for games in cls.GROUPS.values())}
+        from app.data.catalog_repository import load_game_groups
+        groups = load_game_groups() or cls.GROUPS
+        return {"ШУТЕРЫ": sum(len(games) for games in groups.values())}
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        from app.data.catalog_repository import load_game_groups
+        self.catalog_groups = load_game_groups() or self.GROUPS
         self.rows: list[GameRow] = []
         self.row_groups: dict[GameRow, str] = {}
         self.group_labels: dict[str, QWidget] = {}
@@ -95,7 +99,7 @@ class CatalogView(QWidget):
         self.list_layout.setContentsMargins(0, 4, 0, 4)
         self.list_layout.setSpacing(0)
         self.group_rows: dict[str, list[GameRow]] = {}
-        for group_name, games in self.GROUPS.items():
+        for group_name, games in self.catalog_groups.items():
             group_header = self._build_group_header(group_name, len(games))
             self.group_labels[group_name] = group_header
             self.list_layout.addWidget(group_header)
@@ -261,6 +265,7 @@ class CatalogView(QWidget):
             rows = [row for row in rows if row.game.status == self.status_mode]
         if self.hide_adult_content:
             rows = [row for row in rows if row.game.age_rating < 18]
+        rows = [row for row in rows if not row.game.hidden]
         return rows
 
     def set_hide_adult_content(self, enabled: bool) -> None:

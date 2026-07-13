@@ -9,6 +9,8 @@ class TopBar(QFrame):
     placeholder_requested = Signal()
     back_requested = Signal()
     forward_requested = Signal()
+    profile_requested = Signal()
+    section_requested = Signal(str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -41,6 +43,7 @@ class TopBar(QFrame):
         self.back_button.clicked.connect(self.back_requested)
         self.forward_button.clicked.connect(self.forward_requested)
 
+        self.section_buttons = []
         for index, text in enumerate(("ИГРЫ", "ФИЛЬМЫ", "СЕРИАЛЫ")):
             button = QPushButton(text)
             button.setFixedHeight(50)
@@ -53,9 +56,9 @@ class TopBar(QFrame):
                 tab_glow.setOffset(0, 3)
                 tab_glow.setColor(QColor(143, 54, 255, 120))
                 button.setGraphicsEffect(tab_glow)
-            if index:
-                button.clicked.connect(self.placeholder_requested)
+            button.clicked.connect(lambda checked=False, name=text: self.section_requested.emit(name))
             layout.addWidget(button)
+            self.section_buttons.append(button)
 
         for text in ("⌕", "+"):
             button = QPushButton(text)
@@ -69,12 +72,22 @@ class TopBar(QFrame):
             layout.addWidget(button)
 
         layout.addStretch(1)
-        profile = QPushButton("МОЙ VELORE")
-        profile.setStyleSheet("font-family: Georgia; font-size:20pt; letter-spacing:2px; padding:8px 18px;")
-        profile_glow = QGraphicsDropShadowEffect(profile)
+        self.profile_button = QPushButton("МОЙ VELORE")
+        self.profile_button.setStyleSheet("font-family: Georgia; font-size:20pt; letter-spacing:2px; padding:8px 18px;")
+        profile_glow = QGraphicsDropShadowEffect(self.profile_button)
         profile_glow.setBlurRadius(12)
         profile_glow.setOffset(0, 0)
         profile_glow.setColor(QColor(255, 255, 255, 70))
-        profile.setGraphicsEffect(profile_glow)
-        profile.clicked.connect(self.placeholder_requested)
-        layout.addWidget(profile)
+        self.profile_button.setGraphicsEffect(profile_glow)
+        self.profile_button.clicked.connect(self.profile_requested)
+        layout.addWidget(self.profile_button)
+
+    def set_profile_active(self, active: bool) -> None:
+        self.set_active_space("МОЙ VELORE" if active else "ИГРЫ")
+
+    def set_active_space(self, name: str) -> None:
+        self.profile_button.setProperty("active", name == "МОЙ VELORE")
+        for button in self.section_buttons:
+            button.setProperty("active", button.text() == name)
+            button.style().unpolish(button); button.style().polish(button)
+        self.profile_button.style().unpolish(self.profile_button); self.profile_button.style().polish(self.profile_button)

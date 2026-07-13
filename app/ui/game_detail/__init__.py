@@ -1,0 +1,1 @@
+"""Full catalog item pages."""

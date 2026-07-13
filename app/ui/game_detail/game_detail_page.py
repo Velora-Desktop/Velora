@@ -1,0 +1,135 @@
+from pathlib import Path
+from datetime import datetime
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+
+from app.core.constants import ACCENT, SUCCESS, WARNING
+from app.ui.catalog.game_row import GameData
+
+
+class GameDetailPage(QScrollArea):
+    favorite_changed = Signal(object, bool)
+    rate_requested = Signal(object)
+    status_changed = Signal(object, str)
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.game: GameData | None = None
+        self.setWidgetResizable(True)
+        self.setObjectName("gameDetailPage")
+        content = QWidget(); self.root = QVBoxLayout(content)
+        self.root.setContentsMargins(24, 18, 24, 28); self.root.setSpacing(18)
+
+        self.breadcrumb = QLabel("ИГРЫ  /  ШУТЕРЫ")
+        self.breadcrumb.setObjectName("muted"); self.root.addWidget(self.breadcrumb)
+        hero = QHBoxLayout(); hero.setSpacing(22)
+        self.cover = QLabel("ОБЛОЖКА"); self.cover.setFixedSize(250, 350); self.cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.cover.setStyleSheet("background:#202A35; border:1px solid #35424E; border-radius:9px; color:#7D8994;")
+        hero.addWidget(self.cover)
+        info = QVBoxLayout(); info.setSpacing(10)
+        title_row = QHBoxLayout(); self.title = QLabel(); self.title.setStyleSheet("font-size:27pt; font-weight:650;")
+        title_row.addWidget(self.title); title_row.addStretch()
+        self.favorite = QPushButton(); self.favorite.setMinimumSize(170, 40); self.favorite.clicked.connect(self._toggle_favorite); title_row.addWidget(self.favorite)
+        info.addLayout(title_row)
+        personal_actions = QHBoxLayout()
+        self.rate_button = QPushButton("ОЦЕНИТЬ ИГРУ"); self.rate_button.setStyleSheet("background:#6E1BC4; border:1px solid #A54BFF; font-weight:600;")
+        self.rate_button.clicked.connect(lambda: self.game is not None and self.rate_requested.emit(self.game))
+        self.status_badge = QPushButton(); self.status_badge.setMinimumSize(170, 38)
+        from app.ui.catalog.status_menu import build_status_menu
+        self.status_badge.setMenu(build_status_menu(self.status_badge, self._change_status))
+        personal_actions.addWidget(self.rate_button); personal_actions.addWidget(self.status_badge); personal_actions.addStretch(); info.addLayout(personal_actions)
+        self.route = QLabel(); self.route.setStyleSheet(f"color:{ACCENT}; font-size:11pt;"); info.addWidget(self.route)
+        self.metadata = QGridLayout(); self.metadata.setHorizontalSpacing(34); self.metadata.setVerticalSpacing(12)
+        self.meta_values = {}
+        for index, key in enumerate(("Разработчик", "Издатель", "Год выхода", "Платформы", "Количество игроков", "Возраст")):
+            row, column = divmod(index, 2); caption = QLabel(key.upper()); caption.setObjectName("caption")
+            value = QLabel(); value.setWordWrap(True); value.setStyleSheet("font-size:11pt; font-weight:500;")
+            box = QVBoxLayout(); box.addWidget(caption); box.addWidget(value); self.metadata.addLayout(box, row, column); self.meta_values[key] = value
+        info.addLayout(self.metadata)
+        self.description = QLabel(); self.description.setWordWrap(True); self.description.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.description.setStyleSheet("font-size:11pt; line-height:1.4; color:#CAD1D7;"); info.addWidget(self.description, 1)
+        hero.addLayout(info, 1); self.root.addLayout(hero)
+
+        ratings_title = QLabel("ОЦЕНКИ И ИСТОЧНИКИ"); ratings_title.setStyleSheet("font-size:15pt; font-weight:600;"); self.root.addWidget(ratings_title)
+        ratings = QHBoxLayout(); ratings.setSpacing(12)
+        self.general_card, self.general_value = self._score_card("СРЕДНЯЯ ОЦЕНКА", "VELORA", SUCCESS); ratings.addWidget(self.general_card)
+        self.personal_card, self.personal_value = self._score_card("МОЯ ОЦЕНКА", "ЛИЧНАЯ", WARNING); ratings.addWidget(self.personal_card)
+        self.critic_values = {}
+        brand_colors = {"Metacritic":"#F5C542", "IGN":"#F44336", "DualShockers":"#4DA3FF", "PC Gamer":"#E53935"}
+        for source, color in brand_colors.items():
+            card, value = self._score_card(source.upper(), source, color); self.critic_values[source] = value; ratings.addWidget(card)
+        self.root.addLayout(ratings)
+
+        lower = QHBoxLayout(); lower.setSpacing(14)
+        self.stats = self._panel("МОЯ СТАТИСТИКА"); self.stats_text = QLabel(); self.stats_text.setWordWrap(True); self.stats.layout().addWidget(self.stats_text); lower.addWidget(self.stats, 1)
+        self.criteria = self._panel("КРИТЕРИИ МОЕЙ ОЦЕНКИ"); self.criteria_text = QLabel(); self.criteria_text.setWordWrap(True); self.criteria.layout().addWidget(self.criteria_text); lower.addWidget(self.criteria, 1)
+        self.activity = self._panel("ИСТОРИЯ ИЗМЕНЕНИЙ"); self.activity_text = QLabel(); self.activity_text.setWordWrap(True); self.activity.layout().addWidget(self.activity_text); lower.addWidget(self.activity, 1)
+        self.root.addLayout(lower)
+        self.root.addStretch(); self.setWidget(content)
+
+    @staticmethod
+    def _score_card(title: str, brand: str, color: str):
+        card = QFrame(); card.setStyleSheet("QFrame { background:#09131A; border:1px solid #273640; border-radius:8px; }")
+        layout = QVBoxLayout(card); layout.setContentsMargins(14, 12, 14, 12)
+        logo = QLabel(brand); logo.setAlignment(Qt.AlignmentFlag.AlignCenter); logo.setStyleSheet(f"color:{color}; font-size:10pt; font-weight:800; border:0;")
+        caption = QLabel(title); caption.setAlignment(Qt.AlignmentFlag.AlignCenter); caption.setObjectName("caption")
+        value = QLabel(); value.setAlignment(Qt.AlignmentFlag.AlignCenter); value.setStyleSheet(f"color:{color}; font-size:25pt; font-weight:700; border:0;")
+        layout.addWidget(logo); layout.addWidget(caption); layout.addWidget(value); return card, value
+
+    @staticmethod
+    def _panel(title: str) -> QFrame:
+        panel = QFrame(); panel.setStyleSheet("QFrame { background:#081118; border:1px solid #26343E; border-radius:8px; }")
+        layout = QVBoxLayout(panel); heading = QLabel(title); heading.setObjectName("caption"); layout.addWidget(heading); return panel
+
+    def set_game(self, game: GameData) -> None:
+        self.game = game; self.title.setText(game.title); self.route.setText(f"{game.category}  •  {game.subgroup or 'Без подгруппы'}")
+        self.breadcrumb.setText(f"ИГРЫ  /  {game.category.upper()}  /  {(game.subgroup or 'КАРТОЧКА').upper()}")
+        values = {"Разработчик":game.developer, "Издатель":game.publisher, "Год выхода":game.year, "Платформы":game.platform, "Количество игроков":game.mode, "Возраст":f"{game.age_rating}+"}
+        for key, value in values.items(): self.meta_values[key].setText(value or "—")
+        self.description.setText(game.description or "Описание для этой игры пока не добавлено в Velora Studio.")
+        self.general_value.setText(self._score(game.general_score)); self.personal_value.setText(self._score(game.personal_score))
+        self.rate_button.setText("ИЗМЕНИТЬ ОЦЕНКУ" if game.personal_score != "—" else "ОЦЕНИТЬ ИГРУ")
+        self.status_badge.setText(game.status)
+        self._style_status(game.status)
+        for source, label in self.critic_values.items():
+            value = game.critic_scores.get(source); label.setText("—" if value is None else f"{value:.1f}")
+        self.stats_text.setText(f"Статус: {game.status}\nВремя в игре: {game.playtime}\nИзбранное: {'Да' if game.favorite else 'Нет'}\nДобавлено: 12.05.2024")
+        self.criteria_text.setText("\n".join(f"{name}: {value}/10" for name, value in game.rating_criteria.items()) or "Личная оценка ещё не заполнена")
+        self.activity_text.setText("\n".join(reversed(game.history[-5:])) or "Изменений пока нет")
+        self.favorite.setText("★ В ИЗБРАННОМ" if game.favorite else "☆ В ИЗБРАННОЕ")
+        self._set_cover(game.cover_path)
+
+    def _set_cover(self, cover_path: str) -> None:
+        if cover_path and Path(cover_path).exists():
+            pixmap = QPixmap(cover_path); self.cover.setPixmap(pixmap.scaled(self.cover.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        else: self.cover.setPixmap(QPixmap()); self.cover.setText("ОБЛОЖКА\nбудет добавлена через Studio")
+
+    def _toggle_favorite(self) -> None:
+        if self.game is None: return
+        self.game.favorite = not self.game.favorite; self.favorite.setText("★ В ИЗБРАННОМ" if self.game.favorite else "☆ В ИЗБРАННОЕ")
+        self.stats_text.setText(self.stats_text.text().replace("Избранное: Нет", "Избранное: Да") if self.game.favorite else self.stats_text.text().replace("Избранное: Да", "Избранное: Нет"))
+        self.favorite_changed.emit(self.game, self.game.favorite)
+
+    def _change_status(self, status: str) -> None:
+        if self.game is None:
+            return
+        self.game.status = status
+        self.game.history.append(f"{datetime.now().strftime('%d.%m.%Y %H:%M')} — статус: {status}")
+        # Refresh every dependent element together: badge, statistics and
+        # activity history. Partial text replacements caused stale UI state.
+        self.set_game(self.game)
+        self.status_changed.emit(self.game, status)
+
+    def _style_status(self, status: str) -> None:
+        if status == "ПРОХОЖУ": color, border, background = "#FFC400", "#775000", "#251A07"
+        elif status == "ПРОШЁЛ": color, border, background = "#18D647", "#1B6D35", "#092013"
+        elif status == "БРОСИЛ": color, border, background = "#FF3B30", "#7A2828", "#251010"
+        else: color, border, background = "#9AA3AB", "#38434D", "#111820"
+        self.status_badge.setStyleSheet(f"color:{color}; border:1px solid {border}; background:{background}; border-radius:6px; font-weight:600; padding:6px 24px 6px 10px;")
+
+    @staticmethod
+    def _score(value: str) -> str:
+        try: return f"{float(value):.1f}"
+        except ValueError: return "—"

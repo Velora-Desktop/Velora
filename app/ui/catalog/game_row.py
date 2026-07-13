@@ -41,6 +41,13 @@ class GameData:
     rating_criteria: dict[str, int] = field(default_factory=dict)
     favorite: bool = False
     age_rating: int = 0
+    catalog_id: str = ""
+    category: str = "Шутеры"
+    subgroup: str = ""
+    cover_path: str = ""
+    critic_scores: dict[str, float | None] = field(default_factory=dict)
+    media_type: str = "Игры"
+    hidden: bool = False
 
 
 class GameRow(QFrame):
@@ -155,6 +162,11 @@ class GameRow(QFrame):
         self.personal_score_label.setStyleSheet(
             f"font-family:'Segoe UI'; font-size:12pt; font-weight:600; color:{self._score_color(score)};"
         )
+
+    def sync_from_game(self) -> None:
+        self.set_personal_score(self.game.personal_score)
+        self.set_status(self.game.status, record_history=False)
+        self.star.setText("★" if self.game.favorite else "☆")
 
     @staticmethod
     def _score_color(value: str) -> str:
