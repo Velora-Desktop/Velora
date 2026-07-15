@@ -22,7 +22,7 @@ from app.ui.search.search_page import SearchPage
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Velora AW0.07 · каталог AW0.0711")
+        self.setWindowTitle("Velora AW0.08 · каталог AW0.0711")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")

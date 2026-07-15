@@ -1,8 +1,14 @@
 # Velora project state
 
-- Version: AW0.07 (Alpha Windows 0.07, completed)
+- Version: AW0.08 (Alpha Windows 0.08, in development)
 - Python: 3.12.13
 - PySide6: 6.11.1
+
+## AW0.08 — current development cycle
+
+- Цикл открыт после фиксации и публикации релиза AW0.07.
+- Базовая точка: Git-тег `AW0.07`, официальный каталог `AW0.0711`.
+- До утверждения задач AW0.08 архитектура, SQLite-схема и стабильные `catalog_id` остаются без изменений.
 
 ## Каталог AW0.0711
 

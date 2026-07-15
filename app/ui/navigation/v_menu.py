@@ -11,7 +11,7 @@ class VMenu(QMenu):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.addSection("VELORA AW0.07 · КАТАЛОГ AW0.0711")
+        self.addSection("VELORA AW0.08 · КАТАЛОГ AW0.0711")
         self.addAction(IconRegistry.icon("settings_gears", "dark", "ui"), "Настройки").triggered.connect(self.settings_requested)
         self.addAction(IconRegistry.icon("info", "dark", "feedback"), "О проекте").triggered.connect(self.about_requested)
         self.addAction(IconRegistry.icon("history_recent", "dark", "ui"), "История изменений").triggered.connect(self.changelog_requested)

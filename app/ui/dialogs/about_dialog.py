@@ -21,5 +21,5 @@ class AboutDialog(QDialog):
         attribution = QLabel('Uicons от <a href="https://www.flaticon.com/uicons">Flaticon</a>')
         attribution.setOpenExternalLinks(True); attribution.setTextInteractionFlags(attribution.textInteractionFlags())
         root.addWidget(attribution)
-        credits = QLabel("Автор: Станислав Смирнов\nРазработчик: Станислав Смирнов\nВерсия: AW0.07 — Alpha Windows\nКаталог: AW0.0711")
+        credits = QLabel("Автор: Станислав Смирнов\nРазработчик: Станислав Смирнов\nВерсия: AW0.08 — Alpha Windows (в разработке)\nКаталог: AW0.0711")
         credits.setStyleSheet("color:#C9A7FF;font-weight:500;"); root.addWidget(credits)
