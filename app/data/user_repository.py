@@ -163,6 +163,9 @@ class UserRepository:
         timestamp = datetime.fromisoformat(row["created_at"]).astimezone().strftime("%d.%m.%Y %H:%M")
         old_value = row["old_value"] if row["old_value"] not in (None, "") else "—"
         new_value = row["new_value"] if row["new_value"] not in (None, "") else "—"
+        if row["event_type"] == "hidden":
+            action = "Скрыто из каталога" if str(row["new_value"]) in ("1", "True", "true") else "Возвращено в каталог"
+            return f"{timestamp} — {action}"
         suffix = f", всего {row['total_playtime']:g} ч" if row["total_playtime"] is not None and row["event_type"] in ("rating", "playtime") else ""
         return f"{timestamp} — {labels.get(row['event_type'], row['event_type'])}: {old_value} → {new_value}{suffix}"
 

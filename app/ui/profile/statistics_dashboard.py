@@ -5,6 +5,8 @@ from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from app.models.game import MEDIA_STATUSES
+from app.core.icon_registry import IconRegistry
+from app.ui.widgets.platform_icons import platform_icon
 
 
 ACCENT = "#8B2CF5"
@@ -25,10 +27,11 @@ class DonutChart(QWidget):
 
 
 class StatCard(QFrame):
-    def __init__(self,title,color):
-        super().__init__(); self.setMinimumHeight(94); self.setStyleSheet("QFrame{background:#161629;border:1px solid #292A43;border-radius:10px;}")
-        layout=QVBoxLayout(self); self.value=QLabel("0"); self.value.setStyleSheet(f"font-size:24pt;font-weight:700;color:{color};border:0;"); layout.addWidget(self.value)
-        self.label=QLabel(title); self.label.setStyleSheet("color:#C5C6D2;border:0;"); layout.addWidget(self.label)
+    def __init__(self,title,color,icon_id):
+        super().__init__(); self.setObjectName("statCard"); self.setMinimumHeight(104); self.setStyleSheet("QFrame#statCard{background:#161629;border:1px solid #303149;border-radius:8px;}")
+        layout=QVBoxLayout(self); top=QHBoxLayout(); icon=QLabel(); icon.setFixedSize(30,30); icon.setPixmap(IconRegistry.pixmap(icon_id,26,variant="dark",category="ui")); top.addWidget(icon)
+        self.value=QLabel("0"); self.value.setStyleSheet(f"font-size:27pt;font-weight:750;color:{color};border:0;background:transparent;"); top.addWidget(self.value); top.addStretch(); layout.addLayout(top)
+        self.label=QLabel(title); self.label.setStyleSheet("font-size:10.5pt;color:#D5D6E0;border:0;background:transparent;"); layout.addWidget(self.label)
 
 
 class StatisticsDashboard(QScrollArea):
@@ -39,37 +42,40 @@ class StatisticsDashboard(QScrollArea):
         heading=QHBoxLayout(); box=QVBoxLayout(); title=QLabel("Статистика"); title.setStyleSheet("font-size:23pt;font-weight:700;"); box.addWidget(title); sub=QLabel("Ваши достижения и аналитика по официальным разделам каталога"); sub.setObjectName("muted"); box.addWidget(sub); heading.addLayout(box); heading.addStretch()
         self.media_filter=QComboBox(); self.media_filter.addItems(("Все разделы", "Игры", "Фильмы", "Сериалы", "Программы")); self.media_filter.setMinimumWidth(210); self.media_filter.currentTextChanged.connect(self._refresh_selected); heading.addWidget(self.media_filter); self.root.addLayout(heading)
         summary=self._panel("ОБЩАЯ СТАТИСТИКА"); grid=QGridLayout(); summary.layout().addLayout(grid); self.cards={}
-        specs=(("objects","Объектов","#A95CFF"),("rated","Оценено","#FFC42E"),("started","Начато","#2D8CFF"),("completed","Завершено","#18D166"),("favorites","В избранном","#EC2B78"),("hours","Время в играх","#98A0CB"),("average","Средняя оценка","#A95CFF"))
-        for i,(key,label,color) in enumerate(specs): card=StatCard(label,color); self.cards[key]=card; grid.addWidget(card,i//5,i%5)
+        specs=(("objects","Объектов","#A95CFF","folder_tree"),("rated","Оценено","#FFC42E","edit"),("started","Начато","#2D8CFF","play"),("completed","Завершено","#18D166","refresh"),("favorites","В избранном","#EC2B78","notification_bell"),("hours","Время в играх","#98A0CB","clock"),("average","Средняя оценка","#A95CFF","sliders"))
+        for i,(key,label,color,icon_id) in enumerate(specs): card=StatCard(label,color,icon_id); self.cards[key]=card; grid.addWidget(card,i//5,i%5)
         self.root.addWidget(summary)
-        row1=QHBoxLayout(); row1.setSpacing(16); self.rating_panel=self._panel("РАСПРЕДЕЛЕНИЕ ОЦЕНОК"); self.rating_panel.setMinimumHeight(320); self.rating_layout=QVBoxLayout(); self.rating_panel.layout().addLayout(self.rating_layout); row1.addWidget(self.rating_panel,1)
+        row1=QHBoxLayout(); row1.setSpacing(16); self.rating_panel=self._panel("РАСПРЕДЕЛЕНИЕ ОЦЕНОК"); self.rating_panel.setMinimumHeight(340); self.rating_panel.setMaximumHeight(390); self.rating_layout=QVBoxLayout(); self.rating_layout.setSpacing(10); self.rating_panel.layout().addLayout(self.rating_layout); row1.addWidget(self.rating_panel,1)
         types=self._panel("ПО ТИПАМ"); tl=QHBoxLayout(); self.donut=DonutChart(); tl.addWidget(self.donut); self.type_labels=QLabel(); tl.addWidget(self.type_labels); types.layout().addLayout(tl); row1.addWidget(types,1)
-        self.status_panel=self._panel("ПО СТАТУСУ"); self.status_panel.setMinimumHeight(320); self.status_layout=QVBoxLayout(); self.status_panel.layout().addLayout(self.status_layout); row1.addWidget(self.status_panel,1); self.root.addLayout(row1)
+        self.status_panel=self._panel("ПО СТАТУСУ"); self.status_panel.setMinimumHeight(340); self.status_panel.setMaximumHeight(390); self.status_layout=QVBoxLayout(); self.status_layout.setSpacing(8); self.status_panel.layout().addLayout(self.status_layout); row1.addWidget(self.status_panel,1); self.root.addLayout(row1)
         row2=QHBoxLayout(); self.platforms=self._text_panel("ПО ПЛАТФОРМАМ"); self.years=self._text_panel("ПО ГОДАМ"); self.time_leaders=self._text_panel("ЛИДЕРЫ ПО ВРЕМЕНИ"); row2.addWidget(self.platforms); row2.addWidget(self.years); row2.addWidget(self.time_leaders); self.root.addLayout(row2)
         row3=QHBoxLayout(); self.genres=self._text_panel("ЛЮБИМЫЕ ЖАНРЫ"); self.records=self._text_panel("ЛИЧНЫЕ РЕКОРДЫ"); self.taste=self._text_panel("СТАТИСТИКА ВКУСА"); row3.addWidget(self.genres); row3.addWidget(self.records); row3.addWidget(self.taste); self.root.addLayout(row3); self.root.addStretch(); self.setWidget(content); self.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         row4=QHBoxLayout(); row4.setSpacing(16)
-        self.country_panel=self._panel("ПО СТРАНАМ"); self.country_layout=QVBoxLayout(); self.country_panel.layout().addLayout(self.country_layout); row4.addWidget(self.country_panel,1)
-        self.language_panel=self._panel("ЯЗЫКИ ИНТЕРФЕЙСА"); self.language_layout=QVBoxLayout(); self.language_panel.layout().addLayout(self.language_layout); row4.addWidget(self.language_panel,1)
+        self.country_panel=self._panel("ПО СТРАНАМ"); self.country_panel.setMinimumHeight(230); self.country_panel.setMaximumHeight(300); self.country_layout=QVBoxLayout(); self.country_layout.setSpacing(8); self.country_panel.layout().addLayout(self.country_layout); row4.addWidget(self.country_panel,1)
+        self.language_panel=self._panel("ЯЗЫКИ ИНТЕРФЕЙСА"); self.language_panel.setMinimumHeight(230); self.language_panel.setMaximumHeight(300); self.language_layout=QVBoxLayout(); self.language_layout.setSpacing(8); self.language_panel.layout().addLayout(self.language_layout); row4.addWidget(self.language_panel,1)
         self.metadata_stats=self._text_panel("КОЛЛЕКЦИЯ И ДОПОЛНЕНИЯ"); row4.addWidget(self.metadata_stats,1)
         self.root.insertLayout(self.root.count()-1,row4)
 
     @staticmethod
     def _panel(title):
-        panel=QFrame(); panel.setStyleSheet("QFrame{background:#111222;border:1px solid #292A43;border-radius:10px;}"); layout=QVBoxLayout(panel); layout.setContentsMargins(18,16,18,16); heading=QLabel(title); heading.setStyleSheet("font-size:10.5pt;font-weight:650;color:#E9E9F0;border:0;"); layout.addWidget(heading); return panel
+        panel=QFrame(); panel.setObjectName("statisticsPanel"); panel.setStyleSheet("QFrame#statisticsPanel{background:#111222;border:1px solid #292A43;border-radius:8px;}"); layout=QVBoxLayout(panel); layout.setContentsMargins(18,16,18,16); heading=QLabel(title); heading.setStyleSheet("font-size:10.5pt;font-weight:650;color:#E9E9F0;border:0;background:transparent;"); layout.addWidget(heading); return panel
     def _text_panel(self,title): panel=self._panel(title); text=QLabel(); text.setWordWrap(True); text.setAlignment(Qt.AlignmentFlag.AlignTop); text.setMinimumHeight(190); text.setStyleSheet("font-size:10.5pt;color:#BFC1D0;border:0;padding:12px;"); panel.layout().addWidget(text); panel.value_label=text; return panel
     @staticmethod
     def _clear(layout):
         while layout.count():
-            item=layout.takeAt(0); widget=item.widget()
+            item=layout.takeAt(0); widget=item.widget(); child=item.layout()
             if widget: widget.deleteLater()
+            elif child: StatisticsDashboard._clear(child)
     @staticmethod
     def _hours(value): return f"{value:g} ч"
     def _bar(self,layout,label,value,total,color=ACCENT):
-        row=QHBoxLayout(); row.setContentsMargins(0,0,0,0); row.setSpacing(8)
-        name=QLabel(label); name.setMinimumWidth(112); row.addWidget(name)
-        bar=QProgressBar(); bar.setTextVisible(False); bar.setRange(0,max(total,1)); bar.setValue(value); bar.setStyleSheet(f"QProgressBar{{background:#25263A;border:0;border-radius:4px;height:8px;}}QProgressBar::chunk{{background:{color};border-radius:4px;}}"); row.addWidget(bar,1)
-        count=QLabel(str(value)); count.setFixedWidth(38); count.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); count.setStyleSheet("border:0;color:#C9CBD6;"); row.addWidget(count)
-        layout.addLayout(row)
+        container=QWidget(); container.setFixedHeight(32); row=QHBoxLayout(container); row.setContentsMargins(0,0,0,0); row.setSpacing(10)
+        name=QLabel(label); name.setFixedWidth(122); name.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft); name.setStyleSheet("font-size:10.5pt;color:#E3E4EC;border:0;background:transparent;"); row.addWidget(name)
+        bar=QProgressBar(); bar.setTextVisible(False); bar.setRange(0,max(total,1)); bar.setValue(value)
+        bar.setFixedHeight(12); bar.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Fixed)
+        bar.setStyleSheet(f"QProgressBar{{background:#28293C;border:0;border-radius:2px;}}QProgressBar::chunk{{background:{color};border-radius:2px;}}"); row.addWidget(bar,1)
+        count=QLabel(str(value)); count.setFixedWidth(46); count.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); count.setStyleSheet(f"font-size:14pt;font-weight:750;border:0;background:transparent;color:{color};"); row.addWidget(count)
+        layout.addWidget(container)
 
     def refresh(self,games):
         self._all_items=list(games); self._refresh_selected()
@@ -89,8 +95,8 @@ class StatisticsDashboard(QScrollArea):
         elif selected=="Все разделы": activity_label="Время игр и программ"
         self.cards["hours"].label.setText(activity_label)
         for key,value in {"objects":len(games),"rated":len(rated),"started":len(started),"completed":len(completed),"favorites":len(favorites),"hours":activity_value,"average":f"{average:.1f}" if average is not None else "—"}.items(): self.cards[key].value.setText(str(value))
-        self._clear(self.rating_layout); buckets=(("10–9",lambda x:x>=9),("8.9–7",lambda x:7<=x<9),("6.9–5",lambda x:5<=x<7),("4.9–3",lambda x:3<=x<5),("2.9–1",lambda x:x<3))
-        for label,test in buckets: self._bar(self.rating_layout,label,sum(test(float(g.personal_score)) for g in rated),len(rated))
+        self._clear(self.rating_layout); buckets=(("10–9",lambda x:x>=9,"#18D166"),("8.9–7",lambda x:7<=x<9,"#7ED957"),("6.9–5",lambda x:5<=x<7,"#FFC42E"),("4.9–3",lambda x:3<=x<5,"#FF8A32"),("2.9–1",lambda x:x<3,"#FF4D57"))
+        for label,test,color in buckets: self._bar(self.rating_layout,label,sum(test(float(g.personal_score)) for g in rated),len(rated),color)
         self.rating_layout.addStretch(1)
         types=Counter(g.media_type for g in games); ordered=[types.get(x,0) for x in ("Игры","Фильмы","Сериалы","Программы")]; self.donut.set_values(ordered); self.type_labels.setText("\n".join(f"{name}: {value}" for name,value in zip(("Игры","Фильмы","Сериалы","Программы"),ordered)))
         self._clear(self.status_layout); statuses=Counter(g.status for g in games)
@@ -99,7 +105,10 @@ class StatisticsDashboard(QScrollArea):
         for media_type in media:
             for status in MEDIA_STATUSES.get(media_type,()):
                 if status not in status_order: status_order.append(status)
-        for status in status_order: self._bar(self.status_layout,status,statuses.get(status,0),len(games),"#18D166" if status in completed_values else ACCENT)
+        from app.ui.catalog.status_menu import status_visual
+        for status in status_order:
+            color, _border, _background = status_visual(status)
+            self._bar(self.status_layout,status,statuses.get(status,0),len(games),color)
         self.status_layout.addStretch(1)
         platforms=Counter(token.strip() for g in games for token in g.platform.split(";") if token.strip()); self.platforms.value_label.setText(self._platform_rank(platforms))
         years=Counter(g.year for g in games if g.year and g.year!="—"); self.years.value_label.setText(self._rank(years,"Нет данных"))
@@ -151,11 +160,8 @@ class StatisticsDashboard(QScrollArea):
     @staticmethod
     def _platform_rank(counter):
         if not counter: return "Нет данных"
-        icon_root="C:/Velora/assets/icons/platforms"
         def icon(name):
-            upper=name.upper()
-            if upper.startswith("PS"): return f"{icon_root}/playstation.svg"
-            if upper.startswith("X"): return f"{icon_root}/xbox.svg"
-            if upper in ("SWITCH","SWITCH2","WII","WIIU","NDS","3DS"): return f"{icon_root}/nintendo.svg"
-            return f"{icon_root}/pc.svg"
+            icon_id, _tooltip = platform_icon(name)
+            path = IconRegistry.path(icon_id, variant="dark", category="platforms")
+            return path.as_posix() if path else ""
         return "<br>".join(f'<img src="{icon(name)}" width="17" height="17">&nbsp; {name} — {value}' for name,value in counter.most_common(6))

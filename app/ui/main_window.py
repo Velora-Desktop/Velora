@@ -1,7 +1,7 @@
 from PySide6.QtCore import QSettings, QUrl
 from PySide6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QSplitter, QVBoxLayout, QWidget
 
 from app.styles.theme import application_stylesheet
 from app.ui.catalog.catalog_view import CatalogView
@@ -22,7 +22,7 @@ from app.ui.search.search_page import SearchPage
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Velora AW0.06")
+        self.setWindowTitle("Velora AW0.07 · каталог AW0.0711")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
@@ -39,11 +39,14 @@ class MainWindow(QMainWindow):
         self.top_bar = TopBar()
         root.addWidget(self.top_bar)
 
-        body = QHBoxLayout()
+        body_widget = QWidget()
+        body = QHBoxLayout(body_widget)
         body.setContentsMargins(5, 14, 12, 5)
         body.setSpacing(12)
         self.sidebar = Sidebar(CatalogView.category_counts())
-        body.addWidget(self.sidebar)
+        self.workspace_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.workspace_splitter.setChildrenCollapsible(False)
+        self.workspace_splitter.addWidget(self.sidebar)
         center = QWidget()
         center_layout = QVBoxLayout(center)
         center_layout.setContentsMargins(0, 0, 0, 0)
@@ -75,8 +78,12 @@ class MainWindow(QMainWindow):
         center_layout.addWidget(self.profile_page, 1)
         center_layout.addWidget(self.search_page, 1)
         center_layout.addWidget(self.empty_section, 1)
-        body.addWidget(center, 1)
-        root.addLayout(body, 1)
+        self.workspace_splitter.addWidget(center)
+        self.workspace_splitter.setStretchFactor(0, 0)
+        self.workspace_splitter.setStretchFactor(1, 1)
+        self.workspace_splitter.setSizes((250, 1350))
+        body.addWidget(self.workspace_splitter)
+        root.addWidget(body_widget, 1)
         self.setCentralWidget(central)
 
         self.top_bar.placeholder_requested.connect(self._placeholder)

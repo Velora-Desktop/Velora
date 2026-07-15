@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from pathlib import Path
-
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QVBoxLayout, QWidget,
+    QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
 from app.data.catalog_repository import catalog_categories, load_catalog_items, media_groups
 from app.models.game import MEDIA_STATUSES, GameData
 from app.services.age_filter_service import AgeFilterService
-from app.ui.catalog.game_row import COLUMN_WIDTHS, GameRow
+from app.core.icon_registry import IconRegistry
+from app.ui.catalog.game_row import COLUMN_AREA_WIDTH, COLUMN_LABELS, COLUMN_SPACING, COLUMN_WIDTHS, GameRow
 
 
 class CatalogView(QWidget):
@@ -41,11 +39,13 @@ class CatalogView(QWidget):
         self.group_labels: dict[str, QWidget] = {}
         self.group_count_labels: dict[str, QLabel] = {}
         self.sort_directions: dict[str, bool] = {}
+        self.header_column_widgets: dict[QWidget, dict[str, QPushButton]] = {}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 10, 12, 8)
         root.setSpacing(6)
         controls = QGridLayout()
+        self.controls_layout = controls
         controls.setHorizontalSpacing(16)
         specs = (
             ("СОРТИРОВКА:", ("По моей оценке", "По общей оценке", "По названию", "По году выхода", "По автору")),
@@ -62,20 +62,24 @@ class CatalogView(QWidget):
             self.control_labels.append(label)
             combo = QComboBox()
             combo.addItems(values)
-            combo.setFixedSize(245, 40)
+            combo.setMinimumSize(170, 40)
+            combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             combo.currentTextChanged.connect(self._controls_changed)
             controls.addWidget(combo, 1, column)
             self.control_combos.append(combo)
         controls.setColumnStretch(4, 1)
         self.search = QLineEdit()
-        self.search.setFixedSize(285, 40)
+        self.search.setMinimumSize(220, 40)
         self.search.addAction(
-            QIcon(str(Path(__file__).resolve().parents[3] / "assets/icons/search.svg")),
+            IconRegistry.icon("search"),
             QLineEdit.ActionPosition.TrailingPosition,
         )
         self.search.textChanged.connect(self._filter)
         controls.addWidget(self.search, 1, 5)
-        settings = QPushButton("⚙")
+        settings = QPushButton()
+        self.settings_button = settings
+        settings.setIcon(IconRegistry.icon("settings_gears", variant="dark", category="ui"))
+        settings.setToolTip("Настройки каталога")
         settings.setFixedSize(40, 40)
         settings.clicked.connect(self.placeholder_requested)
         controls.addWidget(settings, 1, 6)
@@ -83,6 +87,7 @@ class CatalogView(QWidget):
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.content = QWidget()
         self.list_layout = QVBoxLayout(self.content)
         self.list_layout.setContentsMargins(0, 4, 0, 4)
@@ -111,6 +116,36 @@ class CatalogView(QWidget):
         pagination.addWidget(self.next_button)
         root.addLayout(pagination)
         self.set_media_type("Игры")
+        self._controls_compact = False
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        compact = event.size().width() < 1320
+        if compact != self._controls_compact:
+            self._controls_compact = compact
+            self._arrange_controls(compact)
+
+    def _arrange_controls(self, compact: bool) -> None:
+        for widget in (*self.control_labels, *self.control_combos, self.search):
+            self.controls_layout.removeWidget(widget)
+        settings_widget = self.settings_button
+        self.controls_layout.removeWidget(settings_widget)
+        if compact:
+            for index, (label, combo) in enumerate(zip(self.control_labels, self.control_combos)):
+                row, column = divmod(index, 2)
+                self.controls_layout.addWidget(label, row * 2, column)
+                self.controls_layout.addWidget(combo, row * 2 + 1, column)
+            self.controls_layout.addWidget(self.search, 4, 0, 1, 2)
+            if settings_widget:
+                self.controls_layout.addWidget(settings_widget, 4, 2)
+            self.controls_layout.setColumnStretch(0, 1); self.controls_layout.setColumnStretch(1, 1)
+        else:
+            for index, (label, combo) in enumerate(zip(self.control_labels, self.control_combos)):
+                self.controls_layout.addWidget(label, 0, index)
+                self.controls_layout.addWidget(combo, 1, index)
+            self.controls_layout.addWidget(self.search, 1, 5)
+            if settings_widget:
+                self.controls_layout.addWidget(settings_widget, 1, 6)
 
     def categories_for(self, media_type: str) -> dict[str, int]:
         return catalog_categories(self.items, media_type)
@@ -187,21 +222,27 @@ class CatalogView(QWidget):
         self.row_groups.clear()
         self.group_labels.clear()
         self.group_count_labels.clear()
+        self.header_column_widgets.clear()
         groups = media_groups(self.items, self.current_media_type, self.current_category)
         for group_name, games in groups.items():
             header = QWidget()
             header_layout = QHBoxLayout(header)
-            header_layout.setContentsMargins(6, 5, 0, 5)
-            toggle = QPushButton("−" if group_name not in self.collapsed_groups else "+")
-            toggle.setFixedWidth(24)
+            header_layout.setContentsMargins(8, 5, 8, 5)
+            header_layout.setSpacing(COLUMN_SPACING)
+            toggle = QPushButton("\u2212" if group_name not in self.collapsed_groups else "+")
+            toggle.setObjectName("groupToggle")
+            toggle.setFixedSize(28, 28)
+            toggle.setToolTip("Скрыть группу" if group_name not in self.collapsed_groups else "Показать группу")
             toggle.clicked.connect(lambda checked=False, name=group_name: self._toggle_group(name))
             header_layout.addWidget(toggle)
             count = QLabel(f"{group_name.upper()} ({len(games)})")
             header_layout.addWidget(count)
             header_layout.addStretch()
-            self._append_column_buttons(header_layout)
+            header_columns, header_widgets = self._column_header_widget()
+            header_layout.addWidget(header_columns)
             self.list_layout.addWidget(header)
             self.group_labels[group_name] = header
+            self.header_column_widgets[header] = header_widgets
             self.group_count_labels[group_name] = count
             rows = []
             for game in games:
@@ -227,21 +268,34 @@ class CatalogView(QWidget):
         self._reorder_visual_rows()
         self.list_layout.addStretch()
         self._apply_view()
+        # A previous horizontal position must not leak into another media
+        # section and visually detach headers from the title column.
+        QTimer.singleShot(0, lambda: self.scroll.horizontalScrollBar().setValue(0))
 
-    def _append_column_buttons(self, layout: QHBoxLayout) -> None:
+    def _column_header_widget(self) -> tuple[QWidget, dict[str, QPushButton]]:
+        container = QWidget()
+        container.setFixedWidth(COLUMN_AREA_WIDTH)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(COLUMN_SPACING)
+        widgets: dict[str, QPushButton] = {}
         for text, key in self._column_headers():
             button = QPushButton(text)
             button.setFixedWidth(COLUMN_WIDTHS[key])
             button.setFlat(True)
             button.clicked.connect(lambda checked=False, column=key: self._sort_by_column(column))
             layout.addWidget(button)
-        layout.addSpacing(COLUMN_WIDTHS["more"])
+            widgets[key] = button
+        more_placeholder = QWidget()
+        more_placeholder.setFixedWidth(COLUMN_WIDTHS["more"])
+        layout.addWidget(more_placeholder)
+        return container, widgets
 
     def _column_headers(self) -> tuple[tuple[str, str], ...]:
         creator = {"Игры": "Разработчик", "Фильмы": "Режиссёр", "Сериалы": "Создатель", "Программы": "Разработчик"}[self.current_media_type]
         platform = "Где смотреть" if self.current_media_type in ("Фильмы", "Сериалы") else "Платформа"
         mode = {"Игры": "Кол-во игроков", "Фильмы": "Длительность", "Сериалы": "Сезоны", "Программы": "Тип"}[self.current_media_type]
-        return (("Общая оценка", "general"), ("Моя оценка", "personal"), ("Статус", "status"),
+        return ((COLUMN_LABELS["general"], "general"), (COLUMN_LABELS["personal"], "personal"), (COLUMN_LABELS["status"], "status"),
                 (creator, "developer"), ("Год выхода", "year"), (platform, "platform"),
                 (mode, "mode"), ("Возраст", "age"))
 
@@ -250,6 +304,13 @@ class CatalogView(QWidget):
             self.collapsed_groups.remove(name)
         else:
             self.collapsed_groups.add(name)
+        header = self.group_labels.get(name)
+        if header is not None:
+            toggle = header.findChild(QPushButton, "groupToggle")
+            if toggle is not None:
+                collapsed = name in self.collapsed_groups
+                toggle.setText("+" if collapsed else "\u2212")
+                toggle.setToolTip("Показать группу" if collapsed else "Скрыть группу")
         self._apply_view()
 
     def _sort_by_column(self, column: str) -> None:

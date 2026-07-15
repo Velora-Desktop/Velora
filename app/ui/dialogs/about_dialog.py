@@ -1,36 +1,25 @@
-from PySide6.QtWidgets import QDialog, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QVBoxLayout
+
+from app.core.icon_registry import IconRegistry
 
 
 class AboutDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("О проекте Velora")
-        self.setModal(True)
-        self.setMinimumSize(600, 390)
+        self.setWindowIcon(IconRegistry.icon("info", variant="dark", category="feedback"))
+        self.setModal(True); self.setMinimumSize(600, 390)
         root = QVBoxLayout(self)
-        title = QLabel("VELORA")
-        title.setStyleSheet("font-family:Georgia; font-size:24pt; font-weight:600;")
-        root.addWidget(title)
-
+        heading = QHBoxLayout(); icon = QLabel(); icon.setPixmap(IconRegistry.pixmap("info", 24, variant="dark", category="feedback")); heading.addWidget(icon)
+        title = QLabel("VELORA"); title.setStyleSheet("font-family:Georgia;font-size:24pt;font-weight:600;"); heading.addWidget(title); heading.addStretch(); root.addLayout(heading)
         intro = QLabel(
-            "Velora — open-source инструментарий, созданный для людей.\n\n"
-            "Приложение помогает собирать личный каталог игр и других произведений, "
-            "оценивать их по понятным критериям, сохранять историю впечатлений и "
-            "организовывать собственное пространство без обязательной регистрации.\n\n"
-            "Velora уважает выбор пользователя: личные оценки, история, настройки и "
-            "созданные категории принадлежат пользователю и не должны теряться при обновлениях.\n\n"
-            "Velora не хранит пользовательские данные на внешних серверах. Оценки, история, "
-            "игровое время, категории и настройки сохраняются локально на компьютере пользователя. "
-            "Такой подход снижает зависимость от сторонних сервисов и помогает сохранить контроль "
-            "над личными данными."
+            "Velora — open-source инструментарий для личной медиатеки, оценок и истории впечатлений.\n\n"
+            "Личные оценки, история, время, категории и настройки хранятся только локально на компьютере пользователя. "
+            "Velora не отправляет пользовательские данные на внешние серверы."
         )
-        intro.setWordWrap(True)
-        root.addWidget(intro)
-        root.addStretch()
-        credits = QLabel(
-            "Автор: Станислав Смирнов\n"
-            "Разработчик: Станислав Смирнов\n"
-            "Версия: AW0.06 — Alpha Windows"
-        )
-        credits.setStyleSheet("color:#C9A7FF; font-weight:500;")
-        root.addWidget(credits)
+        intro.setWordWrap(True); root.addWidget(intro); root.addStretch()
+        attribution = QLabel('Uicons от <a href="https://www.flaticon.com/uicons">Flaticon</a>')
+        attribution.setOpenExternalLinks(True); attribution.setTextInteractionFlags(attribution.textInteractionFlags())
+        root.addWidget(attribution)
+        credits = QLabel("Автор: Станислав Смирнов\nРазработчик: Станислав Смирнов\nВерсия: AW0.07 — Alpha Windows\nКаталог: AW0.0711")
+        credits.setStyleSheet("color:#C9A7FF;font-weight:500;"); root.addWidget(credits)

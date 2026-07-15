@@ -1,8 +1,9 @@
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QDoubleSpinBox, QLabel, QVBoxLayout
+from app.core.icon_registry import IconRegistry
 
 
 def request_total_playtime(current_hours: float, parent=None) -> float | None:
-    dialog = QDialog(parent); dialog.setWindowTitle("Общее игровое время")
+    dialog = QDialog(parent); dialog.setWindowTitle("Общее игровое время"); dialog.setWindowIcon(IconRegistry.icon("clock", variant="dark", category="ui")); dialog.setMinimumWidth(420)
     layout = QVBoxLayout(dialog)
     current_text = f"{current_hours:g} ч" if current_hours else "—"
     layout.addWidget(QLabel(f"Сколько часов вы наиграли всего?\nСейчас сохранено: {current_text}"))

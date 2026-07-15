@@ -8,5 +8,6 @@ build/
 dist/
 *.spec
 work/
+workspace/
 data/*.bak
 data/*.tmp

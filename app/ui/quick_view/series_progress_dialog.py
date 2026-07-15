@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from app.core.icon_registry import IconRegistry
 
 
 EPISODES_PER_SEASON = 10
@@ -34,6 +35,7 @@ class SeriesProgressDialog(QDialog):
     def __init__(self, total_seasons: int, states: dict[str, str], parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Прогресс сериала")
+        self.setWindowIcon(IconRegistry.icon("video_media", variant="dark", category="media"))
         self.setMinimumSize(820, 560)
         self.resize(980, 650)
         self.total_seasons = max(1, total_seasons)

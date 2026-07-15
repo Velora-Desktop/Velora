@@ -1,10 +1,7 @@
 from datetime import datetime
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QDoubleSpinBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -13,13 +10,15 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QPushButton,
     QScrollArea,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from app.core.constants import ACCENT, DANGER, SUCCESS, WARNING
 from app.models.game import GameData
+from app.core.icon_registry import IconRegistry
+from app.ui.widgets.platform_icons import PlatformIconRow
+from app.ui.widgets.age_rating import AgeRatingValue
 from app.ui.catalog.status_menu import build_status_menu
 from app.ui.quick_view.rating_dialog import request_rating
 from app.ui.quick_view.playtime_dialog import request_total_playtime
@@ -55,6 +54,7 @@ class QuickView(QFrame):
         self.cover.setStyleSheet("background:#242B36; border:1px solid #313B47; border-radius:6px;")
         cover_column.addWidget(self.cover)
         rate_button = QPushButton("ОЦЕНИТЬ")
+        rate_button.setIcon(IconRegistry.icon("edit", category="ui")); rate_button.setIconSize(QSize(16, 16))
         rate_button.setFixedHeight(36)
         rate_button.setStyleSheet(
             f"background:#6721BA; border:1px solid {ACCENT}; border-radius:5px; "
@@ -96,10 +96,10 @@ class QuickView(QFrame):
         self.genre = self._meta_value()
         self.year = self._meta_value()
         self.developer = self._meta_value()
-        self.platform = self._meta_value()
+        self.platform = PlatformIconRow(colored=False)
         self.publisher = self._meta_value()
         self.mode = self._meta_value()
-        self.age = self._meta_value()
+        self.age = AgeRatingValue()
         empty_value = self._meta_value()
         pairs = (
             ("Жанр:", self.genre, "Год выхода:", self.year),
@@ -122,6 +122,7 @@ class QuickView(QFrame):
         info.addWidget(self.summary)
         info.addStretch()
         actions = QPushButton("ДЕЙСТВИЯ")
+        actions.setIcon(IconRegistry.icon("sliders", variant="dark", category="ui")); actions.setIconSize(QSize(16, 16))
         actions.setFixedSize(145, 36)
         actions.setStyleSheet("border:1px solid #2A3540; background:#0B131A; text-align:left;")
         actions_menu = QMenu(actions)
@@ -214,6 +215,8 @@ class QuickView(QFrame):
         activity.addWidget(self.playtime, 1, 1)
         timeline_column.addLayout(activity)
         self.time_button = QPushButton("ИЗМЕНИТЬ ОБЩЕЕ ВРЕМЯ")
+        self.time_button.setObjectName("timeAction")
+        self.time_button.setIcon(IconRegistry.icon("clock", variant="dark", category="ui")); self.time_button.setIconSize(QSize(16, 16))
         self.time_button.setStyleSheet("border:1px solid #2A3540; background:#0B131A; text-align:left;")
         self.time_button.clicked.connect(self._open_media_progress_dialog)
         timeline_column.addWidget(self.time_button)
@@ -259,7 +262,20 @@ class QuickView(QFrame):
         layout.setSpacing(1)
         caption = QLabel(title)
         caption.setObjectName("muted")
-        layout.addWidget(caption)
+        caption_row = QHBoxLayout(); caption_row.setContentsMargins(0, 0, 0, 0); caption_row.setSpacing(5)
+        icon_map = {
+            "Жанр:": ("globe", "ui"), "Год выхода:": ("clock", "ui"),
+            "Разработчик:": ("code_display", "ui"), "Платформа:": ("gaming_pc", "platforms"),
+            "Издатель:": ("announcement", "marketing"), "Кол-во игроков:": ("play", "ui"),
+        }
+        if title in icon_map:
+            icon_id, category = icon_map[title]
+            icon = QLabel(); icon.setFixedSize(16, 16)
+            variant = "svg" if icon_id == "code_display" else "dark"
+            icon.setPixmap(IconRegistry.pixmap(icon_id, 14, variant=variant, category=category))
+            caption_row.addWidget(icon)
+        caption_row.addWidget(caption); caption_row.addStretch(1)
+        layout.addLayout(caption_row)
         layout.addWidget(value)
         return layout, caption
 
@@ -301,7 +317,7 @@ class QuickView(QFrame):
         self.platform.setText(game.platform)
         self.publisher.setText(game.publisher)
         self.mode.setText(game.mode)
-        self.age.setText(f"{game.age_rating}+")
+        self.age.setText(game.age_rating)
         summary = game.description.strip()
         self.summary.setText(summary if len(summary) <= 190 else summary[:187].rstrip() + "…")
         self.general_score.setText(self._format_score(game.general_score))
@@ -350,8 +366,17 @@ class QuickView(QFrame):
     def _open_rating_dialog(self) -> None:
         if self.current_game is None:
             return
-        criteria = request_rating(self.current_game.rating_criteria, self, self.current_game.media_type)
-        if criteria is not None: self._record_rating(criteria)
+        result = request_rating(
+            self.current_game.rating_criteria,
+            self,
+            self.current_game.media_type,
+            self.current_game.playtime_hours,
+        )
+        if result is not None:
+            criteria, total_hours = result
+            self._record_rating(criteria)
+            if abs(total_hours - self.current_game.playtime_hours) >= 0.05:
+                self._record_total_playtime(total_hours)
 
     def _record_rating(self, criteria: dict[str, int]) -> None:
         if self.current_game is None or not criteria:

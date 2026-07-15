@@ -1,12 +1,15 @@
 from pathlib import Path
 from datetime import datetime
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from app.core.constants import ACCENT, SUCCESS, WARNING
 from app.models.game import GameData
+from app.core.icon_registry import IconRegistry
+from app.ui.widgets.platform_icons import PlatformIconRow
+from app.ui.widgets.age_rating import AgeRatingValue
 
 
 class GameDetailPage(QScrollArea):
@@ -35,8 +38,10 @@ class GameDetailPage(QScrollArea):
         info.addLayout(title_row)
         personal_actions = QHBoxLayout()
         self.rate_button = QPushButton("ОЦЕНИТЬ ИГРУ"); self.rate_button.setStyleSheet("background:#6E1BC4; border:1px solid #A54BFF; font-weight:600;")
+        self.rate_button.setIcon(IconRegistry.icon("edit", category="ui")); self.rate_button.setIconSize(QSize(17, 17))
         self.rate_button.clicked.connect(lambda: self.game is not None and self.rate_requested.emit(self.game))
         self.status_badge = QPushButton(); self.status_badge.setMinimumSize(170, 38)
+        self.status_badge.setIcon(IconRegistry.icon("history_recent", variant="dark", category="ui")); self.status_badge.setIconSize(QSize(16, 16))
         from app.ui.catalog.status_menu import build_status_menu
         self.status_badge.setMenu(build_status_menu(self.status_badge, self._change_status))
         personal_actions.addWidget(self.rate_button); personal_actions.addWidget(self.status_badge); personal_actions.addStretch(); info.addLayout(personal_actions)
@@ -44,10 +49,29 @@ class GameDetailPage(QScrollArea):
         self.metadata = QGridLayout(); self.metadata.setHorizontalSpacing(34); self.metadata.setVerticalSpacing(12)
         self.meta_values = {}
         self.meta_captions = {}
+        meta_icons = {
+            "Разработчик": ("code_display", "ui", "svg"),
+            "Издатель": ("announcement", "marketing", "dark"),
+            "Год выхода": ("clock", "ui", "dark"),
+            "Платформы": ("gaming_pc", "platforms", "dark"),
+            "Количество игроков": ("play", "ui", "dark"),
+        }
         for index, key in enumerate(("Разработчик", "Издатель", "Год выхода", "Платформы", "Количество игроков", "Возраст")):
             row, column = divmod(index, 2); caption = QLabel(key.upper()); caption.setObjectName("caption")
-            value = QLabel(); value.setWordWrap(True); value.setStyleSheet("font-size:11pt; font-weight:500;")
-            box = QVBoxLayout(); box.addWidget(caption); box.addWidget(value); self.metadata.addLayout(box, row, column); self.meta_values[key] = value; self.meta_captions[key] = caption
+            if key == "Платформы":
+                value = PlatformIconRow(colored=False)
+            elif key == "Возраст":
+                value = AgeRatingValue()
+            else:
+                value = QLabel(); value.setWordWrap(True); value.setStyleSheet("font-size:11pt; font-weight:500;")
+            caption_row = QHBoxLayout(); caption_row.setContentsMargins(0, 0, 0, 0); caption_row.setSpacing(5)
+            if key in meta_icons:
+                icon_id, category, variant = meta_icons[key]
+                caption_icon = QLabel(); caption_icon.setFixedSize(18, 18)
+                caption_icon.setPixmap(IconRegistry.pixmap(icon_id, 16, variant=variant, category=category))
+                caption_row.addWidget(caption_icon)
+            caption_row.addWidget(caption); caption_row.addStretch(1)
+            box = QVBoxLayout(); box.addLayout(caption_row); box.addWidget(value); self.metadata.addLayout(box, row, column); self.meta_values[key] = value; self.meta_captions[key] = caption
         info.addLayout(self.metadata)
         self.description = QLabel(); self.description.setWordWrap(True); self.description.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.description.setStyleSheet("font-size:11pt; line-height:1.4; color:#CAD1D7;"); info.addWidget(self.description, 1)
@@ -79,7 +103,7 @@ class GameDetailPage(QScrollArea):
 
     @staticmethod
     def _score_card(title: str, brand: str, color: str):
-        card = QFrame(); card.setStyleSheet("QFrame { background:#09131A; border:1px solid #273640; border-radius:8px; }")
+        card = QFrame(); card.setObjectName("ratingSourceCard"); card.setStyleSheet("QFrame#ratingSourceCard { background:#09131A; border:1px solid #273640; border-radius:8px; }")
         layout = QVBoxLayout(card); layout.setContentsMargins(14, 12, 14, 12)
         logo = QLabel(brand); logo.setAlignment(Qt.AlignmentFlag.AlignCenter); logo.setStyleSheet(f"color:{color}; font-size:10pt; font-weight:800; border:0;")
         caption = QLabel(title); caption.setAlignment(Qt.AlignmentFlag.AlignCenter); caption.setObjectName("caption")
@@ -88,15 +112,28 @@ class GameDetailPage(QScrollArea):
 
     @staticmethod
     def _panel(title: str) -> QFrame:
-        panel = QFrame(); panel.setStyleSheet("QFrame { background:#081118; border:1px solid #26343E; border-radius:8px; }")
-        layout = QVBoxLayout(panel); heading = QLabel(title); heading.setObjectName("caption"); layout.addWidget(heading); return panel
+        panel = QFrame(); panel.setObjectName("officialInfoCard"); panel.setStyleSheet("QFrame#officialInfoCard { background:#081118; border:1px solid #26343E; border-radius:8px; }")
+        layout = QVBoxLayout(panel); heading_row = QHBoxLayout(); heading_row.setContentsMargins(0, 0, 0, 0)
+        icon_map = {
+            "БЮДЖЕТ": ("film_budget", "media", "dark"), "СТРАНА": ("globe", "ui", "dark"),
+            "ЯЗЫКИ ИНТЕРФЕЙСА": ("globe", "ui", "dark"), "НАГРАДЫ": ("trophy", "achievements", "dark"),
+            "DLC": ("media_file", "media", "dark"), "СИСТЕМНЫЕ": ("processor", "hardware", "dark"),
+            "ИСХОДНЫЙ": ("code_display", "ui", "svg"), "АРХИТЕКТУРЫ": ("ai_chip", "hardware", "dark"),
+            "ЯЗЫКИ РАЗРАБОТКИ": ("python", "brands", "svg"), "РАСПРОСТРАНЕНИЕ": ("announcement", "marketing", "dark"),
+            "МАГАЗИНЫ": ("storefront", "stores", "svg"),
+        }
+        match = next((value for prefix, value in icon_map.items() if title.startswith(prefix)), None)
+        if match:
+            icon_id, category, variant = match; icon = QLabel(); icon.setFixedSize(18, 18)
+            icon.setPixmap(IconRegistry.pixmap(icon_id, 16, variant=variant, category=category)); heading_row.addWidget(icon)
+        heading = QLabel(title); heading.setObjectName("caption"); heading_row.addWidget(heading); heading_row.addStretch(); layout.addLayout(heading_row); return panel
 
     def set_game(self, game: GameData) -> None:
         from app.ui.catalog.status_menu import build_status_menu
         self.status_badge.setMenu(build_status_menu(self.status_badge, self._change_status, game.media_type))
         self.game = game; self.title.setText(game.title); self.route.setText(f"{game.category}  •  {game.subgroup or 'Без подгруппы'}")
         self.breadcrumb.setText(f"{game.media_type.upper()}  /  {game.category.upper()}  /  {(game.subgroup or 'КАРТОЧКА').upper()}")
-        values = {"Разработчик":game.developer, "Издатель":game.publisher, "Год выхода":game.year, "Платформы":game.platform, "Количество игроков":game.mode, "Возраст":f"{game.age_rating}+"}
+        values = {"Разработчик":game.developer, "Издатель":game.publisher, "Год выхода":game.year, "Платформы":game.platform, "Количество игроков":game.mode, "Возраст":game.age_rating}
         labels = {
             "Игры": ("РАЗРАБОТЧИК", "ИЗДАТЕЛЬ", "ПЛАТФОРМЫ", "КОЛИЧЕСТВО ИГРОКОВ"),
             "Фильмы": ("РЕЖИССЁР", "СТУДИЯ", "ГДЕ СМОТРЕТЬ", "ДЛИТЕЛЬНОСТЬ"),
