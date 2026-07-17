@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Signal, Qt
+from pathlib import Path
+from datetime import datetime
+
+from PySide6.QtCore import QSize, Signal, Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QCheckBox, QDialog, QHBoxLayout, QLabel, QListWidget, QMessageBox,
+    QCheckBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QListWidget, QMessageBox,
     QPushButton, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from app.core.icon_registry import IconRegistry
+from app.core.paths import APP_DATA_DIR, LOGS_DIR
+from app.services.data_backup_service import BackupValidationError, DataBackupService
 
 
 LANGUAGES = (
@@ -24,10 +30,12 @@ class SettingsDialog(QDialog):
     adult_filter_changed = Signal(bool)
     hidden_restored = Signal(object)
     profile_reset_requested = Signal()
+    backup_imported = Signal()
 
-    def __init__(self, hide_adult_content: bool, games=(), parent=None) -> None:
+    def __init__(self, hide_adult_content: bool, games=(), parent=None, data_service: DataBackupService | None = None) -> None:
         super().__init__(parent)
         self.games = list(games)
+        self.data_service = data_service
         self.setWindowTitle("Настройки Velora")
         self.setWindowIcon(IconRegistry.icon("settings_gears", variant="dark", category="ui"))
         self.setMinimumSize(680, 520)
@@ -37,6 +45,8 @@ class SettingsDialog(QDialog):
         tabs = QTabWidget(); root.addWidget(tabs, 1)
         tabs.addTab(self._build_general_tab(), "ОБЩЕЕ")
         tabs.addTab(self._build_content_tab(hide_adult_content), "КОНТЕНТ")
+        tabs.addTab(self._build_data_tab(), "ДАННЫЕ")
+        tabs.addTab(self._build_diagnostics_tab(), "ДИАГНОСТИКА")
         tabs.addTab(self._build_language_tab(), "ЯЗЫК")
 
     def _build_general_tab(self) -> QWidget:
@@ -52,6 +62,95 @@ class SettingsDialog(QDialog):
         reset.setProperty("danger", True)
         reset.clicked.connect(self._confirm_reset); layout.addWidget(reset)
         return tab
+
+    def _build_data_tab(self) -> QWidget:
+        tab = QWidget(); layout = QVBoxLayout(tab); layout.setSpacing(12)
+        layout.addWidget(QLabel("РЕЗЕРВНЫЕ КОПИИ"))
+        hint = QLabel("Резервная копия содержит локальный профиль, оценки, статусы, историю, настройки и пользовательские изображения.")
+        hint.setObjectName("muted"); hint.setWordWrap(True); layout.addWidget(hint)
+        actions = QHBoxLayout()
+        export_button = QPushButton("ЭКСПОРТИРОВАТЬ КОПИЮ")
+        export_button.setIcon(IconRegistry.icon("export_backup", category="diagnostics"))
+        export_button.clicked.connect(self._export_backup)
+        import_button = QPushButton("ИМПОРТИРОВАТЬ КОПИЮ")
+        import_button.setIcon(IconRegistry.icon("import_backup", category="diagnostics"))
+        import_button.clicked.connect(self._import_backup)
+        actions.addWidget(export_button); actions.addWidget(import_button); layout.addLayout(actions)
+        layout.addWidget(QLabel("ИСПОЛЬЗОВАНИЕ ХРАНИЛИЩА"))
+        self.storage_values = QFormLayout(); layout.addLayout(self.storage_values)
+        self._refresh_storage_sizes()
+        layout.addStretch()
+        return tab
+
+    def _build_diagnostics_tab(self) -> QWidget:
+        tab = QWidget(); layout = QVBoxLayout(tab); layout.setSpacing(10)
+        layout.addWidget(QLabel("ДИАГНОСТИКА БАЗ ДАННЫХ"))
+        for text, icon, callback in (
+            ("ПРОВЕРИТЬ USER.DB", "database_check", lambda: self._check_database("user")),
+            ("ПРОВЕРИТЬ CATALOG.DB", "integrity_check", lambda: self._check_database("catalog")),
+            ("ОТКРЫТЬ ПАПКУ ДАННЫХ", "data_folder", lambda: self._open_folder(APP_DATA_DIR)),
+            ("ОТКРЫТЬ ПАПКУ ЛОГОВ", "logs", lambda: self._open_folder(LOGS_DIR)),
+        ):
+            button = QPushButton(text); button.setIcon(IconRegistry.icon(icon)); button.clicked.connect(callback); layout.addWidget(button)
+        self.version_info = QLabel(self._version_text()); self.version_info.setObjectName("muted"); layout.addWidget(self.version_info)
+        layout.addStretch()
+        return tab
+
+    def _refresh_storage_sizes(self) -> None:
+        while self.storage_values.rowCount(): self.storage_values.removeRow(0)
+        if self.data_service is None:
+            self.storage_values.addRow(QLabel("Данные недоступны")); return
+        sizes = self.data_service.storage_sizes()
+        labels = (("Официальный каталог", "catalog"), ("Обложки", "covers"), ("Пользовательская база", "user_db"), ("Пользовательские изображения", "user_images"), ("Резервные копии", "backups"), ("Всего", "total"))
+        for title, key in labels: self.storage_values.addRow(title, QLabel(self._format_bytes(sizes[key])))
+
+    def _export_backup(self) -> None:
+        if self.data_service is None: return
+        suggested = str(Path.home() / "Documents" / f"Velora_Backup_{datetime.now():%Y-%m-%d_%H-%M}.zip")
+        target, _ = QFileDialog.getSaveFileName(self, "Экспорт резервной копии", suggested, "Velora Backup (*.zip)")
+        if not target: return
+        try:
+            path = self.data_service.export_backup(Path(target))
+            self._refresh_storage_sizes(); QMessageBox.information(self, "Velora", f"Резервная копия создана:\n{path}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Ошибка экспорта", str(exc))
+
+    def _import_backup(self) -> None:
+        if self.data_service is None: return
+        source, _ = QFileDialog.getOpenFileName(self, "Импорт резервной копии", str(Path.home()), "Velora Backup (*.zip)")
+        if not source: return
+        answer = QMessageBox.warning(self, "Замена локальных данных", "Текущие локальные данные будут заменены после проверки архива. Перед заменой Velora создаст автоматическую копию. Продолжить?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel)
+        if answer != QMessageBox.StandardButton.Yes: return
+        try:
+            self.data_service.import_backup(Path(source))
+            QMessageBox.information(self, "Velora", "Данные восстановлены. Velora будет перезапущена при следующем запуске.")
+            self.backup_imported.emit(); self.accept()
+        except (BackupValidationError, OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Ошибка импорта", str(exc))
+
+    def _check_database(self, kind: str) -> None:
+        if self.data_service is None: return
+        database = self.data_service.user_db if kind == "user" else self.data_service.catalog_db
+        ok, message = self.data_service.integrity_check(database)
+        if ok: QMessageBox.information(self, "Проверка базы", message)
+        else: QMessageBox.warning(self, "Проверка базы", message + "\n\nФайл не изменён. Используйте проверенную резервную копию для восстановления.")
+
+    def _version_text(self) -> str:
+        if self.data_service is None: return "Версии баз недоступны"
+        values = self.data_service.versions()
+        return f"Velora: {values['application']}\nСхема user.db: {values['user_schema']}\nСхема catalog.db: {values['catalog_schema']}"
+
+    @staticmethod
+    def _open_folder(path: Path) -> None:
+        path.mkdir(parents=True, exist_ok=True); QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+
+    @staticmethod
+    def _format_bytes(value: int) -> str:
+        amount = float(value)
+        for unit in ("Б", "КБ", "МБ", "ГБ"):
+            if amount < 1024 or unit == "ГБ": return f"{amount:.1f} {unit}"
+            amount /= 1024
+        return f"{amount:.1f} ГБ"
 
     def _build_content_tab(self, hide_adult_content: bool) -> QWidget:
         tab = QWidget(); layout = QVBoxLayout(tab)

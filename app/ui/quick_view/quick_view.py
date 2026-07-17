@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMenu,
-    QInputDialog,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -23,6 +22,7 @@ from app.ui.catalog.status_menu import build_status_menu
 from app.ui.quick_view.rating_dialog import request_rating
 from app.ui.quick_view.playtime_dialog import request_total_playtime
 from app.ui.quick_view.series_progress_dialog import request_series_progress
+from app.ui.quick_view.watch_count_dialog import request_watch_count
 
 
 class QuickView(QFrame):
@@ -371,12 +371,18 @@ class QuickView(QFrame):
             self,
             self.current_game.media_type,
             self.current_game.playtime_hours,
+            self.current_game.watch_count,
+            self.current_game.seasons or 1,
+            self.current_game.episode_states,
         )
         if result is not None:
-            criteria, total_hours = result
-            self._record_rating(criteria)
-            if abs(total_hours - self.current_game.playtime_hours) >= 0.05:
-                self._record_total_playtime(total_hours)
+            self._record_rating(result.criteria)
+            if self.current_game.media_type == "Игры" and abs(result.total_hours - self.current_game.playtime_hours) >= 0.05:
+                self._record_total_playtime(result.total_hours)
+            elif self.current_game.media_type == "Фильмы":
+                self._apply_watch_count(result.watch_count)
+            elif self.current_game.media_type == "Сериалы":
+                self._apply_series_states(result.episode_states)
 
     def _record_rating(self, criteria: dict[str, int]) -> None:
         if self.current_game is None or not criteria:
@@ -401,11 +407,9 @@ class QuickView(QFrame):
         if self.current_game is None:
             return
         if self.current_game.media_type == "Фильмы":
-            value, accepted = QInputDialog.getInt(self, "Просмотры", "Сколько раз вы посмотрели фильм?", self.current_game.watch_count, 0, 999)
-            if accepted:
-                self.current_game.watch_count = value
-                self.current_game.history.append(f"{datetime.now():%d.%m.%Y %H:%M} — просмотров: {value}")
-                self._configure_media_progress(self.current_game); self._refresh_history(); self.playtime_changed.emit(self.current_game, self.current_game.playtime_hours)
+            value = request_watch_count(self.current_game.watch_count, self)
+            if value is not None:
+                self._apply_watch_count(value)
             return
         if self.current_game.media_type == "Сериалы":
             states = request_series_progress(
@@ -414,37 +418,55 @@ class QuickView(QFrame):
                 self,
             )
             if states is not None:
-                self.current_game.episode_states = states
-                marked = []
-                for key, state in states.items():
-                    if state in ("watched", "watching"):
-                        season, episode = (int(value) for value in key.split(":"))
-                        marked.append((season, episode))
-                self.current_game.season_number, self.current_game.episode_number = max(marked, default=(0, 0))
-                total = max(1, self.current_game.seasons or 1) * 10
-                watched = sum(state == "watched" for state in states.values())
-                if any(state == "watching" for state in states.values()):
-                    status = "СМОТРЮ"
-                elif any(state == "dropped" for state in states.values()):
-                    status = "БРОСИЛ"
-                elif watched >= total:
-                    status = "ПОСМОТРЕЛ"
-                elif watched:
-                    status = "СМОТРЮ"
-                else:
-                    status = "НЕ СМОТРЕЛ"
-                self.current_game.history.append(
-                    f"{datetime.now():%d.%m.%Y %H:%M} — серии: просмотрено {watched} из {total}"
-                )
-                self._change_status(status)
-                self._configure_media_progress(self.current_game)
-                self._refresh_history()
-                self.playtime_changed.emit(self.current_game, self.current_game.playtime_hours)
+                self._apply_series_states(states)
             return
         total = request_total_playtime(self.current_game.playtime_hours, self)
         if total is not None: self._record_total_playtime(total)
 
+    def _apply_watch_count(self, value: int) -> None:
+        if self.current_game is None or value == self.current_game.watch_count:
+            return
+        self.current_game.watch_count = value
+        self.current_game.history.append(f"{datetime.now():%d.%m.%Y %H:%M} — просмотров: {value}")
+        self._configure_media_progress(self.current_game)
+        self._refresh_history()
+        self.playtime_changed.emit(self.current_game, self.current_game.playtime_hours)
+
+    def _apply_series_states(self, states: dict[str, str]) -> None:
+        if self.current_game is None or states == self.current_game.episode_states:
+            return
+        self.current_game.episode_states = dict(states)
+        marked = []
+        for key, state in states.items():
+            if state in ("watched", "watching"):
+                season, episode = (int(value) for value in key.split(":"))
+                marked.append((season, episode))
+        self.current_game.season_number, self.current_game.episode_number = max(marked, default=(0, 0))
+        total = max(1, self.current_game.seasons or 1) * 10
+        watched = sum(state == "watched" for state in states.values())
+        if any(state == "watching" for state in states.values()):
+            status = "СМОТРЮ"
+        elif any(state == "dropped" for state in states.values()):
+            status = "БРОСИЛ"
+        elif watched >= total:
+            status = "ПОСМОТРЕЛ"
+        elif watched:
+            status = "СМОТРЮ"
+        else:
+            status = "НЕ СМОТРЕЛ"
+        self.current_game.history.append(
+            f"{datetime.now():%d.%m.%Y %H:%M} — серии: просмотрено {watched} из {total}"
+        )
+        self._change_status(status)
+        self._configure_media_progress(self.current_game)
+        self._refresh_history()
+        self.playtime_changed.emit(self.current_game, self.current_game.playtime_hours)
+
     def _configure_media_progress(self, game: GameData) -> None:
+        visible_metric = game.media_type != "Программы"
+        self.time_title.setVisible(visible_metric)
+        self.playtime.setVisible(visible_metric)
+        self.time_button.setVisible(visible_metric)
         if game.media_type == "Фильмы":
             self.timeline_title.setText("ПРОСМОТРЫ И ХРОНОЛОГИЯ"); self.time_title.setText("ПРОСМОТРОВ"); self.time_button.setText("ИЗМЕНИТЬ КОЛИЧЕСТВО ПРОСМОТРОВ"); self.playtime.setText(str(game.watch_count))
         elif game.media_type == "Сериалы":
@@ -456,7 +478,7 @@ class QuickView(QFrame):
             current = f" · S{game.season_number} E{game.episode_number}" if game.season_number else ""
             self.playtime.setText(f"{watched}/{total}{current}")
         elif game.media_type == "Программы":
-            self.timeline_title.setText("ИСПОЛЬЗОВАНИЕ И ХРОНОЛОГИЯ"); self.time_title.setText("ВРЕМЯ ИСПОЛЬЗОВАНИЯ"); self.time_button.setText("ИЗМЕНИТЬ ВРЕМЯ ИСПОЛЬЗОВАНИЯ"); self.playtime.setText(self._format_hours(game.playtime_hours) if game.playtime_hours else "—")
+            self.timeline_title.setText("ИСТОРИЯ СТАТУСОВ")
         else:
             self.timeline_title.setText("ВРЕМЯ И ХРОНОЛОГИЯ"); self.time_title.setText("ВРЕМЯ В ИГРЕ"); self.time_button.setText("ИЗМЕНИТЬ ОБЩЕЕ ВРЕМЯ"); self.playtime.setText(self._format_hours(game.playtime_hours) if game.playtime_hours else "—")
 

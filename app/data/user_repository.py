@@ -65,7 +65,7 @@ class UserRepository:
             if state is None: continue
             game.personal_score = "—" if state["personal_score"] is None else f'{state["personal_score"]:.1f}'
             game.status = state["status"] or game.status
-            game.playtime_hours = float(state["playtime_hours"] or 0.0)
+            game.playtime_hours = float(state["playtime_hours"] or 0.0) if game.media_type == "Игры" else 0.0
             game.favorite = bool(state["favorite"])
             game.rating_criteria = json.loads(state["rating_criteria_json"] or "{}")
             game.hidden = bool(state["hidden"])
@@ -74,12 +74,14 @@ class UserRepository:
             game.episode_number = int(state["episode_number"] or 0)
             game.episode_states = episode_states.get(game.catalog_id, {})
             game.user_interacted = True
+            game.interaction_started_at = state["interaction_started_at"] or ""
+            game.interaction_completed_at = state["interaction_completed_at"] or ""
             game.history = [self._format_activity(row) for row in activities.get(game.catalog_id, [])]
 
     def save_game_state(self, game) -> None:
         try: personal_score = float(game.personal_score)
         except ValueError: personal_score = None
-        playtime = float(game.playtime_hours)
+        playtime = float(game.playtime_hours) if game.media_type == "Игры" else 0.0
         if not game.catalog_id: return
         game.user_interacted = True
         connection = sqlite3.connect(self.path); connection.row_factory = sqlite3.Row
@@ -98,6 +100,13 @@ class UserRepository:
             })
             new = {"rating": personal_score, "status": game.status, "playtime": playtime, "favorite": bool(game.favorite), "hidden": bool(game.hidden), "watch_count": int(game.watch_count), "series_progress": f"{int(game.season_number)}:{int(game.episode_number)}"}
             now = datetime.now(timezone.utc).isoformat()
+            started_at = (previous["interaction_started_at"] if previous else None) or game.interaction_started_at or now
+            completed_statuses = {"ПРОШЁЛ", "ПОСМОТРЕЛ", "ИСПОЛЬЗОВАЛ"}
+            completed_at = (previous["interaction_completed_at"] if previous else None) or game.interaction_completed_at or None
+            if game.status in completed_statuses and not completed_at:
+                completed_at = now
+            game.interaction_started_at = started_at
+            game.interaction_completed_at = completed_at or ""
             for event_type, new_value in new.items():
                 old_value = old[event_type]
                 if old_value != new_value:
@@ -106,15 +115,17 @@ class UserRepository:
                         (game.catalog_id, event_type, self._text(old_value), self._text(new_value), playtime, "", now),
                     )
             connection.execute("""
-                INSERT INTO user_game_state(catalog_id, personal_score, status, playtime_hours, favorite, rating_criteria_json, updated_at, hidden, watch_count, season_number, episode_number)
-                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO user_game_state(catalog_id, personal_score, status, playtime_hours, favorite, rating_criteria_json, updated_at, hidden, watch_count, season_number, episode_number, interaction_started_at, interaction_completed_at)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(catalog_id) DO UPDATE SET personal_score=excluded.personal_score,
                     status=excluded.status, playtime_hours=excluded.playtime_hours,
                     favorite=excluded.favorite, rating_criteria_json=excluded.rating_criteria_json,
                     updated_at=excluded.updated_at, hidden=excluded.hidden,
                     watch_count=excluded.watch_count, season_number=excluded.season_number,
-                    episode_number=excluded.episode_number
-            """, (game.catalog_id, personal_score, game.status, playtime, int(game.favorite), json.dumps(game.rating_criteria, ensure_ascii=False), now, int(game.hidden), int(game.watch_count), int(game.season_number), int(game.episode_number)))
+                    episode_number=excluded.episode_number,
+                    interaction_started_at=excluded.interaction_started_at,
+                    interaction_completed_at=excluded.interaction_completed_at
+            """, (game.catalog_id, personal_score, game.status, playtime, int(game.favorite), json.dumps(game.rating_criteria, ensure_ascii=False), now, int(game.hidden), int(game.watch_count), int(game.season_number), int(game.episode_number), started_at, completed_at))
             previous_episode_states = {f"{row[0]}:{row[1]}": row[2] for row in connection.execute("SELECT season_number,episode_number,state FROM series_episode_state WHERE catalog_id=?", (game.catalog_id,))}
             if previous_episode_states != game.episode_states:
                 connection.execute(

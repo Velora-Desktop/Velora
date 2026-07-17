@@ -15,6 +15,9 @@ from app.ui.quick_view.quick_view import QuickView
 from app.ui.game_detail.game_detail_page import GameDetailPage
 from app.ui.sidebar.sidebar import Sidebar
 from app.data.user_repository import UserRepository
+from app.data.catalog_repository import CATALOG_DB
+from app.services.data_backup_service import DataBackupService
+from app.services.logging_service import configure_logging
 from app.ui.profile.profile_page import ProfilePage
 from app.ui.search.search_page import SearchPage
 
@@ -22,11 +25,13 @@ from app.ui.search.search_page import SearchPage
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
+        configure_logging()
         self.setWindowTitle("Velora AW0.08 · каталог AW0.0711")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
         self.user_repository = UserRepository()
+        self.data_service = DataBackupService(self.user_repository.path, CATALOG_DB, self.settings)
         self.hide_adult_content = self.settings.value("content/hide_adult", True, type=bool)
         self.navigation_history = []
         self.navigation_index = -1
@@ -140,6 +145,9 @@ class MainWindow(QMainWindow):
             return
         profile = self.user_repository.load_profile()
         profile.display_name = dialog.display_name
+        if dialog.avatar_path:
+            from app.ui.profile.profile_widgets import store_profile_avatar
+            profile.avatar_path = store_profile_avatar(dialog.avatar_path)
         self.user_repository.save_profile(profile)
         self._set_hide_adult_content(dialog.hide_adult_content)
         self.settings.setValue("onboarding/profile_created", dialog.profile_requested)
@@ -191,6 +199,7 @@ class MainWindow(QMainWindow):
     def _show_profile(self) -> None:
         self.top_bar.set_profile_active(True)
         self.profile_page.refresh(self.catalog.items)
+        self.profile_page.show_overview()
         self.sidebar.hide()
         self.catalog.hide(); self.quick_view.hide(); self.game_detail.hide(); self.search_page.hide(); self.empty_section.hide(); self.profile_page.show()
 
@@ -302,16 +311,22 @@ class MainWindow(QMainWindow):
         )
 
     def _open_settings(self) -> None:
-        dialog = SettingsDialog(self.hide_adult_content, self.catalog.items, self)
+        dialog = SettingsDialog(self.hide_adult_content, self.catalog.items, self, self.data_service)
         dialog.adult_filter_changed.connect(self._set_hide_adult_content)
         dialog.hidden_restored.connect(self._restore_hidden_game)
         dialog.profile_reset_requested.connect(self._reset_local_profile)
+        dialog.backup_imported.connect(QApplication.quit)
         dialog.exec()
 
     def _restore_hidden_game(self, game) -> None:
         self.user_repository.save_game_state(game); self.catalog.refresh_filters()
 
     def _reset_local_profile(self) -> None:
+        try:
+            self.data_service.export_backup(automatic=True)
+        except Exception as exc:
+            QMessageBox.critical(self, "Velora", f"Сброс отменён: не удалось создать обязательную резервную копию.\n\n{exc}")
+            return
         self.user_repository.reset_local_profile()
         self.settings.remove("onboarding")
         self.settings.setValue("content/hide_adult", True)

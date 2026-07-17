@@ -26,13 +26,21 @@ class IconRegistry:
         if cls._entries is not None:
             return cls._entries
         cls._entries = {}
-        manifest = ICON_ROOT / "manifest.json"
-        try:
-            data = json.loads(manifest.read_text(encoding="utf-8"))
-            for entry in data.get("icons", []):
-                cls._entries.setdefault(entry["id"], []).append(entry)
-        except (OSError, ValueError, KeyError) as exc:
-            LOGGER.warning("Icon manifest could not be loaded: %s", exc)
+        for manifest, prefix in (
+            (ICON_ROOT / "manifest.json", ""),
+            (ICON_ROOT / "manifest_v2.json", "v2"),
+        ):
+            try:
+                data = json.loads(manifest.read_text(encoding="utf-8"))
+                for raw_entry in data.get("icons", []):
+                    entry = dict(raw_entry)
+                    entry["category"] = entry.get("category") or entry.get("group") or "ui"
+                    entry["root_prefix"] = prefix
+                    cls._entries.setdefault(entry["id"], []).append(entry)
+            except FileNotFoundError:
+                continue
+            except (OSError, ValueError, KeyError) as exc:
+                LOGGER.warning("Icon manifest could not be loaded (%s): %s", manifest, exc)
         return cls._entries
 
     @classmethod
@@ -74,15 +82,18 @@ class IconRegistry:
 
     @staticmethod
     def _normalized_relative(entry: dict, variant: str) -> Path:
+        prefix = Path(entry.get("root_prefix", ""))
         source = entry.get("path", "")
+        if entry.get("root_prefix"):
+            return prefix / Path(source).relative_to("svg")
         if entry.get("format") == "png":
             if variant in {"auto", "dark"} and entry.get("dark_theme_path"):
                 source = entry["dark_theme_path"]
                 style = "dark"
             else:
                 style = "color"
-            return Path(entry["category"]) / style / Path(source).name
-        return Path(entry["category"]) / Path(source).name
+            return prefix / Path(entry["category"]) / style / Path(source).name
+        return prefix / Path(entry["category"]) / Path(source).name
 
     @classmethod
     def _legacy_path(cls, icon_id: str, category: str | None) -> Path | None:
@@ -171,7 +182,7 @@ class IconRegistry:
         missing: list[str] = []
         for icon_id, entries in cls._load().items():
             for entry in entries:
-                if entry.get("status") != "approved":
+                if not entry.get("root_prefix") and entry.get("status") != "approved":
                     continue
                 variant = "svg" if entry.get("format") == "svg" else "color"
                 path = ICON_ROOT / cls._normalized_relative(entry, variant)

@@ -7,6 +7,8 @@ from PySide6.QtWidgets import QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabe
 from app.models.game import MEDIA_STATUSES
 from app.core.icon_registry import IconRegistry
 from app.ui.widgets.platform_icons import platform_icon
+from app.core.platforms import platform_sort_key
+from app.ui.profile.statistics_widgets import RankedBarList
 
 
 ACCENT = "#8B2CF5"
@@ -29,7 +31,7 @@ class DonutChart(QWidget):
 class StatCard(QFrame):
     def __init__(self,title,color,icon_id):
         super().__init__(); self.setObjectName("statCard"); self.setMinimumHeight(104); self.setStyleSheet("QFrame#statCard{background:#161629;border:1px solid #303149;border-radius:8px;}")
-        layout=QVBoxLayout(self); top=QHBoxLayout(); icon=QLabel(); icon.setFixedSize(30,30); icon.setPixmap(IconRegistry.pixmap(icon_id,26,variant="dark",category="ui")); top.addWidget(icon)
+        layout=QVBoxLayout(self); top=QHBoxLayout(); icon=QLabel(); icon.setFixedSize(30,30); icon.setPixmap(IconRegistry.pixmap(icon_id,26,variant="dark")); top.addWidget(icon)
         self.value=QLabel("0"); self.value.setStyleSheet(f"font-size:27pt;font-weight:750;color:{color};border:0;background:transparent;"); top.addWidget(self.value); top.addStretch(); layout.addLayout(top)
         self.label=QLabel(title); self.label.setStyleSheet("font-size:10.5pt;color:#D5D6E0;border:0;background:transparent;"); layout.addWidget(self.label)
 
@@ -42,24 +44,38 @@ class StatisticsDashboard(QScrollArea):
         heading=QHBoxLayout(); box=QVBoxLayout(); title=QLabel("Статистика"); title.setStyleSheet("font-size:23pt;font-weight:700;"); box.addWidget(title); sub=QLabel("Ваши достижения и аналитика по официальным разделам каталога"); sub.setObjectName("muted"); box.addWidget(sub); heading.addLayout(box); heading.addStretch()
         self.media_filter=QComboBox(); self.media_filter.addItems(("Все разделы", "Игры", "Фильмы", "Сериалы", "Программы")); self.media_filter.setMinimumWidth(210); self.media_filter.currentTextChanged.connect(self._refresh_selected); heading.addWidget(self.media_filter); self.root.addLayout(heading)
         summary=self._panel("ОБЩАЯ СТАТИСТИКА"); grid=QGridLayout(); summary.layout().addLayout(grid); self.cards={}
-        specs=(("objects","Объектов","#A95CFF","folder_tree"),("rated","Оценено","#FFC42E","edit"),("started","Начато","#2D8CFF","play"),("completed","Завершено","#18D166","refresh"),("favorites","В избранном","#EC2B78","notification_bell"),("hours","Время в играх","#98A0CB","clock"),("average","Средняя оценка","#A95CFF","sliders"))
+        specs=(("objects","Объектов","#A95CFF","user_data"),("rated","Оценено","#FFC42E","personal_rating"),("started","Начато","#2D8CFF","date_started"),("completed","Завершено","#18D166","date_completed"),("favorites","В избранном","#EC2B78","notification_bell"),("hours","Время в играх","#98A0CB","playtime"),("average","Средняя оценка","#A95CFF","general_rating"))
         for i,(key,label,color,icon_id) in enumerate(specs): card=StatCard(label,color,icon_id); self.cards[key]=card; grid.addWidget(card,i//5,i%5)
         self.root.addWidget(summary)
         row1=QHBoxLayout(); row1.setSpacing(16); self.rating_panel=self._panel("РАСПРЕДЕЛЕНИЕ ОЦЕНОК"); self.rating_panel.setMinimumHeight(340); self.rating_panel.setMaximumHeight(390); self.rating_layout=QVBoxLayout(); self.rating_layout.setSpacing(10); self.rating_panel.layout().addLayout(self.rating_layout); row1.addWidget(self.rating_panel,1)
-        types=self._panel("ПО ТИПАМ"); tl=QHBoxLayout(); self.donut=DonutChart(); tl.addWidget(self.donut); self.type_labels=QLabel(); tl.addWidget(self.type_labels); types.layout().addLayout(tl); row1.addWidget(types,1)
+        types=self._panel("ПО ТИПАМ"); tl=QHBoxLayout(); tl.setContentsMargins(8,4,8,4); tl.setSpacing(18); self.donut=DonutChart(); tl.addWidget(self.donut,0,Qt.AlignmentFlag.AlignCenter); self.type_labels=QLabel(); self.type_labels.setMinimumWidth(150); self.type_labels.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft); tl.addWidget(self.type_labels,1); types.layout().addLayout(tl); row1.addWidget(types,1)
         self.status_panel=self._panel("ПО СТАТУСУ"); self.status_panel.setMinimumHeight(340); self.status_panel.setMaximumHeight(390); self.status_layout=QVBoxLayout(); self.status_layout.setSpacing(8); self.status_panel.layout().addLayout(self.status_layout); row1.addWidget(self.status_panel,1); self.root.addLayout(row1)
-        row2=QHBoxLayout(); self.platforms=self._text_panel("ПО ПЛАТФОРМАМ"); self.years=self._text_panel("ПО ГОДАМ"); self.time_leaders=self._text_panel("ЛИДЕРЫ ПО ВРЕМЕНИ"); row2.addWidget(self.platforms); row2.addWidget(self.years); row2.addWidget(self.time_leaders); self.root.addLayout(row2)
+        row2=QHBoxLayout(); self.platforms=self._ranked_panel("ПО ПЛАТФОРМАМ"); self.years=self._ranked_panel("ПО ГОДАМ"); self.time_leaders=self._text_panel("ЛИДЕРЫ ПО ВРЕМЕНИ"); row2.addWidget(self.platforms); row2.addWidget(self.years); row2.addWidget(self.time_leaders); self.root.addLayout(row2)
         row3=QHBoxLayout(); self.genres=self._text_panel("ЛЮБИМЫЕ ЖАНРЫ"); self.records=self._text_panel("ЛИЧНЫЕ РЕКОРДЫ"); self.taste=self._text_panel("СТАТИСТИКА ВКУСА"); row3.addWidget(self.genres); row3.addWidget(self.records); row3.addWidget(self.taste); self.root.addLayout(row3); self.root.addStretch(); self.setWidget(content); self.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         row4=QHBoxLayout(); row4.setSpacing(16)
         self.country_panel=self._panel("ПО СТРАНАМ"); self.country_panel.setMinimumHeight(230); self.country_panel.setMaximumHeight(300); self.country_layout=QVBoxLayout(); self.country_layout.setSpacing(8); self.country_panel.layout().addLayout(self.country_layout); row4.addWidget(self.country_panel,1)
         self.language_panel=self._panel("ЯЗЫКИ ИНТЕРФЕЙСА"); self.language_panel.setMinimumHeight(230); self.language_panel.setMaximumHeight(300); self.language_layout=QVBoxLayout(); self.language_layout.setSpacing(8); self.language_panel.layout().addLayout(self.language_layout); row4.addWidget(self.language_panel,1)
         self.metadata_stats=self._text_panel("КОЛЛЕКЦИЯ И ДОПОЛНЕНИЯ"); row4.addWidget(self.metadata_stats,1)
         self.root.insertLayout(self.root.count()-1,row4)
+        row5=QHBoxLayout(); row5.setSpacing(16)
+        self.category_stats=self._ranked_panel("ПО КАТЕГОРИЯМ")
+        self.category_scores=self._ranked_panel("СРЕДНЯЯ ОЦЕНКА ПО КАТЕГОРИЯМ")
+        self.creator_stats=self._ranked_panel("ЛЮБИМЫЕ СОЗДАТЕЛИ")
+        row5.addWidget(self.category_stats,1); row5.addWidget(self.category_scores,1); row5.addWidget(self.creator_stats,1)
+        self.root.insertLayout(self.root.count()-1,row5)
+        row6=QHBoxLayout(); row6.setSpacing(16)
+        self.decades=self._ranked_panel("ПО ДЕСЯТИЛЕТИЯМ")
+        self.library_progress=self._ranked_panel("ПРОГРЕСС ЛИЧНОЙ БИБЛИОТЕКИ")
+        self.subgroup_stats=self._ranked_panel("ПО ПОДГРУППАМ")
+        row6.addWidget(self.decades,1); row6.addWidget(self.library_progress,1); row6.addWidget(self.subgroup_stats,1)
+        self.root.insertLayout(self.root.count()-1,row6)
 
     @staticmethod
     def _panel(title):
         panel=QFrame(); panel.setObjectName("statisticsPanel"); panel.setStyleSheet("QFrame#statisticsPanel{background:#111222;border:1px solid #292A43;border-radius:8px;}"); layout=QVBoxLayout(panel); layout.setContentsMargins(18,16,18,16); heading=QLabel(title); heading.setStyleSheet("font-size:10.5pt;font-weight:650;color:#E9E9F0;border:0;background:transparent;"); layout.addWidget(heading); return panel
     def _text_panel(self,title): panel=self._panel(title); text=QLabel(); text.setWordWrap(True); text.setAlignment(Qt.AlignmentFlag.AlignTop); text.setMinimumHeight(190); text.setStyleSheet("font-size:10.5pt;color:#BFC1D0;border:0;padding:12px;"); panel.layout().addWidget(text); panel.value_label=text; return panel
+    def _ranked_panel(self,title):
+        panel=self._panel(title); values=RankedBarList(); panel.layout().addWidget(values); panel.values=values; return panel
     @staticmethod
     def _clear(layout):
         while layout.count():
@@ -69,7 +85,7 @@ class StatisticsDashboard(QScrollArea):
     @staticmethod
     def _hours(value): return f"{value:g} ч"
     def _bar(self,layout,label,value,total,color=ACCENT):
-        container=QWidget(); container.setFixedHeight(32); row=QHBoxLayout(container); row.setContentsMargins(0,0,0,0); row.setSpacing(10)
+        container=QWidget(); container.setObjectName("statisticsBarRow"); container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True); container.setStyleSheet("QWidget#statisticsBarRow{background:transparent;border:0;}"); container.setFixedHeight(32); row=QHBoxLayout(container); row.setContentsMargins(0,0,0,0); row.setSpacing(10)
         name=QLabel(label); name.setFixedWidth(122); name.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft); name.setStyleSheet("font-size:10.5pt;color:#E3E4EC;border:0;background:transparent;"); row.addWidget(name)
         bar=QProgressBar(); bar.setTextVisible(False); bar.setRange(0,max(total,1)); bar.setValue(value)
         bar.setFixedHeight(12); bar.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Fixed)
@@ -85,14 +101,14 @@ class StatisticsDashboard(QScrollArea):
         games=[g for g in official if g.user_interacted]; rated=[g for g in games if g.personal_score!="—"]
         defaults={"Игры":"НЕ НАЧИНАЛ","Фильмы":"НЕ СМОТРЕЛ","Сериалы":"НЕ СМОТРЕЛ","Программы":"НЕ ИСПОЛЬЗОВАЛ"}
         completed_values={"ПРОШЁЛ","ПОСМОТРЕЛ","ИСПОЛЬЗОВАЛ"}
-        started=[g for g in games if g.status!=defaults.get(g.media_type,"НЕ НАЧИНАЛ")]; completed=[g for g in games if g.status in completed_values]; favorites=[g for g in games if g.favorite]; hours=sum(g.playtime_hours for g in games); average=sum(float(g.personal_score) for g in rated)/len(rated) if rated else None
+        started=[g for g in games if g.status!=defaults.get(g.media_type,"НЕ НАЧИНАЛ")]; completed=[g for g in games if g.status in completed_values]; favorites=[g for g in games if g.favorite]; hours=sum(g.playtime_hours for g in games if g.media_type=="Игры"); average=sum(float(g.personal_score) for g in rated)/len(rated) if rated else None
         activity_value=self._hours(hours); activity_label="Время в играх"
         if selected=="Фильмы": activity_value=str(sum(g.watch_count for g in games)); activity_label="Всего просмотров"
         elif selected=="Сериалы":
             activity_value=str(sum(sum(state=="watched" for state in g.episode_states.values()) for g in games))
             activity_label="Просмотрено серий"
-        elif selected=="Программы": activity_label="Время использования"
-        elif selected=="Все разделы": activity_label="Время игр и программ"
+        elif selected=="Программы": activity_value=str(len(games)); activity_label="Программ в профиле"
+        elif selected=="Все разделы": activity_label="Общее время в играх"
         self.cards["hours"].label.setText(activity_label)
         for key,value in {"objects":len(games),"rated":len(rated),"started":len(started),"completed":len(completed),"favorites":len(favorites),"hours":activity_value,"average":f"{average:.1f}" if average is not None else "—"}.items(): self.cards[key].value.setText(str(value))
         self._clear(self.rating_layout); buckets=(("10–9",lambda x:x>=9,"#18D166"),("8.9–7",lambda x:7<=x<9,"#7ED957"),("6.9–5",lambda x:5<=x<7,"#FFC42E"),("4.9–3",lambda x:3<=x<5,"#FF8A32"),("2.9–1",lambda x:x<3,"#FF4D57"))
@@ -110,9 +126,17 @@ class StatisticsDashboard(QScrollArea):
             color, _border, _background = status_visual(status)
             self._bar(self.status_layout,status,statuses.get(status,0),len(games),color)
         self.status_layout.addStretch(1)
-        platforms=Counter(token.strip() for g in games for token in g.platform.split(";") if token.strip()); self.platforms.value_label.setText(self._platform_rank(platforms))
-        years=Counter(g.year for g in games if g.year and g.year!="—"); self.years.value_label.setText(self._rank(years,"Нет данных"))
-        leaders=sorted((g for g in games if g.playtime_hours),key=lambda g:g.playtime_hours,reverse=True)[:5]
+        platforms=Counter(token.strip() for g in games for token in g.platform.split(";") if token.strip())
+        ordered_platforms=sorted(platforms.items(),key=lambda item:(-item[1],platform_sort_key(item[0])))[:7]
+        self.platforms.values.set_items(
+            ordered_platforms,
+            color="#9B5CFF",
+            icon_resolver=self._platform_icon_spec,
+            empty_text="Платформы появятся после взаимодействия с объектами",
+        )
+        years=Counter(g.year for g in games if g.year and g.year!="—")
+        self.years.values.set_items(years.most_common(6),color="#4DA3FF")
+        leaders=sorted((g for g in games if g.media_type=="Игры" and g.playtime_hours),key=lambda g:g.playtime_hours,reverse=True)[:5]
         if selected=="Фильмы":
             watched=sorted((g for g in games if g.watch_count),key=lambda g:g.watch_count,reverse=True)[:5]; self.time_leaders.value_label.setText("\n".join(f"{i}. {g.title} — {g.watch_count} просмотров" for i,g in enumerate(watched,1)) or "Нет данных о просмотрах")
         elif selected=="Сериалы":
@@ -127,7 +151,7 @@ class StatisticsDashboard(QScrollArea):
         details=[f"Лучшая оценка\n{top.title} — {top.personal_score}" if top else "Оценок пока нет"]
         if leaders: details.append(f"Больше всего времени\n{leaders[0].title} — {leaders[0].playtime_hours:g} ч")
         if selected=="Программы": details.append(f"Использовано программ: {sum(g.status!='НЕ ИСПОЛЬЗОВАЛ' for g in games)}")
-        if selected=="Фильмы": details.append(f"Всего повторных просмотров: {sum(g.watch_count for g in games)}")
+        if selected=="Фильмы": details.append(f"Всего повторных просмотров: {sum(max(0, g.watch_count-1) for g in games)}")
         if selected=="Сериалы":
             details.append(f"Сериалов с прогрессом: {sum(bool(g.episode_states) for g in games)}")
             details.append(f"Брошено серий: {sum(sum(state=='dropped' for state in g.episode_states.values()) for g in games)}")
@@ -154,6 +178,41 @@ class StatisticsDashboard(QScrollArea):
             f"Бесплатных продуктов: {sum(g.distribution_model=='Бесплатное' for g in games)}"
         )
 
+        categories=Counter(g.category.title() for g in games if g.category)
+        self.category_stats.values.set_items(categories.most_common(6),color="#A95CFF")
+        category_ratings: dict[str,list[float]]={}
+        for game in rated:
+            category_ratings.setdefault(game.category.title(),[]).append(float(game.personal_score))
+        category_averages=sorted(
+            ((name,sum(values)/len(values)) for name,values in category_ratings.items()),
+            key=lambda item:(-item[1],item[0]),
+        )[:6]
+        self.category_scores.values.set_items(
+            category_averages,maximum=10,color="#FFC42E",formatter=lambda value:f"{value:.1f}"
+        )
+        creators=Counter(g.developer for g in rated if g.developer and g.developer!="—")
+        creator_title={"Фильмы":"ЛЮБИМЫЕ РЕЖИССЁРЫ","Сериалы":"ЛЮБИМЫЕ СОЗДАТЕЛИ","Программы":"ЛЮБИМЫЕ РАЗРАБОТЧИКИ"}.get(selected,"ЛЮБИМЫЕ РАЗРАБОТЧИКИ")
+        self.creator_stats.layout().itemAt(0).widget().setText(creator_title)
+        self.creator_stats.values.set_items(creators.most_common(6),color="#18D166")
+        decades=Counter()
+        for game in games:
+            try: decades[f"{int(game.year)//10*10}-е"]+=1
+            except (TypeError,ValueError): pass
+        self.decades.values.set_items(sorted(decades.items(),reverse=True)[:6],color="#4DA3FF")
+        interacted=max(len(games),1)
+        progress=(
+            ("С оценкой",len(rated)/interacted*100),
+            ("Начато",len(started)/interacted*100),
+            ("Завершено",len(completed)/interacted*100),
+            ("В избранном",len(favorites)/interacted*100),
+        )
+        self.library_progress.values.set_items(
+            progress,maximum=100,color="#18D166",formatter=lambda value:f"{value:.0f}%",
+            empty_text="Начните взаимодействовать с каталогом",
+        )
+        subgroups=Counter(g.subgroup.title() for g in games if g.subgroup)
+        self.subgroup_stats.values.set_items(subgroups.most_common(6),color="#EC2B78")
+
     @staticmethod
     def _rank(counter,empty): return "\n".join(f"{i}. {name} — {value}" for i,(name,value) in enumerate(counter.most_common(5),1)) or empty
 
@@ -164,4 +223,16 @@ class StatisticsDashboard(QScrollArea):
             icon_id, _tooltip = platform_icon(name)
             path = IconRegistry.path(icon_id, variant="dark", category="platforms")
             return path.as_posix() if path else ""
-        return "<br>".join(f'<img src="{icon(name)}" width="17" height="17">&nbsp; {name} — {value}' for name,value in counter.most_common(6))
+        ordered = sorted(counter.items(), key=lambda item: (-item[1], platform_sort_key(item[0])))[:6]
+        return "<br>".join(f'<img src="{icon(name)}" width="17" height="17">&nbsp; {name} — {value}' for name,value in ordered)
+
+    @staticmethod
+    def _platform_icon_spec(name: str) -> tuple[str, str | None]:
+        streaming_services = {
+            "NETFLIX", "КИНОПОИСК", "ИВИ", "OKKO", "AMEDIATEKA",
+            "PREMIER", "START", "WINK", "APPLE TV+", "HBO MAX",
+        }
+        if name.strip().upper() in streaming_services:
+            return "movie", "media_types"
+        icon_id, _tooltip = platform_icon(name)
+        return icon_id, "platforms"

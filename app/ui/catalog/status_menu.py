@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QMenu, QPushButton, QWidgetAction
 
 from app.core.constants import DANGER, SUCCESS, WARNING
 from app.models.game import MEDIA_STATUSES
+from app.core.icon_registry import IconRegistry
 
 
 STATUS_COLORS = {
@@ -18,6 +19,12 @@ STATUS_COLORS = {
     "ИСПОЛЬЗОВАЛ": SUCCESS,
     "УДАЛИЛ": DANGER,
     "ОТКАЗАЛСЯ": DANGER,
+}
+
+STATUS_ICONS = {
+    "НЕ НАЧИНАЛ": "not_started", "ПРОХОЖУ": "playing", "ПРОШЁЛ": "completed", "БРОСИЛ": "dropped",
+    "НЕ СМОТРЕЛ": "not_watched", "СМОТРЮ": "watching", "ПОСМОТРЕЛ": "watched", "ЖДУ НОВЫЙ СЕЗОН": "waiting_new_season",
+    "НЕ ИСПОЛЬЗОВАЛ": "not_used", "ИСПОЛЬЗУЮ": "using", "ИСПОЛЬЗОВАЛ": "used", "ОТКАЗАЛСЯ": "abandoned",
 }
 
 
@@ -37,6 +44,7 @@ def build_status_menu(parent, callback: Callable[[str], None], media_type: str =
     for status in MEDIA_STATUSES.get(media_type, MEDIA_STATUSES["Игры"]):
         action = QWidgetAction(menu)
         button = QPushButton(status)
+        button.setIcon(IconRegistry.icon(STATUS_ICONS.get(status, "activity")))
         # Keep dropdown entries synchronized with catalog, Quick View and
         # detail-page status colors.
         color = status_visual(status)[0]

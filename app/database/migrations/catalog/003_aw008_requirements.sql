@@ -1,0 +1,3 @@
+-- AW0.08 keeps requirements in system_requirements_json.
+-- Legacy single-set keys are interpreted as minimum by the repository;
+-- recommended values remain empty until supplied by Velora Studio.

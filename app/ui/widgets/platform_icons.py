@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from app.core.icon_registry import IconRegistry
+from app.core.platforms import sorted_platforms
 
 
 PLATFORM_ALIASES = {
@@ -32,7 +33,7 @@ PLATFORM_ALIASES = {
 
 
 def platform_tokens(value: str) -> list[str]:
-    return [token.strip() for token in re.split(r"[;,/]", value or "") if token.strip()]
+    return sorted_platforms(token.strip() for token in re.split(r"[;,/]", value or "") if token.strip())
 
 
 def platform_icon(token: str) -> tuple[str, str]:

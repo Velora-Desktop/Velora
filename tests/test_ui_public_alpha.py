@@ -70,6 +70,31 @@ class PublicAlphaUiTests(unittest.TestCase):
         self.assertEqual(len(platforms.findChildren(QLabel)), 2)
         view.close()
 
+    def test_each_catalog_group_keeps_an_independent_sort(self) -> None:
+        view = CatalogView()
+        groups = list(view.group_rows)
+        self.assertGreaterEqual(len(groups), 2)
+        first, second = groups[:2]
+
+        view._sort_by_column(first, "year")
+        view._sort_by_column(second, "age")
+        second_spec = view.group_sort_specs[view._group_sort_key(second)]
+        second_order = [row.game.catalog_id for row in view.group_rows[second]]
+
+        view._sort_by_column(first, "year")
+        self.assertEqual(
+            view.group_sort_specs[view._group_sort_key(first)], ("year", False)
+        )
+        self.assertEqual(view.group_sort_specs[view._group_sort_key(second)], second_spec)
+        self.assertEqual(
+            [row.game.catalog_id for row in view.group_rows[second]], second_order
+        )
+        if view.control_combos[3].count() > 1:
+            view.control_combos[3].setCurrentIndex(1)
+            self.app.processEvents()
+            self.assertEqual(view.group_sort_specs[view._group_sort_key(second)], second_spec)
+        view.close()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -50,18 +50,20 @@ class TopBar(QFrame):
         self.forward_button.clicked.connect(self.forward_requested)
 
         self.section_buttons = []
+        self._space_glows = {}
         for index, text in enumerate(("ИГРЫ", "ФИЛЬМЫ", "СЕРИАЛЫ", "ПРОГРАММЫ")):
             button = QPushButton(text)
             button.setFixedHeight(50)
             button.setMinimumWidth(98)
             button.setStyleSheet("font-family:'Segoe UI'; font-size:12pt; letter-spacing:0.4px; padding:8px 12px;")
             button.setProperty("active", index == 0)
-            if index == 0:
-                tab_glow = QGraphicsDropShadowEffect(button)
-                tab_glow.setBlurRadius(18)
-                tab_glow.setOffset(0, 3)
-                tab_glow.setColor(QColor(143, 54, 255, 120))
-                button.setGraphicsEffect(tab_glow)
+            tab_glow = QGraphicsDropShadowEffect(button)
+            tab_glow.setBlurRadius(18)
+            tab_glow.setOffset(0, 3)
+            tab_glow.setColor(QColor(143, 54, 255, 120))
+            tab_glow.setEnabled(index == 0)
+            button.setGraphicsEffect(tab_glow)
+            self._space_glows[button] = tab_glow
             button.clicked.connect(lambda checked=False, name=text: self.section_requested.emit(name))
             layout.addWidget(button)
             self.section_buttons.append(button)
@@ -87,8 +89,10 @@ class TopBar(QFrame):
         profile_glow = QGraphicsDropShadowEffect(self.profile_button)
         profile_glow.setBlurRadius(12)
         profile_glow.setOffset(0, 0)
-        profile_glow.setColor(QColor(255, 255, 255, 70))
+        profile_glow.setColor(QColor(143, 54, 255, 120))
+        profile_glow.setEnabled(False)
         self.profile_button.setGraphicsEffect(profile_glow)
+        self._space_glows[self.profile_button] = profile_glow
         self.profile_button.clicked.connect(self.profile_requested)
         layout.addWidget(self.profile_button)
 
@@ -99,6 +103,7 @@ class TopBar(QFrame):
                 button.setProperty("active", False)
                 button.style().unpolish(button); button.style().polish(button)
         self.profile_button.style().unpolish(self.profile_button); self.profile_button.style().polish(self.profile_button)
+        self._refresh_space_glows()
 
     def set_search_active(self, active: bool) -> None:
         self.search_button.setProperty("active", active)
@@ -112,3 +117,8 @@ class TopBar(QFrame):
             button.setProperty("active", button.text() == name)
             button.style().unpolish(button); button.style().polish(button)
         self.profile_button.style().unpolish(self.profile_button); self.profile_button.style().polish(self.profile_button)
+        self._refresh_space_glows()
+
+    def _refresh_space_glows(self) -> None:
+        for button, effect in self._space_glows.items():
+            effect.setEnabled(bool(button.property("active")))

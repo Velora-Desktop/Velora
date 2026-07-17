@@ -1,18 +1,26 @@
 from app.core.constants import ACCENT
 from app.core.icon_registry import IconRegistry
 
+SURFACE_APP = "#05090D"
+SURFACE_WINDOW = "#030609"
+SURFACE_PANEL = "#071016"
+SURFACE_INPUT = "#091118"
+SURFACE_HOVER = "#160B24"
+BORDER = "#26333D"
+TEXT_PRIMARY = "#F1F2F4"
+
 
 def application_stylesheet() -> str:
     check_path = IconRegistry.path("check")
     check_image = check_path.as_posix() if check_path else ""
     return f"""
-    QWidget {{ background: #05090D; color: #F1F2F4; font-family: 'Segoe UI'; font-size: 10.5pt; }}
+    QWidget {{ background: {SURFACE_APP}; color: {TEXT_PRIMARY}; font-family: 'Segoe UI'; font-size: 10.5pt; }}
     QLabel {{ background: transparent; }}
-    QMainWindow, QDialog, QMessageBox {{ background: #030609; }}
-    QFrame#panel, QFrame#catalogPanel, QFrame#quickView {{ background: #071016; border: 1px solid #1D2932; border-radius: 8px; }}
+    QMainWindow, QDialog, QMessageBox {{ background: {SURFACE_WINDOW}; }}
+    QFrame#panel, QFrame#catalogPanel, QFrame#quickView {{ background: {SURFACE_PANEL}; border: 1px solid #1D2932; border-radius: 8px; }}
     QFrame#topBar {{ background: #020509; border: 0; border-bottom: 1px solid #111922; }}
     QPushButton {{ background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 7px 11px; min-height: 22px; }}
-    QPushButton:hover {{ background: #160B24; color: white; border-color:#552080; }}
+    QPushButton:hover {{ background: {SURFACE_HOVER}; color: white; border-color:#552080; }}
     QPushButton:pressed {{ background: #24103A; border-color:{ACCENT}; }}
     QPushButton:focus {{ border-color: {ACCENT}; }}
     QPushButton:disabled {{ color: #56606A; background:#080D12; border-color:#151D24; }}
@@ -21,7 +29,7 @@ def application_stylesheet() -> str:
     QPushButton[danger="true"] {{ color:#FF7676; border:1px solid #713238; background:#211014; }}
     QPushButton[future="true"] {{ color:#73808C; border-color:#1A252E; background:#080E13; }}
     QPushButton[active="true"] {{ color: #D4A4FF; border-bottom: 3px solid {ACCENT}; border-radius: 0; background: rgba(139,44,245,0.08); }}
-    QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QListWidget, QTableWidget {{ background: #091118; border: 1px solid #26333D; border-radius: 6px; padding: 7px 11px; min-height: 22px; selection-background-color:#5F1BAE; selection-color:white; }}
+    QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QListWidget, QTableWidget {{ background: {SURFACE_INPUT}; border: 1px solid {BORDER}; border-radius: 6px; padding: 7px 11px; min-height: 22px; selection-background-color:#5F1BAE; selection-color:white; }}
     QComboBox {{ padding-right:30px; }}
     QComboBox::drop-down {{ width:28px; border:0; background:transparent; }}
     QComboBox::down-arrow {{ width:9px; height:6px; }}
@@ -30,6 +38,16 @@ def application_stylesheet() -> str:
     QTabBar::tab {{ background:transparent; color:#909BA5; padding:10px 16px; border-bottom:2px solid transparent; }}
     QTabBar::tab:hover {{ color:#E7EAF0; background:#160B24; }}
     QTabBar::tab:selected {{ color:#E4C7FF; border-bottom-color:{ACCENT}; background:#100A1A; }}
+    QTabWidget#profileTabs::pane {{ border:0; background:transparent; top:-1px; }}
+    QTabBar#profileTabBar {{ background:#05090D; }}
+    QTabBar#profileTabBar::tab {{ min-width:118px; min-height:25px; margin-right:4px; padding:9px 15px; color:#9BA2AC; background:transparent; border:1px solid transparent; border-bottom:3px solid transparent; border-radius:5px 5px 0 0; }}
+    QTabBar#profileTabBar::tab:hover {{ color:white; background:#160B24; border-color:#552080; border-bottom-color:#7B2BD0; }}
+    QTabBar#profileTabBar::tab:selected {{ color:#F0DEFF; background:#17102B; border-color:#7330AD; border-bottom-color:{ACCENT}; }}
+    QPushButton#profileSectionLink {{ background:transparent; color:#D7D3DE; border:1px solid #303046; border-radius:6px; padding:8px 14px; }}
+    QPushButton#profileSectionLink:hover {{ background:#1A0D2B; color:white; border-color:#8436D2; }}
+    QPushButton#profileSectionLink:pressed {{ background:#25103D; border-color:{ACCENT}; }}
+    QPushButton#profileObjectLink {{ text-align:left; color:#F0EFF4; background:#0D0D19; border:1px solid transparent; border-radius:4px; padding:7px 10px; }}
+    QPushButton#profileObjectLink:hover {{ color:#D5A8FF; background:#1A0D2B; border-color:#7130A9; }}
     QCheckBox {{ spacing:9px; }}
     QCheckBox::indicator {{ width:17px; height:17px; border:1px solid #44515D; border-radius:4px; background:#091118; }}
     QCheckBox::indicator:checked {{ background:{ACCENT}; border-color:#B16CFF; image:url("{check_image}"); }}

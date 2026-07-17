@@ -1,11 +1,12 @@
-from PySide6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QStackedWidget, QVBoxLayout, QWidget
 from app.core.icon_registry import IconRegistry
+from app.ui.profile.profile_widgets import AvatarLabel
 
 
 class FirstRunDialog(QDialog):
     def __init__(self, parent=None) -> None:
-        super().__init__(parent); self.setWindowTitle("Первый запуск Velora"); self.setWindowIcon(IconRegistry.icon("info", variant="dark", category="feedback")); self.setModal(True); self.setMinimumSize(600, 390)
-        self.custom_profile_created = False; self._display_name = "Velora"
+        super().__init__(parent); self.setWindowTitle("Первый запуск Velora"); self.setWindowIcon(IconRegistry.icon("info", variant="dark", category="feedback")); self.setModal(True); self.setMinimumSize(600, 470)
+        self.custom_profile_created = False; self._display_name = "Velora"; self._avatar_path = ""
         root=QVBoxLayout(self); self.pages=QStackedWidget(); root.addWidget(self.pages)
         self.pages.addWidget(self._profile_page()); self.pages.addWidget(self._content_page())
 
@@ -13,7 +14,9 @@ class FirstRunDialog(QDialog):
         page=QWidget(); layout=QVBoxLayout(page); layout.setSpacing(14)
         title=QLabel("ДОБРО ПОЖАЛОВАТЬ В VELORA"); title.setStyleSheet("font-size:18pt;font-weight:600;"); layout.addWidget(title)
         text=QLabel("Создайте имя для локального профиля или продолжите с именем Velora.\nВсе личные данные останутся только на этом компьютере."); text.setObjectName("muted"); text.setWordWrap(True); layout.addWidget(text)
-        self.profile_name=QLineEdit(); self.profile_name.setPlaceholderText("Введите имя профиля"); self.profile_name.setMinimumHeight(40); layout.addWidget(self.profile_name); layout.addStretch()
+        profile_row=QHBoxLayout(); self.avatar_preview=AvatarLabel(92); self.avatar_preview.set_avatar(""); profile_row.addWidget(self.avatar_preview)
+        profile_fields=QVBoxLayout(); self.profile_name=QLineEdit(); self.profile_name.setPlaceholderText("Введите имя профиля"); self.profile_name.setMinimumHeight(40); profile_fields.addWidget(self.profile_name)
+        avatar_button=QPushButton("ВЫБРАТЬ АВАТАР (НЕОБЯЗАТЕЛЬНО)"); avatar_button.clicked.connect(self._choose_avatar); profile_fields.addWidget(avatar_button); profile_row.addLayout(profile_fields,1); layout.addLayout(profile_row); layout.addStretch()
         create=QPushButton("СОЗДАТЬ ЛОКАЛЬНЫЙ ПРОФИЛЬ"); create.setMinimumHeight(42); create.setProperty("primary", True); create.clicked.connect(self._create_profile); layout.addWidget(create)
         skip=QPushButton("ПРОДОЛЖИТЬ БЕЗ ПРОФИЛЯ"); skip.setMinimumHeight(40); skip.setStyleSheet("background:#171E25;border:1px solid #35414B;color:#BFC7CE;"); skip.clicked.connect(self._skip_profile); layout.addWidget(skip); return page
 
@@ -40,6 +43,12 @@ class FirstRunDialog(QDialog):
         if not name: self.profile_name.setFocus(); self.profile_name.setStyleSheet("border:1px solid #FF4D5A;"); return
         self.custom_profile_created=True; self._display_name=name; self.pages.setCurrentIndex(1)
 
+    def _choose_avatar(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Выберите аватар", "", "Изображения (*.png *.jpg *.jpeg *.webp)")
+        if path:
+            self._avatar_path = path
+            self.avatar_preview.set_avatar(path)
+
     def _skip_profile(self) -> None:
         self.custom_profile_created=False; self._display_name="Velora"; self.pages.setCurrentIndex(1)
 
@@ -51,5 +60,7 @@ class FirstRunDialog(QDialog):
     def profile_requested(self) -> bool: return self.custom_profile_created
     @property
     def display_name(self) -> str: return self._display_name
+    @property
+    def avatar_path(self) -> str: return self._avatar_path
     @property
     def hide_adult_content(self) -> bool: return not self.show_adult.isChecked()

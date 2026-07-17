@@ -1,11 +1,13 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPushButton,
+    QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPushButton,
     QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from app.data.user_repository import LocalProfile, UserRepository
 from app.ui.profile.statistics_dashboard import StatisticsDashboard
+from app.ui.profile.profile_overview import ProfileOverview
+from app.ui.profile.profile_widgets import AvatarLabel, GlowingTabBar, store_profile_avatar
 from app.navigation.routes import catalog_uri
 
 
@@ -23,18 +25,30 @@ class ProfilePage(QWidget):
         heading = QHBoxLayout(); title = QLabel("МОЙ VELORA"); title.setStyleSheet("font-family:Georgia; font-size:26pt; letter-spacing:2px;")
         heading.addWidget(title); heading.addStretch(); self.profile_name = QLabel(); self.profile_name.setStyleSheet("font-size:14pt; font-weight:600;"); heading.addWidget(self.profile_name)
         root.addLayout(heading)
-        self.tabs = QTabWidget(); self.tabs.setDocumentMode(True)
+        self.tabs = QTabWidget(); self.tabs.setObjectName("profileTabs"); self.tabs.setDocumentMode(True); self.tabs.setTabBar(GlowingTabBar())
+        self.tabs.addTab(self._build_overview_tab(), "ОБЗОР")
         self.tabs.addTab(self._build_ratings_tab(), "МОИ ОЦЕНКИ")
         self.tabs.addTab(self._build_favorites_tab(), "ИЗБРАННОЕ")
         self.tabs.addTab(self._build_statistics_tab(), "СТАТИСТИКА")
         self.tabs.addTab(self._build_profile_tab(), "ПРОФИЛЬ")
         root.addWidget(self.tabs, 1)
 
+    def _build_overview_tab(self) -> QWidget:
+        self.overview = ProfileOverview()
+        self.overview.section_requested.connect(self.tabs.setCurrentIndex)
+        self.overview.catalog_item_requested.connect(self.catalog_item_requested.emit)
+        return self.overview
+
     def _build_profile_tab(self) -> QWidget:
         tab = QWidget(); layout = QVBoxLayout(tab); layout.setContentsMargins(18, 22, 18, 18)
+        caption = QLabel("АВАТАР ПРОФИЛЯ"); caption.setObjectName("caption"); layout.addWidget(caption)
+        avatar_container = QWidget(); avatar_container.setFixedHeight(140); avatar_row = QHBoxLayout(avatar_container); avatar_row.setContentsMargins(0,0,0,0); avatar_row.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.avatar_preview = AvatarLabel(124); avatar_row.addWidget(self.avatar_preview,0,Qt.AlignmentFlag.AlignTop)
+        avatar_actions = QVBoxLayout(); avatar_actions.setAlignment(Qt.AlignmentFlag.AlignTop); choose_avatar = QPushButton("ВЫБРАТЬ ИЗОБРАЖЕНИЕ"); choose_avatar.clicked.connect(self._choose_avatar); avatar_actions.addWidget(choose_avatar)
+        remove_avatar = QPushButton("УБРАТЬ АВАТАР"); remove_avatar.clicked.connect(self._remove_avatar); avatar_actions.addWidget(remove_avatar); avatar_row.addLayout(avatar_actions); avatar_row.addStretch(); layout.addWidget(avatar_container)
         caption = QLabel("ИМЯ ПРОФИЛЯ"); caption.setObjectName("caption"); layout.addWidget(caption)
         row = QHBoxLayout(); self.name_edit = QLineEdit(); self.name_edit.setMaximumWidth(520); row.addWidget(self.name_edit)
-        save = QPushButton("СОХРАНИТЬ ИМЯ"); save.setStyleSheet("background:#6E1BC4; border:1px solid #A54BFF;"); save.clicked.connect(self._save_name); row.addWidget(save); row.addStretch(); layout.addLayout(row)
+        save = QPushButton("СОХРАНИТЬ ПРОФИЛЬ"); save.setStyleSheet("background:#6E1BC4; border:1px solid #A54BFF;"); save.clicked.connect(self._save_profile); row.addWidget(save); row.addStretch(); layout.addLayout(row)
         hint = QLabel("Это имя отображается только в вашем локальном профиле."); hint.setObjectName("muted"); layout.addWidget(hint); layout.addStretch(); return tab
 
     def _build_favorites_tab(self) -> QWidget:
@@ -69,6 +83,7 @@ class ProfilePage(QWidget):
 
     def refresh(self, games) -> None:
         self.games = list(games); profile = self.repository.load_profile(); self.profile_name.setText(profile.display_name); self.name_edit.setText(profile.display_name)
+        self._pending_avatar_path = profile.avatar_path; self.avatar_preview.set_avatar(profile.avatar_path); self.overview.refresh(profile, self.games)
         favorites = [game for game in self.games if game.favorite]
         rated = [game for game in self.games if game.personal_score != "—"]
         self.favorites_table.setSortingEnabled(False); self.ratings_table.setSortingEnabled(False)
@@ -83,6 +98,9 @@ class ProfilePage(QWidget):
         completed = [g for g in self.games if g.status == "ПРОШЁЛ"]
         average = sum(float(g.personal_score) for g in rated) / len(rated) if rated else None
         self.statistics_dashboard.refresh(self.games)
+
+    def show_overview(self) -> None:
+        self.tabs.setCurrentIndex(0)
 
     @staticmethod
     def _fill(table: QTableWidget, rows) -> None:
@@ -130,6 +148,20 @@ class ProfilePage(QWidget):
         else:
             table.viewport().setCursor(QCursor(Qt.CursorShape.ArrowCursor))
 
-    def _save_name(self) -> None:
+    def _choose_avatar(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Выберите аватар", "", "Изображения (*.png *.jpg *.jpeg *.webp)")
+        if path:
+            self._pending_avatar_path = path
+            self.avatar_preview.set_avatar(path)
+
+    def _remove_avatar(self) -> None:
+        self._pending_avatar_path = ""
+        self.avatar_preview.set_avatar("")
+
+    def _save_profile(self) -> None:
         name = self.name_edit.text().strip() or "Пользователь"
-        current = self.repository.load_profile(); self.repository.save_profile(LocalProfile(name, current.bio, current.avatar_path)); self.profile_name.setText(name)
+        current = self.repository.load_profile()
+        avatar_path = store_profile_avatar(self._pending_avatar_path) if self._pending_avatar_path else ""
+        profile = LocalProfile(name, current.bio, avatar_path)
+        self.repository.save_profile(profile); self.profile_name.setText(name)
+        self._pending_avatar_path = avatar_path; self.avatar_preview.set_avatar(avatar_path); self.overview.refresh(profile, self.games)

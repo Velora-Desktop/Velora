@@ -1,0 +1,1177 @@
+{
+  "pack": "Velora Icon Pack v2 — Missing Icons",
+  "version": "2.0",
+  "icon_count": 130,
+  "icons": [
+    {
+      "id": "search",
+      "group": "ui",
+      "path": "svg/ui/search.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "back",
+      "group": "ui",
+      "path": "svg/ui/back.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "forward",
+      "group": "ui",
+      "path": "svg/ui/forward.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "close",
+      "group": "ui",
+      "path": "svg/ui/close.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "plus",
+      "group": "ui",
+      "path": "svg/ui/plus.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "minus",
+      "group": "ui",
+      "path": "svg/ui/minus.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "edit",
+      "group": "ui",
+      "path": "svg/ui/edit.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "delete",
+      "group": "ui",
+      "path": "svg/ui/delete.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "save",
+      "group": "ui",
+      "path": "svg/ui/save.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "cancel",
+      "group": "ui",
+      "path": "svg/ui/cancel.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "confirm",
+      "group": "ui",
+      "path": "svg/ui/confirm.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "refresh",
+      "group": "ui",
+      "path": "svg/ui/refresh.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "reload",
+      "group": "ui",
+      "path": "svg/ui/reload.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "settings",
+      "group": "ui",
+      "path": "svg/ui/settings.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "filter",
+      "group": "ui",
+      "path": "svg/ui/filter.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "sort",
+      "group": "ui",
+      "path": "svg/ui/sort.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "menu",
+      "group": "ui",
+      "path": "svg/ui/menu.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "more",
+      "group": "ui",
+      "path": "svg/ui/more.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "info",
+      "group": "ui",
+      "path": "svg/ui/info.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "warning",
+      "group": "ui",
+      "path": "svg/ui/warning.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "error",
+      "group": "ui",
+      "path": "svg/ui/error.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "success",
+      "group": "ui",
+      "path": "svg/ui/success.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "notification",
+      "group": "ui",
+      "path": "svg/ui/notification.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "history",
+      "group": "ui",
+      "path": "svg/ui/history.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "clock",
+      "group": "ui",
+      "path": "svg/ui/clock.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "calendar",
+      "group": "ui",
+      "path": "svg/ui/calendar.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "upload",
+      "group": "ui",
+      "path": "svg/ui/upload.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "download",
+      "group": "ui",
+      "path": "svg/ui/download.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "import",
+      "group": "ui",
+      "path": "svg/ui/import.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "export",
+      "group": "ui",
+      "path": "svg/ui/export.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "backup",
+      "group": "ui",
+      "path": "svg/ui/backup.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "restore",
+      "group": "ui",
+      "path": "svg/ui/restore.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "database",
+      "group": "ui",
+      "path": "svg/ui/database.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "integrity_check",
+      "group": "ui",
+      "path": "svg/ui/integrity_check.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "storage",
+      "group": "ui",
+      "path": "svg/ui/storage.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "folder",
+      "group": "ui",
+      "path": "svg/ui/folder.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "file",
+      "group": "ui",
+      "path": "svg/ui/file.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "copy",
+      "group": "ui",
+      "path": "svg/ui/copy.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "lock",
+      "group": "ui",
+      "path": "svg/ui/lock.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "unlock",
+      "group": "ui",
+      "path": "svg/ui/unlock.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "eye",
+      "group": "ui",
+      "path": "svg/ui/eye.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "eye_off",
+      "group": "ui",
+      "path": "svg/ui/eye_off.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "help",
+      "group": "ui",
+      "path": "svg/ui/help.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "external_link",
+      "group": "ui",
+      "path": "svg/ui/external_link.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "chevron_down",
+      "group": "ui",
+      "path": "svg/ui/chevron_down.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "chevron_up",
+      "group": "ui",
+      "path": "svg/ui/chevron_up.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "chevron_left",
+      "group": "ui",
+      "path": "svg/ui/chevron_left.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "chevron_right",
+      "group": "ui",
+      "path": "svg/ui/chevron_right.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "drag",
+      "group": "ui",
+      "path": "svg/ui/drag.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "pin",
+      "group": "ui",
+      "path": "svg/ui/pin.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "unpin",
+      "group": "ui",
+      "path": "svg/ui/unpin.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "game",
+      "group": "media_types",
+      "path": "svg/media_types/game.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "movie",
+      "group": "media_types",
+      "path": "svg/media_types/movie.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "series",
+      "group": "media_types",
+      "path": "svg/media_types/series.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "software",
+      "group": "media_types",
+      "path": "svg/media_types/software.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "custom_section",
+      "group": "media_types",
+      "path": "svg/media_types/custom_section.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "profile",
+      "group": "media_types",
+      "path": "svg/media_types/profile.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "statistics",
+      "group": "media_types",
+      "path": "svg/media_types/statistics.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "favorite",
+      "group": "media_types",
+      "path": "svg/media_types/favorite.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "recent",
+      "group": "media_types",
+      "path": "svg/media_types/recent.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "lists",
+      "group": "media_types",
+      "path": "svg/media_types/lists.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "collection",
+      "group": "media_types",
+      "path": "svg/media_types/collection.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "catalog",
+      "group": "media_types",
+      "path": "svg/media_types/catalog.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "not_started",
+      "group": "statuses",
+      "path": "svg/statuses/not_started.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "playing",
+      "group": "statuses",
+      "path": "svg/statuses/playing.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "completed",
+      "group": "statuses",
+      "path": "svg/statuses/completed.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "paused",
+      "group": "statuses",
+      "path": "svg/statuses/paused.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "dropped",
+      "group": "statuses",
+      "path": "svg/statuses/dropped.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "replaying",
+      "group": "statuses",
+      "path": "svg/statuses/replaying.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "not_watched",
+      "group": "statuses",
+      "path": "svg/statuses/not_watched.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "watching",
+      "group": "statuses",
+      "path": "svg/statuses/watching.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "watched",
+      "group": "statuses",
+      "path": "svg/statuses/watched.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "rewatched",
+      "group": "statuses",
+      "path": "svg/statuses/rewatched.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "waiting_new_season",
+      "group": "statuses",
+      "path": "svg/statuses/waiting_new_season.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "not_used",
+      "group": "statuses",
+      "path": "svg/statuses/not_used.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "using",
+      "group": "statuses",
+      "path": "svg/statuses/using.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "used",
+      "group": "statuses",
+      "path": "svg/statuses/used.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "abandoned",
+      "group": "statuses",
+      "path": "svg/statuses/abandoned.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "playtime",
+      "group": "metrics",
+      "path": "svg/metrics/playtime.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "watch_count",
+      "group": "metrics",
+      "path": "svg/metrics/watch_count.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "season",
+      "group": "metrics",
+      "path": "svg/metrics/season.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "episode",
+      "group": "metrics",
+      "path": "svg/metrics/episode.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "date_started",
+      "group": "metrics",
+      "path": "svg/metrics/date_started.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "date_completed",
+      "group": "metrics",
+      "path": "svg/metrics/date_completed.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "personal_rating",
+      "group": "metrics",
+      "path": "svg/metrics/personal_rating.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "general_rating",
+      "group": "metrics",
+      "path": "svg/metrics/general_rating.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "trend_up",
+      "group": "metrics",
+      "path": "svg/metrics/trend_up.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "trend_down",
+      "group": "metrics",
+      "path": "svg/metrics/trend_down.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "activity",
+      "group": "metrics",
+      "path": "svg/metrics/activity.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "progress",
+      "group": "metrics",
+      "path": "svg/metrics/progress.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "developer",
+      "group": "details",
+      "path": "svg/details/developer.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "publisher",
+      "group": "details",
+      "path": "svg/details/publisher.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "release_date",
+      "group": "details",
+      "path": "svg/details/release_date.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "age_rating",
+      "group": "details",
+      "path": "svg/details/age_rating.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "platforms",
+      "group": "details",
+      "path": "svg/details/platforms.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "players",
+      "group": "details",
+      "path": "svg/details/players.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "languages",
+      "group": "details",
+      "path": "svg/details/languages.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "country",
+      "group": "details",
+      "path": "svg/details/country.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "stores",
+      "group": "details",
+      "path": "svg/details/stores.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "distribution",
+      "group": "details",
+      "path": "svg/details/distribution.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "budget",
+      "group": "details",
+      "path": "svg/details/budget.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "dlc",
+      "group": "details",
+      "path": "svg/details/dlc.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "awards",
+      "group": "details",
+      "path": "svg/details/awards.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "system_requirements",
+      "group": "details",
+      "path": "svg/details/system_requirements.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "cpu",
+      "group": "details",
+      "path": "svg/details/cpu.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "gpu",
+      "group": "details",
+      "path": "svg/details/gpu.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "ram",
+      "group": "details",
+      "path": "svg/details/ram.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "disk",
+      "group": "details",
+      "path": "svg/details/disk.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "operating_system",
+      "group": "details",
+      "path": "svg/details/operating_system.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "minimum_requirements",
+      "group": "details",
+      "path": "svg/details/minimum_requirements.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "recommended_requirements",
+      "group": "details",
+      "path": "svg/details/recommended_requirements.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "description",
+      "group": "details",
+      "path": "svg/details/description.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "cover",
+      "group": "details",
+      "path": "svg/details/cover.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "tags",
+      "group": "details",
+      "path": "svg/details/tags.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "category",
+      "group": "details",
+      "path": "svg/details/category.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "subcategory",
+      "group": "details",
+      "path": "svg/details/subcategory.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "export_backup",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/export_backup.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "import_backup",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/import_backup.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "database_check",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/database_check.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "backup_history",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/backup_history.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "user_data",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/user_data.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "catalog_size",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/catalog_size.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "cover_size",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/cover_size.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "logs",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/logs.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "open_folder",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/open_folder.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "repair",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/repair.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "restore_point",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/restore_point.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "data_folder",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/data_folder.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "schema_version",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/schema_version.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "build_info",
+      "group": "diagnostics",
+      "path": "svg/diagnostics/build_info.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    }
+  ]
+}

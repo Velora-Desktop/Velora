@@ -8,6 +8,14 @@ from app.models.game import GameData, default_status
 
 
 CATALOG_DB = Path(__file__).resolve().parents[2] / "data" / "catalog.db"
+
+
+def normalize_requirements(values: dict[str, str]) -> dict[str, str]:
+    normalized = dict(values or {})
+    for legacy, minimum in (("os", "os_min"), ("cpu", "cpu_min"), ("gpu", "gpu_min"), ("ram", "ram_min"), ("storage", "storage_min")):
+        if normalized.get(legacy) and not normalized.get(minimum):
+            normalized[minimum] = normalized[legacy]
+    return normalized
 MEDIA_TYPES = ("Игры", "Фильмы", "Сериалы", "Программы")
 
 
@@ -75,7 +83,7 @@ def load_catalog_items() -> list[GameData]:
             duration_minutes=duration, seasons=seasons, availability=availability,
             publisher_countries=json_value(row,"publisher_countries_json",[]),
             interface_languages=json_value(row,"interface_languages_json",[]),
-            system_requirements=json_value(row,"system_requirements_json",{}),
+            system_requirements=normalize_requirements(json_value(row,"system_requirements_json",{})),
             awards=json_value(row,"awards_json",[]), dlc=json_value(row,"dlc_json",[]),
             cast=json_value(row,"cast_json",[]), source_code_type=value(row,"source_code_type",""),
             architectures=json_value(row,"architectures_json",[]),

@@ -161,7 +161,7 @@ class GameDetailPage(QScrollArea):
                 label.setText("—" if value is None else f"{value:.1f}")
         playtime_text = f"{game.playtime_hours:g} ч" if game.playtime_hours else "—"
         watched_episodes = sum(state == "watched" for state in game.episode_states.values())
-        interaction = {"Игры":f"Время в игре: {playtime_text}", "Программы":f"Время использования: {playtime_text}", "Фильмы":f"Просмотров: {game.watch_count}", "Сериалы":f"Просмотрено серий: {watched_episodes}/{max(1, game.seasons or 1) * 10}"}[game.media_type]
+        interaction = {"Игры":f"Время в игре: {playtime_text}", "Программы":"История использования хранится по статусам", "Фильмы":f"Просмотров: {game.watch_count}", "Сериалы":f"Прогресс: сезон {game.season_number or '—'}, серия {game.episode_number or '—'}"}[game.media_type]
         self.stats_text.setText(f"Статус: {game.status}\n{interaction}\nИзбранное: {'Да' if game.favorite else 'Нет'}\nДобавлено: 12.05.2024")
         self.criteria_text.setText("\n".join(f"{name}: {value}/10" for name, value in game.rating_criteria.items()) or "Личная оценка ещё не заполнена")
         self.activity_text.setText("\n".join(reversed(game.history[-5:])) or "Изменений пока нет")
@@ -173,8 +173,9 @@ class GameDetailPage(QScrollArea):
             item = self.official_details.takeAt(0)
             if item.widget(): item.widget().deleteLater()
         entries: list[tuple[str, str]] = []
-        budget_title = "БЮДЖЕТ СЪЁМОК" if game.media_type in ("Фильмы", "Сериалы") else "БЮДЖЕТ РАЗРАБОТКИ"
-        entries.append((budget_title, self._format_budget(game.budget_amount, game.budget_currency)))
+        if game.media_type != "Игры":
+            budget_title = "БЮДЖЕТ СЪЁМОК" if game.media_type in ("Фильмы", "Сериалы") else "БЮДЖЕТ РАЗРАБОТКИ"
+            entries.append((budget_title, self._format_budget(game.budget_amount, game.budget_currency)))
         if game.publisher_countries: entries.append(("СТРАНА ИЗДАТЕЛЯ", ", ".join(game.publisher_countries)))
         if game.interface_languages: entries.append(("ЯЗЫКИ ИНТЕРФЕЙСА", ", ".join(game.interface_languages)))
         if game.awards: entries.append(("НАГРАДЫ И ПРЕМИИ", "\n".join(f"• {value}" for value in game.awards)))
@@ -182,8 +183,11 @@ class GameDetailPage(QScrollArea):
         if game.cast:
             entries.append(("В ГЛАВНЫХ РОЛЯХ", "\n".join(f"{entry.get('actor','')} — {entry.get('role','')}" for entry in game.cast)))
         if game.system_requirements:
-            names={"os_min":"ОС (мин.)","os_rec":"ОС (рек.)","cpu_min":"Процессор (мин.)","cpu_rec":"Процессор (рек.)","gpu_min":"Видеокарта (мин.)","gpu_rec":"Видеокарта (рек.)","ram_min":"Память (мин.)","ram_rec":"Память (рек.)","storage":"На диске"}
-            entries.append(("СИСТЕМНЫЕ ТРЕБОВАНИЯ", "\n".join(f"{names.get(key,key)}: {value}" for key,value in game.system_requirements.items())))
+            labels=(("os","ОС"),("cpu","Процессор"),("gpu","Видеокарта"),("ram","RAM"),("storage","Место на диске"),("api","DirectX/API"),("additional","Дополнительно"))
+            minimum="\n".join(f"{label}: {game.system_requirements.get(key+'_min')}" for key,label in labels if game.system_requirements.get(key+"_min"))
+            recommended="\n".join(f"{label}: {game.system_requirements.get(key+'_rec')}" for key,label in labels if game.system_requirements.get(key+"_rec"))
+            entries.append(("МИНИМАЛЬНЫЕ ТРЕБОВАНИЯ", minimum or "Минимальные требования не указаны."))
+            entries.append(("РЕКОМЕНДУЕМЫЕ ТРЕБОВАНИЯ", recommended or "Рекомендуемые требования не указаны."))
         if game.source_code_type: entries.append(("ИСХОДНЫЙ КОД", game.source_code_type))
         if game.architectures: entries.append(("АРХИТЕКТУРЫ", ", ".join(game.architectures)))
         if game.programming_languages: entries.append(("ЯЗЫКИ РАЗРАБОТКИ", ", ".join(game.programming_languages)))

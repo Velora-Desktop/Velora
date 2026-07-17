@@ -11,6 +11,7 @@ from app.data.catalog_repository import catalog_categories, load_catalog_items, 
 from app.models.game import MEDIA_STATUSES, GameData
 from app.services.age_filter_service import AgeFilterService
 from app.core.icon_registry import IconRegistry
+from app.core.platforms import sorted_platforms
 from app.ui.catalog.game_row import COLUMN_AREA_WIDTH, COLUMN_LABELS, COLUMN_SPACING, COLUMN_WIDTHS, GameRow
 
 
@@ -38,7 +39,8 @@ class CatalogView(QWidget):
         self.row_groups: dict[GameRow, str] = {}
         self.group_labels: dict[str, QWidget] = {}
         self.group_count_labels: dict[str, QLabel] = {}
-        self.sort_directions: dict[str, bool] = {}
+        self.group_sort_specs: dict[tuple[str, str, str], tuple[str, bool]] = {}
+        self.group_sort_directions: dict[tuple[tuple[str, str, str], str], bool] = {}
         self.header_column_widgets: dict[QWidget, dict[str, QPushButton]] = {}
 
         root = QVBoxLayout(self)
@@ -204,7 +206,7 @@ class CatalogView(QWidget):
         platform.blockSignals(True); platform.clear()
         watch_mode = self.current_media_type in ("Фильмы", "Сериалы")
         platform.addItem("Все сервисы" if watch_mode else "Все платформы")
-        tokens = sorted({token.strip() for item in self.items if item.media_type == self.current_media_type for token in item.platform.split(";") if token.strip()})
+        tokens = sorted_platforms({token.strip() for item in self.items if item.media_type == self.current_media_type for token in item.platform.split(";") if token.strip()})
         platform.addItems(tokens); platform.blockSignals(False)
         self.control_labels[2].setText("ГДЕ СМОТРЕТЬ:" if watch_mode else "ПЛАТФОРМА:")
         self.search.setPlaceholderText(f"Поиск: {self.current_media_type.lower()}...")
@@ -238,7 +240,7 @@ class CatalogView(QWidget):
             count = QLabel(f"{group_name.upper()} ({len(games)})")
             header_layout.addWidget(count)
             header_layout.addStretch()
-            header_columns, header_widgets = self._column_header_widget()
+            header_columns, header_widgets = self._column_header_widget(group_name)
             header_layout.addWidget(header_columns)
             self.list_layout.addWidget(header)
             self.group_labels[group_name] = header
@@ -260,19 +262,21 @@ class CatalogView(QWidget):
                 self.row_groups[row] = group_name
             self.group_rows[group_name] = rows
         selected_sort = self.control_combos[0].currentData() or "personal"
-        for rows in self.group_rows.values():
-            rows.sort(
-                key=lambda row: self._sort_value(row, selected_sort),
-                reverse=selected_sort in ("general", "personal", "year", "age"),
+        selected_reverse = selected_sort in ("general", "personal", "year", "age")
+        for group_name in self.group_rows:
+            column, reverse = self.group_sort_specs.setdefault(
+                self._group_sort_key(group_name), (selected_sort, selected_reverse)
             )
+            self._sort_group(group_name, column, reverse)
         self._reorder_visual_rows()
+        self._refresh_sort_headers()
         self.list_layout.addStretch()
         self._apply_view()
         # A previous horizontal position must not leak into another media
         # section and visually detach headers from the title column.
         QTimer.singleShot(0, lambda: self.scroll.horizontalScrollBar().setValue(0))
 
-    def _column_header_widget(self) -> tuple[QWidget, dict[str, QPushButton]]:
+    def _column_header_widget(self, group_name: str) -> tuple[QWidget, dict[str, QPushButton]]:
         container = QWidget()
         container.setFixedWidth(COLUMN_AREA_WIDTH)
         layout = QHBoxLayout(container)
@@ -283,7 +287,10 @@ class CatalogView(QWidget):
             button = QPushButton(text)
             button.setFixedWidth(COLUMN_WIDTHS[key])
             button.setFlat(True)
-            button.clicked.connect(lambda checked=False, column=key: self._sort_by_column(column))
+            button.clicked.connect(
+                lambda checked=False, group=group_name, column=key:
+                self._sort_by_column(group, column)
+            )
             layout.addWidget(button)
             widgets[key] = button
         more_placeholder = QWidget()
@@ -313,13 +320,51 @@ class CatalogView(QWidget):
                 toggle.setToolTip("Показать группу" if collapsed else "Скрыть группу")
         self._apply_view()
 
-    def _sort_by_column(self, column: str) -> None:
-        reverse = self.sort_directions.get(column, column in ("general", "personal", "year", "age"))
-        self.sort_directions[column] = not reverse
-        for rows in self.group_rows.values():
-            rows.sort(key=lambda row: self._sort_value(row, column), reverse=reverse)
+    def _group_sort_key(self, group_name: str) -> tuple[str, str, str]:
+        return self.current_media_type, self.current_category, group_name
+
+    def _sort_by_column(self, group_name: str, column: str) -> None:
+        context = self._group_sort_key(group_name)
+        direction_key = (context, column)
+        reverse = self.group_sort_directions.get(
+            direction_key, column in ("general", "personal", "year", "age")
+        )
+        self.group_sort_directions[direction_key] = not reverse
+        self.group_sort_specs[context] = (column, reverse)
+        self._sort_group(group_name, column, reverse)
         self._reorder_visual_rows()
+        self._refresh_sort_headers()
         self._apply_view()
+
+    def _sort_group(self, group_name: str, column: str, reverse: bool) -> None:
+        rows = self.group_rows.get(group_name)
+        if rows is not None:
+            rows.sort(key=lambda row: self._sort_value(row, column), reverse=reverse)
+
+    def _apply_all_group_sort(self, column: str, reverse: bool) -> None:
+        """Apply the toolbar sort to all groups and reset their overrides."""
+        for group_name in self.group_rows:
+            context = self._group_sort_key(group_name)
+            self.group_sort_specs[context] = (column, reverse)
+            self.group_sort_directions[(context, column)] = not reverse
+            self._sort_group(group_name, column, reverse)
+        self._reorder_visual_rows()
+        self._refresh_sort_headers()
+
+    def _refresh_sort_headers(self) -> None:
+        captions = {key: caption for caption, key in self._column_headers()}
+        default_column = self.control_combos[0].currentData() or "personal"
+        default_reverse = default_column in ("general", "personal", "year", "age")
+        for group_name, header in self.group_labels.items():
+            active_column, active_reverse = self.group_sort_specs.get(
+                self._group_sort_key(group_name), (default_column, default_reverse)
+            )
+            arrow = "↓" if active_reverse else "↑"
+            for key, button in self.header_column_widgets.get(header, {}).items():
+                button.setText(f"{captions[key]} {arrow}" if key == active_column else captions[key])
+                button.setProperty("active", key == active_column)
+                button.style().unpolish(button)
+                button.style().polish(button)
 
     def _reorder_visual_rows(self) -> None:
         for name, rows in self.group_rows.items():
@@ -344,11 +389,11 @@ class CatalogView(QWidget):
     def _controls_changed(self, _text: str) -> None:
         self.current_page = 1
         column = self.control_combos[0].currentData()
-        if column:
+        # Only the top sorting control intentionally resets every subgroup.
+        # Filter/platform/status changes must preserve each header's own sort.
+        if self.sender() is self.control_combos[0] and column:
             reverse = column in ("general", "personal", "year", "age")
-            for rows in self.group_rows.values():
-                rows.sort(key=lambda row: self._sort_value(row, column), reverse=reverse)
-            self._reorder_visual_rows()
+            self._apply_all_group_sort(column, reverse)
         self._apply_view()
 
     def _matching_rows(self) -> list[GameRow]:
@@ -357,11 +402,12 @@ class CatalogView(QWidget):
         platform = self.control_combos[2].currentText()
         status = self.control_combos[3].currentText()
         rows = []
-        for row in self.rows:
+        ordered_rows = [row for group_rows in self.group_rows.values() for row in group_rows]
+        for row in ordered_rows:
             game = row.game
             if query and query not in game.title.casefold():
                 continue
-            if self.hide_adult_content and not AgeFilterService.is_visible(game, True):
+            if self.hide_adult_content and not AgeFilterService.is_visible(game.age_rating, True):
                 continue
             if game.hidden:
                 continue
@@ -376,11 +422,6 @@ class CatalogView(QWidget):
             if status != "Все статусы" and game.status != status:
                 continue
             rows.append(row)
-        sort_column = self.control_combos[0].currentData() or "personal"
-        rows.sort(
-            key=lambda row: self._sort_value(row, sort_column),
-            reverse=sort_column in ("general", "personal", "year", "age"),
-        )
         return rows
 
     def _sort_value(self, row: GameRow, column: str):

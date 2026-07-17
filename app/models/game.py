@@ -41,6 +41,8 @@ class GameData:
     media_type: str = "Игры"
     hidden: bool = False
     user_interacted: bool = False
+    interaction_started_at: str = ""
+    interaction_completed_at: str = ""
     duration_minutes: int | None = None
     seasons: int | None = None
     availability: str = ""

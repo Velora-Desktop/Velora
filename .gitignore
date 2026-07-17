@@ -11,3 +11,4 @@ work/
 workspace/
 data/*.bak
 data/*.tmp
+data/backups/
