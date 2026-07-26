@@ -72,14 +72,17 @@ def load_catalog_items() -> list[GameData]:
                 "DualShockers": value(row, "dualshockers_score"),
                 "PC Gamer": value(row, "pc_gamer_score"),
             }
+        official_score = value(row, "general_score", 0)
+        general_score = f"{official_score:.1f}" if official_score and official_score > 0 else "—"
         items.append(GameData(
-            title=row["title"], general_score=f'{row["general_score"]:.1f}', personal_score="—",
+            title=row["title"], general_score=general_score, personal_score="—",
             status=default_status(media_type), developer=value(row, "developer", "—"),
             year=str(value(row, "release_year", "—")), platform=platform or "—", mode=mode,
             description=value(row, "description", ""), publisher=value(row, "publisher", "—"),
             release_year=str(value(row, "release_year", "—")), age_rating=int(row["age_rating"]),
             catalog_id=row["catalog_id"], category=row["category"], subgroup=row["subgroup"],
             cover_path=value(row, "cover_path", ""), critic_scores=critics, media_type=media_type,
+            primary_critic_source=value(row, "primary_critic_source", ""),
             duration_minutes=duration, seasons=seasons, availability=availability,
             publisher_countries=json_value(row,"publisher_countries_json",[]),
             interface_languages=json_value(row,"interface_languages_json",[]),

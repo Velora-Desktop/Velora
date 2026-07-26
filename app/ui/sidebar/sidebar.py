@@ -38,17 +38,27 @@ class CategoryButton(QPushButton):
 class Sidebar(QFrame):
     placeholder_requested = Signal()
     category_selected = Signal(str)
+    subcategory_requested = Signal()
+    item_requested = Signal()
 
     def __init__(self, category_counts: dict[str, int] | None = None, parent=None) -> None:
         super().__init__(parent); self.setObjectName("panel"); self.setMinimumWidth(220); self.setMaximumWidth(290)
         self.root = QVBoxLayout(self); self.root.setContentsMargins(10,14,10,10)
         self.scroll = QScrollArea(); self.scroll.setWidgetResizable(True); self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.root.addWidget(self.scroll,1)
-        self.add_category = QPushButton("＋  ДОБАВИТЬ КАТЕГОРИЮ"); self.add_item = QPushButton("＋  ДОБАВИТЬ СВОЙ ОБЪЕКТ")
+        self.add_category = QPushButton("＋  ПОДКАТЕГОРИЯ")
+        self.add_item = QPushButton("＋  СВОЙ ОБЪЕКТ")
         self.add_category.setMinimumHeight(44); self.add_item.setMinimumHeight(44)
-        self.add_category.setStyleSheet(f"color:#B56CFF;border:1px solid {ACCENT};text-align:left;")
-        self.add_item.setStyleSheet("border:1px solid #28343D;text-align:left;")
-        self.add_category.clicked.connect(self.placeholder_requested); self.add_item.clicked.connect(self.placeholder_requested)
+        self.add_category.setToolTip("Добавить категорию и подкатегорию")
+        self.add_category.setStyleSheet(
+            f"color:#B56CFF;border:1px solid {ACCENT};text-align:left;"
+            "font-size:9pt;padding:6px 8px;"
+        )
+        self.add_item.setStyleSheet(
+            "border:1px solid #28343D;text-align:left;font-size:9pt;padding:6px 8px;"
+        )
+        self.add_category.clicked.connect(self.subcategory_requested)
+        self.add_item.clicked.connect(self.item_requested)
         self.root.addWidget(self.add_category); self.root.addWidget(self.add_item)
         self.category_buttons: dict[str,QPushButton] = {}; self.set_categories(category_counts or {})
 

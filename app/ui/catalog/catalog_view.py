@@ -32,7 +32,7 @@ class CatalogView(QWidget):
         self.current_media_type = "Игры"
         self.current_category = ""
         self.hide_adult_content = False
-        self.page_size = 10
+        self.page_size = 25
         self.current_page = 1
         self.collapsed_groups: set[str] = set()
         self.group_rows: dict[str, list[GameRow]] = {}
@@ -102,6 +102,7 @@ class CatalogView(QWidget):
         pagination.addWidget(self.range_label)
         self.page_size_combo = QComboBox()
         self.page_size_combo.addItems(("10 на странице", "25 на странице", "50 на странице", "100 на странице"))
+        self.page_size_combo.setCurrentIndex(1)
         self.page_size_combo.setFixedWidth(220)
         self.page_size_combo.currentIndexChanged.connect(self._change_page_size)
         pagination.addWidget(self.page_size_combo)
@@ -200,7 +201,7 @@ class CatalogView(QWidget):
         status.blockSignals(True)
         status.clear()
         status.addItem("Все статусы")
-        status.addItems(MEDIA_STATUSES.get(self.current_media_type, ()))
+        status.addItems(MEDIA_STATUSES.get(self.current_media_type, MEDIA_STATUSES["Игры"]))
         status.blockSignals(False)
         platform = self.control_combos[2]
         platform.blockSignals(True); platform.clear()
@@ -299,9 +300,15 @@ class CatalogView(QWidget):
         return container, widgets
 
     def _column_headers(self) -> tuple[tuple[str, str], ...]:
-        creator = {"Игры": "Разработчик", "Фильмы": "Режиссёр", "Сериалы": "Создатель", "Программы": "Разработчик"}[self.current_media_type]
+        creator = {
+            "Игры": "Разработчик", "Фильмы": "Режиссёр",
+            "Сериалы": "Создатель", "Программы": "Разработчик",
+        }.get(self.current_media_type, "Создатель")
         platform = "Где смотреть" if self.current_media_type in ("Фильмы", "Сериалы") else "Платформа"
-        mode = {"Игры": "Кол-во игроков", "Фильмы": "Длительность", "Сериалы": "Сезоны", "Программы": "Тип"}[self.current_media_type]
+        mode = {
+            "Игры": "Кол-во игроков", "Фильмы": "Длительность",
+            "Сериалы": "Сезоны", "Программы": "Тип",
+        }.get(self.current_media_type, "Формат")
         return ((COLUMN_LABELS["general"], "general"), (COLUMN_LABELS["personal"], "personal"), (COLUMN_LABELS["status"], "status"),
                 (creator, "developer"), ("Год выхода", "year"), (platform, "platform"),
                 (mode, "mode"), ("Возраст", "age"))
@@ -409,7 +416,7 @@ class CatalogView(QWidget):
                 continue
             if self.hide_adult_content and not AgeFilterService.is_visible(game.age_rating, True):
                 continue
-            if game.hidden:
+            if game.hidden or game.archived:
                 continue
             if filter_mode == "Только избранное" and not game.favorite:
                 continue
@@ -429,7 +436,7 @@ class CatalogView(QWidget):
         if column == "general": return self._score(game.general_score)
         if column == "personal": return self._score(game.personal_score)
         if column == "status":
-            statuses = MEDIA_STATUSES.get(game.media_type, ())
+            statuses = MEDIA_STATUSES.get(game.media_type, MEDIA_STATUSES["Игры"])
             return statuses.index(game.status) if game.status in statuses else len(statuses)
         if column == "developer": return (game.developer or "").casefold()
         if column == "year":
@@ -486,6 +493,15 @@ class CatalogView(QWidget):
 
     def refresh_filters(self, *_args) -> None:
         self._apply_view()
+
+    def replace_items(self, items: list[GameData], media_type: str | None = None) -> None:
+        """Replace the mixed official/local view model and rebuild real row widgets."""
+        self.items=list(items)
+        if media_type is not None:self.current_media_type=media_type
+        categories=catalog_categories(self.items,self.current_media_type)
+        if self.current_category not in categories:
+            self.current_category=next(iter(categories),"")
+        self._configure_controls(); self._rebuild()
 
     def set_hide_adult_content(self, enabled: bool) -> None:
         self.hide_adult_content = enabled

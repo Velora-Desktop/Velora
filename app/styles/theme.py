@@ -39,6 +39,9 @@ def application_stylesheet() -> str:
     QTabBar::tab:hover {{ color:#E7EAF0; background:#160B24; }}
     QTabBar::tab:selected {{ color:#E4C7FF; border-bottom-color:{ACCENT}; background:#100A1A; }}
     QTabWidget#profileTabs::pane {{ border:0; background:transparent; top:-1px; }}
+    QWidget#veloraPanel {{ background:#0B1018; border:1px solid #242D3B; border-radius:8px; }}
+    QToolButton#randomCoverCard {{ background:#0B121A; border:1px solid #2A3540; border-radius:8px; color:#F1F2F4; padding:10px; font-weight:600; }}
+    QToolButton#randomCoverCard:hover {{ background:#1A0D2B; border-color:{ACCENT}; color:#E7C7FF; }}
     QTabBar#profileTabBar {{ background:#05090D; }}
     QTabBar#profileTabBar::tab {{ min-width:118px; min-height:25px; margin-right:4px; padding:9px 15px; color:#9BA2AC; background:transparent; border:1px solid transparent; border-bottom:3px solid transparent; border-radius:5px 5px 0 0; }}
     QTabBar#profileTabBar::tab:hover {{ color:white; background:#160B24; border-color:#552080; border-bottom-color:#7B2BD0; }}
@@ -48,6 +51,11 @@ def application_stylesheet() -> str:
     QPushButton#profileSectionLink:pressed {{ background:#25103D; border-color:{ACCENT}; }}
     QPushButton#profileObjectLink {{ text-align:left; color:#F0EFF4; background:#0D0D19; border:1px solid transparent; border-radius:4px; padding:7px 10px; }}
     QPushButton#profileObjectLink:hover {{ color:#D5A8FF; background:#1A0D2B; border-color:#7130A9; }}
+    QLabel#profileSectionHeading {{ color:#EEEAF4; font-size:13pt; font-weight:700; padding:8px 2px; }}
+    QLabel#analyticsSummary {{ color:#E6D5F7; font-size:14pt; font-weight:650; background:#151023; border:1px solid #3B2855; border-radius:8px; padding:16px; }}
+    QFrame#goalCard {{ background:#111222; border:1px solid #292A43; border-radius:8px; padding:5px; }}
+    QProgressBar {{ background:#202035; border:0; border-radius:3px; min-height:9px; text-align:center; color:white; }}
+    QProgressBar::chunk {{ background:{ACCENT}; border-radius:3px; }}
     QCheckBox {{ spacing:9px; }}
     QCheckBox::indicator {{ width:17px; height:17px; border:1px solid #44515D; border-radius:4px; background:#091118; }}
     QCheckBox::indicator:checked {{ background:{ACCENT}; border-color:#B16CFF; image:url("{check_image}"); }}

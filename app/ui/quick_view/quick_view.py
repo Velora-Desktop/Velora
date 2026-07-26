@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -14,10 +15,13 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.constants import ACCENT, DANGER, SUCCESS, WARNING
+from app.core.paths import resolve_resource_path
 from app.models.game import GameData
 from app.core.icon_registry import IconRegistry
 from app.ui.widgets.platform_icons import PlatformIconRow
+from app.core.display_text import compact_entities
 from app.ui.widgets.age_rating import AgeRatingValue
+from app.ui.widgets.critic_sources import CriticSourceStrip
 from app.ui.catalog.status_menu import build_status_menu
 from app.ui.quick_view.rating_dialog import request_rating
 from app.ui.quick_view.playtime_dialog import request_total_playtime
@@ -50,9 +54,10 @@ class QuickView(QFrame):
         cover_column = QVBoxLayout()
         cover_column.setSpacing(6)
         self.cover = QLabel()
-        self.cover.setFixedSize(145, 185)
-        self.cover.setStyleSheet("background:#242B36; border:1px solid #313B47; border-radius:6px;")
-        cover_column.addWidget(self.cover)
+        self.cover.setFixedSize(128, 192)
+        self.cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.cover.setStyleSheet("background:#18212A; border:0; border-radius:3px;")
+        cover_column.addWidget(self.cover, 0, Qt.AlignmentFlag.AlignHCenter)
         rate_button = QPushButton("ОЦЕНИТЬ")
         rate_button.setIcon(IconRegistry.icon("edit", category="ui")); rate_button.setIconSize(QSize(16, 16))
         rate_button.setFixedHeight(36)
@@ -162,9 +167,7 @@ class QuickView(QFrame):
         self.general_stars = QLabel("☆☆☆☆☆")
         self.general_stars.setStyleSheet(f"font-family:'Segoe UI Symbol'; font-size:19pt; color:{SUCCESS};")
         general.addWidget(self.general_stars)
-        self.vote_count = QLabel()
-        self.vote_count.setObjectName("muted")
-        self.vote_count.setWordWrap(True)
+        self.vote_count = CriticSourceStrip()
         general.addWidget(self.vote_count)
         general.addStretch()
         rating_layout.addLayout(general, 1)
@@ -308,21 +311,29 @@ class QuickView(QFrame):
             "Фильмы": ("Жанр:","Год выхода:","Режиссёр:","Где смотреть:","Студия:","Длительность:","Возраст:",""),
             "Сериалы": ("Жанр:","Год выхода:","Создатель:","Где смотреть:","Студия:","Сезоны:","Возраст:",""),
             "Программы": ("Категория:","Год выхода:","Разработчик:","Платформа:","Издатель:","Тип:","Возраст:",""),
-        }[game.media_type]
+        }.get(game.media_type, ("Категория:","Год:","Создатель:","Платформа:","Издатель:","Формат:","Возраст:",""))
         for caption, text in zip(self.meta_captions, labels): caption.setText(text)
         self.title_button.setText(game.title)
+        self._set_cover(game.cover_path)
         self.genre.setText(" · ".join(part for part in (game.category, game.subgroup) if part))
         self.year.setText(game.year)
-        self.developer.setText(game.developer)
+        developer_text, developer_tooltip = compact_entities(game.developer)
+        self.developer.setText(developer_text)
+        self.developer.setToolTip(developer_tooltip)
         self.platform.setText(game.platform)
-        self.publisher.setText(game.publisher)
+        publisher_text, publisher_tooltip = compact_entities(game.publisher)
+        self.publisher.setText(publisher_text)
+        self.publisher.setToolTip(publisher_tooltip)
         self.mode.setText(game.mode)
         self.age.setText(game.age_rating)
         summary = game.description.strip()
         self.summary.setText(summary if len(summary) <= 190 else summary[:187].rstrip() + "…")
         self.general_score.setText(self._format_score(game.general_score))
         sources = [name for name, value in game.critic_scores.items() if value is not None]
-        self.vote_count.setText("На основе: " + (", ".join(sources) if sources else "источники не указаны"))
+        if game.primary_critic_source in sources:
+            sources.remove(game.primary_critic_source)
+            sources.insert(0, game.primary_critic_source)
+        self.vote_count.set_sources(sources, game.primary_critic_source)
         self.personal_score.setText(self._format_score(game.personal_score))
         self.general_stars.setText(self._stars_for_score(game.general_score))
         self.personal_stars.setText(self._stars_for_score(game.personal_score))
@@ -337,6 +348,19 @@ class QuickView(QFrame):
         self._update_status_style(game.status)
         self._refresh_history()
         self.show()
+
+    def _set_cover(self, cover_path: str) -> None:
+        self.cover.clear()
+        resolved_path = resolve_resource_path(cover_path) if cover_path else None
+        if not resolved_path or not resolved_path.is_file():
+            return
+        pixmap = QPixmap(str(resolved_path))
+        if not pixmap.isNull():
+            self.cover.setPixmap(pixmap.scaled(
+                self.cover.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            ))
 
     def set_external_status(self, game: GameData, status: str) -> None:
         if self.current_game is game:

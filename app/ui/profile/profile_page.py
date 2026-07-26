@@ -8,6 +8,9 @@ from app.data.user_repository import LocalProfile, UserRepository
 from app.ui.profile.statistics_dashboard import StatisticsDashboard
 from app.ui.profile.profile_overview import ProfileOverview
 from app.ui.profile.profile_widgets import AvatarLabel, GlowingTabBar, store_profile_avatar
+from app.ui.profile.personal_library_page import PersonalLibraryPage
+from app.ui.profile.planning_page import PlanningPage
+from app.data.personal_library_repository import PersonalLibraryRepository
 from app.navigation.routes import catalog_uri
 
 
@@ -23,10 +26,12 @@ class ProfilePage(QWidget):
         super().__init__(parent); self.repository = repository; self.games = []
         root = QVBoxLayout(self); root.setContentsMargins(24, 18, 24, 22); root.setSpacing(14)
         heading = QHBoxLayout(); title = QLabel("МОЙ VELORA"); title.setStyleSheet("font-family:Georgia; font-size:26pt; letter-spacing:2px;")
-        heading.addWidget(title); heading.addStretch(); self.profile_name = QLabel(); self.profile_name.setStyleSheet("font-size:14pt; font-weight:600;"); heading.addWidget(self.profile_name)
+        heading.addWidget(title); heading.addStretch(); snapshot = QPushButton("СОХРАНИТЬ СНИМОК PNG"); snapshot.clicked.connect(self._save_snapshot); heading.addWidget(snapshot); self.profile_name = QLabel(); self.profile_name.setStyleSheet("font-size:14pt; font-weight:600;"); heading.addWidget(self.profile_name)
         root.addLayout(heading)
         self.tabs = QTabWidget(); self.tabs.setObjectName("profileTabs"); self.tabs.setDocumentMode(True); self.tabs.setTabBar(GlowingTabBar())
         self.tabs.addTab(self._build_overview_tab(), "ОБЗОР")
+        self.tabs.addTab(self._build_planning_tab(), "ПЛАНЫ И ОБЗОРЫ")
+        self.tabs.addTab(self._build_library_tab(), "УМНАЯ БИБЛИОТЕКА")
         self.tabs.addTab(self._build_ratings_tab(), "МОИ ОЦЕНКИ")
         self.tabs.addTab(self._build_favorites_tab(), "ИЗБРАННОЕ")
         self.tabs.addTab(self._build_statistics_tab(), "СТАТИСТИКА")
@@ -38,6 +43,17 @@ class ProfilePage(QWidget):
         self.overview.section_requested.connect(self.tabs.setCurrentIndex)
         self.overview.catalog_item_requested.connect(self.catalog_item_requested.emit)
         return self.overview
+
+    def _build_library_tab(self) -> QWidget:
+        self.personal_library = PersonalLibraryPage(self.repository)
+        self.personal_library.catalog_item_requested.connect(self.catalog_item_requested.emit)
+        return self.personal_library
+
+    def _build_planning_tab(self) -> QWidget:
+        self.planning_repository = PersonalLibraryRepository(self.repository.path)
+        self.planning = PlanningPage(self.planning_repository)
+        self.planning.catalog_item_requested.connect(self.catalog_item_requested.emit)
+        return self.planning
 
     def _build_profile_tab(self) -> QWidget:
         tab = QWidget(); layout = QVBoxLayout(tab); layout.setContentsMargins(18, 22, 18, 18)
@@ -84,6 +100,8 @@ class ProfilePage(QWidget):
     def refresh(self, games) -> None:
         self.games = list(games); profile = self.repository.load_profile(); self.profile_name.setText(profile.display_name); self.name_edit.setText(profile.display_name)
         self._pending_avatar_path = profile.avatar_path; self.avatar_preview.set_avatar(profile.avatar_path); self.overview.refresh(profile, self.games)
+        self.planning.refresh(self.games); self.personal_library.refresh(self.games)
+        self.overview.refresh_today(self.planning_repository.queue(), self.repository.goals(), self.planning_repository.drafts(), self.games)
         favorites = [game for game in self.games if game.favorite]
         rated = [game for game in self.games if game.personal_score != "—"]
         self.favorites_table.setSortingEnabled(False); self.ratings_table.setSortingEnabled(False)
@@ -165,3 +183,9 @@ class ProfilePage(QWidget):
         profile = LocalProfile(name, current.bio, avatar_path)
         self.repository.save_profile(profile); self.profile_name.setText(name)
         self._pending_avatar_path = avatar_path; self.avatar_preview.set_avatar(avatar_path); self.overview.refresh(profile, self.games)
+
+    def _save_snapshot(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить снимок профиля", "Velora_profile.png", "PNG (*.png)")
+        if not path: return
+        if not path.lower().endswith(".png"): path += ".png"
+        self.grab().save(path, "PNG")

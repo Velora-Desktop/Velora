@@ -1,4 +1,3 @@
-from pathlib import Path
 from datetime import datetime
 
 from PySide6.QtCore import QSize, Qt, Signal
@@ -6,10 +5,13 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from app.core.constants import ACCENT, SUCCESS, WARNING
+from app.core.paths import resolve_resource_path
 from app.models.game import GameData
 from app.core.icon_registry import IconRegistry
 from app.ui.widgets.platform_icons import PlatformIconRow
 from app.ui.widgets.age_rating import AgeRatingValue
+from app.ui.widgets.critic_sources import apply_source_logo, source_brand_color, source_slots
+from app.core.display_text import compact_entities
 
 
 class GameDetailPage(QScrollArea):
@@ -17,8 +19,9 @@ class GameDetailPage(QScrollArea):
     rate_requested = Signal(object)
     status_changed = Signal(object, str)
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, repository=None, parent=None) -> None:
         super().__init__(parent)
+        self.repository = repository
         self.game: GameData | None = None
         self.setWidgetResizable(True)
         self.setObjectName("gameDetailPage")
@@ -28,8 +31,8 @@ class GameDetailPage(QScrollArea):
         self.breadcrumb = QLabel("ИГРЫ  /  ШУТЕРЫ")
         self.breadcrumb.setObjectName("muted"); self.root.addWidget(self.breadcrumb)
         hero = QHBoxLayout(); hero.setSpacing(22)
-        self.cover = QLabel("ОБЛОЖКА"); self.cover.setFixedSize(250, 350); self.cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.cover.setStyleSheet("background:#202A35; border:1px solid #35424E; border-radius:9px; color:#7D8994;")
+        self.cover = QLabel("ОБЛОЖКА"); self.cover.setFixedSize(210, 315); self.cover.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.cover.setStyleSheet("background:#18212A; border:1px solid #2B3640; border-radius:4px; color:#7D8994;")
         hero.addWidget(self.cover)
         info = QVBoxLayout(); info.setSpacing(10)
         title_row = QHBoxLayout(); self.title = QLabel(); self.title.setStyleSheet("font-size:27pt; font-weight:650;")
@@ -44,7 +47,8 @@ class GameDetailPage(QScrollArea):
         self.status_badge.setIcon(IconRegistry.icon("history_recent", variant="dark", category="ui")); self.status_badge.setIconSize(QSize(16, 16))
         from app.ui.catalog.status_menu import build_status_menu
         self.status_badge.setMenu(build_status_menu(self.status_badge, self._change_status))
-        personal_actions.addWidget(self.rate_button); personal_actions.addWidget(self.status_badge); personal_actions.addStretch(); info.addLayout(personal_actions)
+        self.tags_button=QPushButton("ТЕГИ"); self.tags_button.clicked.connect(self._edit_tags)
+        personal_actions.addWidget(self.rate_button); personal_actions.addWidget(self.status_badge); personal_actions.addWidget(self.tags_button); personal_actions.addStretch(); info.addLayout(personal_actions)
         self.route = QLabel(); self.route.setStyleSheet(f"color:{ACCENT}; font-size:11pt;"); info.addWidget(self.route)
         self.metadata = QGridLayout(); self.metadata.setHorizontalSpacing(34); self.metadata.setVerticalSpacing(12)
         self.meta_values = {}
@@ -89,8 +93,9 @@ class GameDetailPage(QScrollArea):
         self.personal_card, self.personal_value = self._score_card("МОЯ ОЦЕНКА", "ЛИЧНАЯ", WARNING); ratings.addWidget(self.personal_card)
         self.critic_values = {}
         self.source_cards = []
-        brand_colors = {"Metacritic":"#F5C542", "IGN":"#F44336", "DualShockers":"#4DA3FF", "PC Gamer":"#E53935"}
-        for source, color in brand_colors.items():
+        initial_sources = ("Metacritic", "IGN", "DualShockers", "PC Gamer")
+        for source in initial_sources:
+            color = source_brand_color(source)
             card, value = self._score_card(source.upper(), source, color); self.critic_values[source] = value; self.source_cards.append((card, value)); ratings.addWidget(card)
         self.root.addLayout(ratings)
 
@@ -101,11 +106,24 @@ class GameDetailPage(QScrollArea):
         self.root.addLayout(lower)
         self.root.addStretch(); self.setWidget(content)
 
+    def _edit_tags(self) -> None:
+        if not self.game or not self.repository:return
+        from app.ui.dialogs.tag_editor_dialog import TagEditorDialog
+        if TagEditorDialog(self.repository,self.game.catalog_id,self).exec():
+            names={tag_id:name for tag_id,name,color,count in self.repository.tags()}; self.game.tags=[names[tag_id] for tag_id in self.repository.tag_ids_for(self.game.catalog_id) if tag_id in names]
+            self.tags_button.setText(f"ТЕГИ · {len(self.game.tags)}" if self.game.tags else "ТЕГИ")
+
     @staticmethod
     def _score_card(title: str, brand: str, color: str):
         card = QFrame(); card.setObjectName("ratingSourceCard"); card.setStyleSheet("QFrame#ratingSourceCard { background:#09131A; border:1px solid #273640; border-radius:8px; }")
         layout = QVBoxLayout(card); layout.setContentsMargins(14, 12, 14, 12)
-        logo = QLabel(brand); logo.setAlignment(Qt.AlignmentFlag.AlignCenter); logo.setStyleSheet(f"color:{color}; font-size:10pt; font-weight:800; border:0;")
+        logo = QLabel(); logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo.setProperty("criticSourceLogo", True)
+        if brand not in {"VELORA", "ЛИЧНАЯ"}:
+            apply_source_logo(logo, brand, QSize(42, 26))
+        else:
+            logo.setText(brand)
+            logo.setStyleSheet(f"color:{color}; font-size:10pt; font-weight:800; border:0;")
         caption = QLabel(title); caption.setAlignment(Qt.AlignmentFlag.AlignCenter); caption.setObjectName("caption")
         value = QLabel(); value.setAlignment(Qt.AlignmentFlag.AlignCenter); value.setStyleSheet(f"color:{color}; font-size:25pt; font-weight:700; border:0;")
         layout.addWidget(logo); layout.addWidget(caption); layout.addWidget(value); return card, value
@@ -131,37 +149,55 @@ class GameDetailPage(QScrollArea):
     def set_game(self, game: GameData) -> None:
         from app.ui.catalog.status_menu import build_status_menu
         self.status_badge.setMenu(build_status_menu(self.status_badge, self._change_status, game.media_type))
-        self.game = game; self.title.setText(game.title); self.route.setText(f"{game.category}  •  {game.subgroup or 'Без подгруппы'}")
+        self.game = game; self.title.setText(game.title); self.route.setText(f"{game.category}  •  {game.subgroup or 'Без подгруппы'}"); self.tags_button.setText(f"ТЕГИ · {len(game.tags)}" if game.tags else "ТЕГИ")
         self.breadcrumb.setText(f"{game.media_type.upper()}  /  {game.category.upper()}  /  {(game.subgroup or 'КАРТОЧКА').upper()}")
-        values = {"Разработчик":game.developer, "Издатель":game.publisher, "Год выхода":game.year, "Платформы":game.platform, "Количество игроков":game.mode, "Возраст":game.age_rating}
+        developer_text, developer_tooltip = compact_entities(game.developer)
+        publisher_text, publisher_tooltip = compact_entities(game.publisher)
+        values = {"Разработчик":developer_text, "Издатель":publisher_text, "Год выхода":game.year, "Платформы":game.platform, "Количество игроков":game.mode, "Возраст":game.age_rating}
         labels = {
             "Игры": ("РАЗРАБОТЧИК", "ИЗДАТЕЛЬ", "ПЛАТФОРМЫ", "КОЛИЧЕСТВО ИГРОКОВ"),
             "Фильмы": ("РЕЖИССЁР", "СТУДИЯ", "ГДЕ СМОТРЕТЬ", "ДЛИТЕЛЬНОСТЬ"),
             "Сериалы": ("СОЗДАТЕЛЬ", "СТУДИЯ", "ГДЕ СМОТРЕТЬ", "КОЛИЧЕСТВО СЕЗОНОВ"),
             "Программы": ("РАЗРАБОТЧИК", "ИЗДАТЕЛЬ", "ПЛАТФОРМЫ", "ТИП"),
-        }[game.media_type]
+        }.get(game.media_type, ("СОЗДАТЕЛЬ", "ИЗДАТЕЛЬ", "ПЛАТФОРМА", "ФОРМАТ"))
         for key, text in zip(("Разработчик","Издатель","Платформы","Количество игроков"), labels): self.meta_captions[key].setText(text)
         for key, value in values.items(): self.meta_values[key].setText(value or "—")
+        self.meta_values["Разработчик"].setToolTip(developer_tooltip)
+        self.meta_values["Издатель"].setToolTip(publisher_tooltip)
         self.description.setText(game.description or "Описание для этого объекта пока не добавлено в Velora Studio.")
         self._fill_official_details(game)
         self.general_value.setText(self._score(game.general_score)); self.personal_value.setText(self._score(game.personal_score))
         self.rate_button.setText("ИЗМЕНИТЬ ОЦЕНКУ" if game.personal_score != "—" else "ОЦЕНИТЬ")
         self.status_badge.setText(game.status)
         self._style_status(game.status)
-        sources = list(game.critic_scores.items())
+        sources = source_slots(
+            game.media_type,
+            game.critic_scores,
+            game.primary_critic_source,
+            len(self.source_cards),
+        )
         for index, (card, label) in enumerate(self.source_cards):
             card.setVisible(index < len(sources))
             if index < len(sources):
                 source, value = sources[index]
                 labels = card.findChildren(QLabel)
                 if labels:
-                    labels[0].setText(source)
+                    apply_source_logo(labels[0], source, QSize(42, 26))
                 if len(labels) > 1:
                     labels[1].setText(source.upper())
+                label.setStyleSheet(
+                    f"color:{source_brand_color(source)}; "
+                    "font-size:25pt; font-weight:700; border:0;"
+                )
                 label.setText("—" if value is None else f"{value:.1f}")
         playtime_text = f"{game.playtime_hours:g} ч" if game.playtime_hours else "—"
         watched_episodes = sum(state == "watched" for state in game.episode_states.values())
-        interaction = {"Игры":f"Время в игре: {playtime_text}", "Программы":"История использования хранится по статусам", "Фильмы":f"Просмотров: {game.watch_count}", "Сериалы":f"Прогресс: сезон {game.season_number or '—'}, серия {game.episode_number or '—'}"}[game.media_type]
+        interaction = {
+            "Игры": f"Время в игре: {playtime_text}",
+            "Программы": "История использования хранится по статусам",
+            "Фильмы": f"Просмотров: {game.watch_count}",
+            "Сериалы": f"Прогресс: сезон {game.season_number or '—'}, серия {game.episode_number or '—'}",
+        }.get(game.media_type, "Локальный пользовательский объект")
         self.stats_text.setText(f"Статус: {game.status}\n{interaction}\nИзбранное: {'Да' if game.favorite else 'Нет'}\nДобавлено: 12.05.2024")
         self.criteria_text.setText("\n".join(f"{name}: {value}/10" for name, value in game.rating_criteria.items()) or "Личная оценка ещё не заполнена")
         self.activity_text.setText("\n".join(reversed(game.history[-5:])) or "Изменений пока нет")
@@ -195,8 +231,28 @@ class GameDetailPage(QScrollArea):
         if game.stores: entries.append(("МАГАЗИНЫ", ", ".join(game.stores)))
         self.official_title.setVisible(bool(entries))
         for index,(title,text) in enumerate(entries):
-            panel=self._panel(title); value=QLabel(text); value.setWordWrap(True); value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            value.setStyleSheet("color:#CAD1D7; border:0; line-height:1.35;"); panel.layout().addWidget(value)
+            panel=self._panel(title)
+            value=QLabel(text); value.setWordWrap(True); value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            value.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            value.setStyleSheet("color:#CAD1D7; border:0; line-height:1.35;")
+            if title == "DLC":
+                viewport = QWidget()
+                viewport.setStyleSheet("background:transparent;")
+                viewport_layout = QVBoxLayout(viewport)
+                viewport_layout.setContentsMargins(0, 0, 0, 0)
+                viewport_layout.addWidget(value)
+                viewport_layout.addStretch(1)
+                scroll = QScrollArea()
+                scroll.setWidgetResizable(True)
+                scroll.setFrameShape(QFrame.Shape.NoFrame)
+                scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                scroll.setStyleSheet("QScrollArea { background:transparent; border:0; } QScrollArea > QWidget > QWidget { background:transparent; }")
+                scroll.setMinimumHeight(58)
+                scroll.setMaximumHeight(132)
+                scroll.setWidget(viewport)
+                panel.layout().addWidget(scroll)
+            else:
+                panel.layout().addWidget(value)
             self.official_details.addWidget(panel,index//3,index%3)
         for column in range(3): self.official_details.setColumnStretch(column,1)
 
@@ -217,8 +273,9 @@ class GameDetailPage(QScrollArea):
         return " ".join(part for part in (number, suffix, currency) if part)
 
     def _set_cover(self, cover_path: str) -> None:
-        if cover_path and Path(cover_path).exists():
-            pixmap = QPixmap(cover_path); self.cover.setPixmap(pixmap.scaled(self.cover.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        resolved_path = resolve_resource_path(cover_path) if cover_path else None
+        if resolved_path and resolved_path.is_file():
+            pixmap = QPixmap(str(resolved_path)); self.cover.setPixmap(pixmap.scaled(self.cover.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         else: self.cover.setPixmap(QPixmap()); self.cover.setText("ОБЛОЖКА\nбудет добавлена через Studio")
 
     def _toggle_favorite(self) -> None:

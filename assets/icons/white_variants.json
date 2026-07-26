@@ -1,0 +1,1169 @@
+{
+  "schema_version": 1,
+  "purpose": "White SVG duplicates for dark Velora surfaces. Originals are preserved.",
+  "color": "#F2F3F7",
+  "icons": [
+    {
+      "id": "amd",
+      "source": "brands/amd.svg",
+      "white_variant": "brands/dark/amd.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "apple",
+      "source": "brands/apple.svg",
+      "white_variant": "brands/dark/apple.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "intel",
+      "source": "brands/intel.svg",
+      "white_variant": "brands/dark/intel.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "premiere_rush",
+      "source": "brands/premiere_rush.svg",
+      "white_variant": "brands/dark/premiere_rush.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "python",
+      "source": "brands/python.svg",
+      "white_variant": "brands/dark/python.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "sony",
+      "source": "brands/sony.svg",
+      "white_variant": "brands/dark/sony.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "unity",
+      "source": "brands/unity.svg",
+      "white_variant": "brands/dark/unity.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "mobile_device",
+      "source": "devices/mobile_device.svg",
+      "white_variant": "devices/dark/mobile_device.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "currency_rub",
+      "source": "finance/currency_rub.svg",
+      "white_variant": "finance/dark/currency_rub.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "currency_usd",
+      "source": "finance/currency_usd.svg",
+      "white_variant": "finance/dark/currency_usd.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "creative_commons",
+      "source": "legal/creative_commons.svg",
+      "white_variant": "legal/dark/creative_commons.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "registered_mark",
+      "source": "legal/registered_mark.svg",
+      "white_variant": "legal/dark/registered_mark.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "video_camera",
+      "source": "media/video_camera.svg",
+      "white_variant": "media/dark/video_camera.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "nintendo",
+      "source": "platforms/nintendo.svg",
+      "white_variant": "platforms/dark/nintendo.svg",
+      "source_luminance": 118.18,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "pc",
+      "source": "platforms/pc.svg",
+      "white_variant": "platforms/dark/pc.svg",
+      "source_luminance": 128.89,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "playstation",
+      "source": "platforms/playstation.svg",
+      "white_variant": "platforms/dark/playstation.svg",
+      "source_luminance": 132.78,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "atmosphere",
+      "source": "rating/atmosphere.svg",
+      "white_variant": "rating/dark/atmosphere.svg",
+      "source_luminance": 133.01,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "gameplay",
+      "source": "rating/gameplay.svg",
+      "white_variant": "rating/dark/gameplay.svg",
+      "source_luminance": 133.05,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "graphics",
+      "source": "rating/graphics.svg",
+      "white_variant": "rating/dark/graphics.svg",
+      "source_luminance": 133.1,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "soundtrack",
+      "source": "rating/soundtrack.svg",
+      "white_variant": "rating/dark/soundtrack.svg",
+      "source_luminance": 132.99,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "story",
+      "source": "rating/story.svg",
+      "white_variant": "rating/dark/story.svg",
+      "source_luminance": 133.06,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "imdb",
+      "source": "ratings/imdb.svg",
+      "white_variant": "ratings/dark/imdb.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "hbo",
+      "source": "services/hbo.svg",
+      "white_variant": "services/dark/hbo.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "netflix",
+      "source": "services/netflix.svg",
+      "white_variant": "services/dark/netflix.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "discord",
+      "source": "social/discord.svg",
+      "white_variant": "social/dark/discord.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "discord_circle",
+      "source": "social/discord_circle.svg",
+      "white_variant": "social/dark/discord_circle.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "google_circle",
+      "source": "social/google_circle.svg",
+      "white_variant": "social/dark/google_circle.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "pinterest_square",
+      "source": "social/pinterest_square.svg",
+      "white_variant": "social/dark/pinterest_square.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "tiktok_circle",
+      "source": "social/tiktok_circle.svg",
+      "white_variant": "social/dark/tiktok_circle.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "youtube",
+      "source": "social/youtube.svg",
+      "white_variant": "social/dark/youtube.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "app_store_ios",
+      "source": "stores/app_store_ios.svg",
+      "white_variant": "stores/dark/app_store_ios.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "google_play",
+      "source": "stores/google_play.svg",
+      "white_variant": "stores/dark/google_play.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "google_play_circle",
+      "source": "stores/google_play_circle.svg",
+      "white_variant": "stores/dark/google_play_circle.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "storefront",
+      "source": "stores/storefront.svg",
+      "white_variant": "stores/dark/storefront.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "code_display",
+      "source": "ui/code_display.svg",
+      "white_variant": "ui/dark/code_display.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "folder_tree",
+      "source": "ui/folder_tree.svg",
+      "white_variant": "ui/dark/folder_tree.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "age_rating",
+      "source": "v2/details/age_rating.svg",
+      "white_variant": "v2/details/dark/age_rating.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "awards",
+      "source": "v2/details/awards.svg",
+      "white_variant": "v2/details/dark/awards.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "budget",
+      "source": "v2/details/budget.svg",
+      "white_variant": "v2/details/dark/budget.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "category",
+      "source": "v2/details/category.svg",
+      "white_variant": "v2/details/dark/category.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "country",
+      "source": "v2/details/country.svg",
+      "white_variant": "v2/details/dark/country.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "cover",
+      "source": "v2/details/cover.svg",
+      "white_variant": "v2/details/dark/cover.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "cpu",
+      "source": "v2/details/cpu.svg",
+      "white_variant": "v2/details/dark/cpu.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "description",
+      "source": "v2/details/description.svg",
+      "white_variant": "v2/details/dark/description.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "developer",
+      "source": "v2/details/developer.svg",
+      "white_variant": "v2/details/dark/developer.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "disk",
+      "source": "v2/details/disk.svg",
+      "white_variant": "v2/details/dark/disk.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "distribution",
+      "source": "v2/details/distribution.svg",
+      "white_variant": "v2/details/dark/distribution.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "dlc",
+      "source": "v2/details/dlc.svg",
+      "white_variant": "v2/details/dark/dlc.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "gpu",
+      "source": "v2/details/gpu.svg",
+      "white_variant": "v2/details/dark/gpu.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "languages",
+      "source": "v2/details/languages.svg",
+      "white_variant": "v2/details/dark/languages.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "minimum_requirements",
+      "source": "v2/details/minimum_requirements.svg",
+      "white_variant": "v2/details/dark/minimum_requirements.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "operating_system",
+      "source": "v2/details/operating_system.svg",
+      "white_variant": "v2/details/dark/operating_system.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "platforms",
+      "source": "v2/details/platforms.svg",
+      "white_variant": "v2/details/dark/platforms.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "players",
+      "source": "v2/details/players.svg",
+      "white_variant": "v2/details/dark/players.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "publisher",
+      "source": "v2/details/publisher.svg",
+      "white_variant": "v2/details/dark/publisher.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "ram",
+      "source": "v2/details/ram.svg",
+      "white_variant": "v2/details/dark/ram.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "recommended_requirements",
+      "source": "v2/details/recommended_requirements.svg",
+      "white_variant": "v2/details/dark/recommended_requirements.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "release_date",
+      "source": "v2/details/release_date.svg",
+      "white_variant": "v2/details/dark/release_date.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "stores",
+      "source": "v2/details/stores.svg",
+      "white_variant": "v2/details/dark/stores.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "subcategory",
+      "source": "v2/details/subcategory.svg",
+      "white_variant": "v2/details/dark/subcategory.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "system_requirements",
+      "source": "v2/details/system_requirements.svg",
+      "white_variant": "v2/details/dark/system_requirements.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "tags",
+      "source": "v2/details/tags.svg",
+      "white_variant": "v2/details/dark/tags.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "backup_history",
+      "source": "v2/diagnostics/backup_history.svg",
+      "white_variant": "v2/diagnostics/dark/backup_history.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "build_info",
+      "source": "v2/diagnostics/build_info.svg",
+      "white_variant": "v2/diagnostics/dark/build_info.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "catalog_size",
+      "source": "v2/diagnostics/catalog_size.svg",
+      "white_variant": "v2/diagnostics/dark/catalog_size.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "cover_size",
+      "source": "v2/diagnostics/cover_size.svg",
+      "white_variant": "v2/diagnostics/dark/cover_size.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "database_check",
+      "source": "v2/diagnostics/database_check.svg",
+      "white_variant": "v2/diagnostics/dark/database_check.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "data_folder",
+      "source": "v2/diagnostics/data_folder.svg",
+      "white_variant": "v2/diagnostics/dark/data_folder.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "export_backup",
+      "source": "v2/diagnostics/export_backup.svg",
+      "white_variant": "v2/diagnostics/dark/export_backup.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "import_backup",
+      "source": "v2/diagnostics/import_backup.svg",
+      "white_variant": "v2/diagnostics/dark/import_backup.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "logs",
+      "source": "v2/diagnostics/logs.svg",
+      "white_variant": "v2/diagnostics/dark/logs.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "open_folder",
+      "source": "v2/diagnostics/open_folder.svg",
+      "white_variant": "v2/diagnostics/dark/open_folder.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "repair",
+      "source": "v2/diagnostics/repair.svg",
+      "white_variant": "v2/diagnostics/dark/repair.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "restore_point",
+      "source": "v2/diagnostics/restore_point.svg",
+      "white_variant": "v2/diagnostics/dark/restore_point.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "schema_version",
+      "source": "v2/diagnostics/schema_version.svg",
+      "white_variant": "v2/diagnostics/dark/schema_version.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "user_data",
+      "source": "v2/diagnostics/user_data.svg",
+      "white_variant": "v2/diagnostics/dark/user_data.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "catalog",
+      "source": "v2/media_types/catalog.svg",
+      "white_variant": "v2/media_types/dark/catalog.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "collection",
+      "source": "v2/media_types/collection.svg",
+      "white_variant": "v2/media_types/dark/collection.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "custom_section",
+      "source": "v2/media_types/custom_section.svg",
+      "white_variant": "v2/media_types/dark/custom_section.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "favorite",
+      "source": "v2/media_types/favorite.svg",
+      "white_variant": "v2/media_types/dark/favorite.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "game",
+      "source": "v2/media_types/game.svg",
+      "white_variant": "v2/media_types/dark/game.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "lists",
+      "source": "v2/media_types/lists.svg",
+      "white_variant": "v2/media_types/dark/lists.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "movie",
+      "source": "v2/media_types/movie.svg",
+      "white_variant": "v2/media_types/dark/movie.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "profile",
+      "source": "v2/media_types/profile.svg",
+      "white_variant": "v2/media_types/dark/profile.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "recent",
+      "source": "v2/media_types/recent.svg",
+      "white_variant": "v2/media_types/dark/recent.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "series",
+      "source": "v2/media_types/series.svg",
+      "white_variant": "v2/media_types/dark/series.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "software",
+      "source": "v2/media_types/software.svg",
+      "white_variant": "v2/media_types/dark/software.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "statistics",
+      "source": "v2/media_types/statistics.svg",
+      "white_variant": "v2/media_types/dark/statistics.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "activity",
+      "source": "v2/metrics/activity.svg",
+      "white_variant": "v2/metrics/dark/activity.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "date_completed",
+      "source": "v2/metrics/date_completed.svg",
+      "white_variant": "v2/metrics/dark/date_completed.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "date_started",
+      "source": "v2/metrics/date_started.svg",
+      "white_variant": "v2/metrics/dark/date_started.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "episode",
+      "source": "v2/metrics/episode.svg",
+      "white_variant": "v2/metrics/dark/episode.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "general_rating",
+      "source": "v2/metrics/general_rating.svg",
+      "white_variant": "v2/metrics/dark/general_rating.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "personal_rating",
+      "source": "v2/metrics/personal_rating.svg",
+      "white_variant": "v2/metrics/dark/personal_rating.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "playtime",
+      "source": "v2/metrics/playtime.svg",
+      "white_variant": "v2/metrics/dark/playtime.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "progress",
+      "source": "v2/metrics/progress.svg",
+      "white_variant": "v2/metrics/dark/progress.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "season",
+      "source": "v2/metrics/season.svg",
+      "white_variant": "v2/metrics/dark/season.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "trend_down",
+      "source": "v2/metrics/trend_down.svg",
+      "white_variant": "v2/metrics/dark/trend_down.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "trend_up",
+      "source": "v2/metrics/trend_up.svg",
+      "white_variant": "v2/metrics/dark/trend_up.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "watch_count",
+      "source": "v2/metrics/watch_count.svg",
+      "white_variant": "v2/metrics/dark/watch_count.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "abandoned",
+      "source": "v2/statuses/abandoned.svg",
+      "white_variant": "v2/statuses/dark/abandoned.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "completed",
+      "source": "v2/statuses/completed.svg",
+      "white_variant": "v2/statuses/dark/completed.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "dropped",
+      "source": "v2/statuses/dropped.svg",
+      "white_variant": "v2/statuses/dark/dropped.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "not_started",
+      "source": "v2/statuses/not_started.svg",
+      "white_variant": "v2/statuses/dark/not_started.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "not_used",
+      "source": "v2/statuses/not_used.svg",
+      "white_variant": "v2/statuses/dark/not_used.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "not_watched",
+      "source": "v2/statuses/not_watched.svg",
+      "white_variant": "v2/statuses/dark/not_watched.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "paused",
+      "source": "v2/statuses/paused.svg",
+      "white_variant": "v2/statuses/dark/paused.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "playing",
+      "source": "v2/statuses/playing.svg",
+      "white_variant": "v2/statuses/dark/playing.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "replaying",
+      "source": "v2/statuses/replaying.svg",
+      "white_variant": "v2/statuses/dark/replaying.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "rewatched",
+      "source": "v2/statuses/rewatched.svg",
+      "white_variant": "v2/statuses/dark/rewatched.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "used",
+      "source": "v2/statuses/used.svg",
+      "white_variant": "v2/statuses/dark/used.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "using",
+      "source": "v2/statuses/using.svg",
+      "white_variant": "v2/statuses/dark/using.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "waiting_new_season",
+      "source": "v2/statuses/waiting_new_season.svg",
+      "white_variant": "v2/statuses/dark/waiting_new_season.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "watched",
+      "source": "v2/statuses/watched.svg",
+      "white_variant": "v2/statuses/dark/watched.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "watching",
+      "source": "v2/statuses/watching.svg",
+      "white_variant": "v2/statuses/dark/watching.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "back",
+      "source": "v2/ui/back.svg",
+      "white_variant": "v2/ui/dark/back.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "backup",
+      "source": "v2/ui/backup.svg",
+      "white_variant": "v2/ui/dark/backup.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "calendar",
+      "source": "v2/ui/calendar.svg",
+      "white_variant": "v2/ui/dark/calendar.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "cancel",
+      "source": "v2/ui/cancel.svg",
+      "white_variant": "v2/ui/dark/cancel.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "chevron_down",
+      "source": "v2/ui/chevron_down.svg",
+      "white_variant": "v2/ui/dark/chevron_down.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "chevron_left",
+      "source": "v2/ui/chevron_left.svg",
+      "white_variant": "v2/ui/dark/chevron_left.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "chevron_right",
+      "source": "v2/ui/chevron_right.svg",
+      "white_variant": "v2/ui/dark/chevron_right.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "chevron_up",
+      "source": "v2/ui/chevron_up.svg",
+      "white_variant": "v2/ui/dark/chevron_up.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "clock",
+      "source": "v2/ui/clock.svg",
+      "white_variant": "v2/ui/dark/clock.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "close",
+      "source": "v2/ui/close.svg",
+      "white_variant": "v2/ui/dark/close.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "confirm",
+      "source": "v2/ui/confirm.svg",
+      "white_variant": "v2/ui/dark/confirm.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "copy",
+      "source": "v2/ui/copy.svg",
+      "white_variant": "v2/ui/dark/copy.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "database",
+      "source": "v2/ui/database.svg",
+      "white_variant": "v2/ui/dark/database.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "delete",
+      "source": "v2/ui/delete.svg",
+      "white_variant": "v2/ui/dark/delete.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "download",
+      "source": "v2/ui/download.svg",
+      "white_variant": "v2/ui/dark/download.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "drag",
+      "source": "v2/ui/drag.svg",
+      "white_variant": "v2/ui/dark/drag.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "edit",
+      "source": "v2/ui/edit.svg",
+      "white_variant": "v2/ui/dark/edit.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "error",
+      "source": "v2/ui/error.svg",
+      "white_variant": "v2/ui/dark/error.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "export",
+      "source": "v2/ui/export.svg",
+      "white_variant": "v2/ui/dark/export.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "external_link",
+      "source": "v2/ui/external_link.svg",
+      "white_variant": "v2/ui/dark/external_link.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "eye",
+      "source": "v2/ui/eye.svg",
+      "white_variant": "v2/ui/dark/eye.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "eye_off",
+      "source": "v2/ui/eye_off.svg",
+      "white_variant": "v2/ui/dark/eye_off.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "file",
+      "source": "v2/ui/file.svg",
+      "white_variant": "v2/ui/dark/file.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "filter",
+      "source": "v2/ui/filter.svg",
+      "white_variant": "v2/ui/dark/filter.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "folder",
+      "source": "v2/ui/folder.svg",
+      "white_variant": "v2/ui/dark/folder.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "forward",
+      "source": "v2/ui/forward.svg",
+      "white_variant": "v2/ui/dark/forward.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "help",
+      "source": "v2/ui/help.svg",
+      "white_variant": "v2/ui/dark/help.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "history",
+      "source": "v2/ui/history.svg",
+      "white_variant": "v2/ui/dark/history.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "import",
+      "source": "v2/ui/import.svg",
+      "white_variant": "v2/ui/dark/import.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "info",
+      "source": "v2/ui/info.svg",
+      "white_variant": "v2/ui/dark/info.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "integrity_check",
+      "source": "v2/ui/integrity_check.svg",
+      "white_variant": "v2/ui/dark/integrity_check.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "lock",
+      "source": "v2/ui/lock.svg",
+      "white_variant": "v2/ui/dark/lock.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "menu",
+      "source": "v2/ui/menu.svg",
+      "white_variant": "v2/ui/dark/menu.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "minus",
+      "source": "v2/ui/minus.svg",
+      "white_variant": "v2/ui/dark/minus.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "more",
+      "source": "v2/ui/more.svg",
+      "white_variant": "v2/ui/dark/more.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "notification",
+      "source": "v2/ui/notification.svg",
+      "white_variant": "v2/ui/dark/notification.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "pin",
+      "source": "v2/ui/pin.svg",
+      "white_variant": "v2/ui/dark/pin.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "plus",
+      "source": "v2/ui/plus.svg",
+      "white_variant": "v2/ui/dark/plus.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "refresh",
+      "source": "v2/ui/refresh.svg",
+      "white_variant": "v2/ui/dark/refresh.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "reload",
+      "source": "v2/ui/reload.svg",
+      "white_variant": "v2/ui/dark/reload.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "restore",
+      "source": "v2/ui/restore.svg",
+      "white_variant": "v2/ui/dark/restore.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "save",
+      "source": "v2/ui/save.svg",
+      "white_variant": "v2/ui/dark/save.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "search",
+      "source": "v2/ui/search.svg",
+      "white_variant": "v2/ui/dark/search.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "settings",
+      "source": "v2/ui/settings.svg",
+      "white_variant": "v2/ui/dark/settings.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "sort",
+      "source": "v2/ui/sort.svg",
+      "white_variant": "v2/ui/dark/sort.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "storage",
+      "source": "v2/ui/storage.svg",
+      "white_variant": "v2/ui/dark/storage.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "success",
+      "source": "v2/ui/success.svg",
+      "white_variant": "v2/ui/dark/success.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "unlock",
+      "source": "v2/ui/unlock.svg",
+      "white_variant": "v2/ui/dark/unlock.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "unpin",
+      "source": "v2/ui/unpin.svg",
+      "white_variant": "v2/ui/dark/unpin.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "upload",
+      "source": "v2/ui/upload.svg",
+      "white_variant": "v2/ui/dark/upload.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    },
+    {
+      "id": "warning",
+      "source": "v2/ui/warning.svg",
+      "white_variant": "v2/ui/dark/warning.svg",
+      "source_luminance": 0.0,
+      "color": "#F2F3F7"
+    }
+  ]
+}

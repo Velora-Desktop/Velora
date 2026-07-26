@@ -31,9 +31,33 @@ PLATFORM_ALIASES = {
     "VR": ("vr", "VR"),
 }
 
+TECHNICAL_PLATFORM_NAMES = {
+    "Q10135": "LibreOffice",
+    "Q10677": "PlayStation",
+    "Q10680": "PlayStation 2",
+    "Q108118280": "iPhone 13",
+    "Q110397828": "iPhone 14",
+    "Q122761124": "Nintendo Switch 2",
+    "Q132020": "Xbox",
+    "Q13361286": "Xbox One",
+    "Q143298": "Kindle Fire HD",
+    "Q15692032": "ARMv7",
+    "Q184198": "Dreamcast",
+    "Q188642": "Game Boy Advance",
+    "Q19610114": "Nintendo Switch",
+    "Q200912": "Sega Saturn",
+    "Q21622213": ".NET",
+    "Q388": "Linux",
+    "Q47604": "MS-DOS",
+    "Q48263": "Xbox 360",
+    "Q48493": "iOS",
+    "Q94": "Android",
+}
+
 
 def platform_tokens(value: str) -> list[str]:
-    return sorted_platforms(token.strip() for token in re.split(r"[;,/]", value or "") if token.strip())
+    tokens = (token.strip() for token in re.split(r"[;,/]", value or "") if token.strip())
+    return sorted_platforms(TECHNICAL_PLATFORM_NAMES.get(token, token) for token in tokens)
 
 
 def platform_icon(token: str) -> tuple[str, str]:

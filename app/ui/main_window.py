@@ -15,22 +15,30 @@ from app.ui.quick_view.quick_view import QuickView
 from app.ui.game_detail.game_detail_page import GameDetailPage
 from app.ui.sidebar.sidebar import Sidebar
 from app.data.user_repository import UserRepository
+from app.data.custom_catalog_repository import CustomCatalogRepository
+from app.data.catalog_repository import MEDIA_TYPES, load_catalog_items, catalog_categories
 from app.data.catalog_repository import CATALOG_DB
 from app.services.data_backup_service import DataBackupService
 from app.services.logging_service import configure_logging
 from app.ui.profile.profile_page import ProfilePage
 from app.ui.search.search_page import SearchPage
+from app.ui.dialogs.custom_catalog_dialog import (
+    CustomBranchDialog,
+    CustomCatalogDialog,
+    CustomSectionDialog,
+)
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         configure_logging()
-        self.setWindowTitle("Velora AW0.08 · каталог AW0.0711")
+        self.setWindowTitle("Velora AW0.09 · каталог AW0.099")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
         self.user_repository = UserRepository()
+        self.custom_catalog_repository = CustomCatalogRepository(self.user_repository.path)
         self.data_service = DataBackupService(self.user_repository.path, CATALOG_DB, self.settings)
         self.hide_adult_content = self.settings.value("content/hide_adult", True, type=bool)
         self.navigation_history = []
@@ -48,7 +56,8 @@ class MainWindow(QMainWindow):
         body = QHBoxLayout(body_widget)
         body.setContentsMargins(5, 14, 12, 5)
         body.setSpacing(12)
-        self.sidebar = Sidebar(CatalogView.category_counts())
+        initial_items=load_catalog_items()+self.custom_catalog_repository.items()
+        self.sidebar = Sidebar(catalog_categories(initial_items,"Игры"))
         self.workspace_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.workspace_splitter.setChildrenCollapsible(False)
         self.workspace_splitter.addWidget(self.sidebar)
@@ -57,6 +66,7 @@ class MainWindow(QMainWindow):
         center_layout.setContentsMargins(0, 0, 0, 0)
         center_layout.setSpacing(10)
         self.catalog = CatalogView()
+        self.catalog.replace_items(initial_items,"Игры")
         self.user_repository.apply_game_states(self.catalog.items)
         for row in self.catalog.rows:
             row.sync_from_game()
@@ -64,7 +74,7 @@ class MainWindow(QMainWindow):
         self.catalog.set_hide_adult_content(self.hide_adult_content)
         self.quick_view = QuickView()
         self.quick_view.hide()
-        self.game_detail = GameDetailPage()
+        self.game_detail = GameDetailPage(self.user_repository)
         self.game_detail.hide()
         self.profile_page = ProfilePage(self.user_repository)
         self.profile_page.catalog_item_requested.connect(self.open_catalog_item)
@@ -101,8 +111,11 @@ class MainWindow(QMainWindow):
         self.top_bar.profile_requested.connect(self._open_profile)
         self.top_bar.section_requested.connect(self._on_section_selected)
         self.top_bar.search_requested.connect(self._open_global_search)
+        self.top_bar.custom_catalog_requested.connect(self._open_custom_section_manager)
         self.sidebar.placeholder_requested.connect(self._placeholder)
         self.sidebar.category_selected.connect(self._on_category_selected)
+        self.sidebar.subcategory_requested.connect(self._open_custom_branch_editor)
+        self.sidebar.item_requested.connect(self._open_custom_catalog_editor)
         self.catalog.placeholder_requested.connect(self._placeholder)
         self.catalog.game_selected.connect(self._on_game_selected)
         self.catalog.status_changed.connect(self.quick_view.set_external_status)
@@ -131,6 +144,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+F"), self, activated=self._open_global_search)
         QShortcut(QKeySequence("Ctrl+W"), self, activated=self.quick_view.hide)
         self._push_navigation(("category", ("Игры", "ШУТЕРЫ")))
+        self._refresh_custom_sections()
         self._run_first_launch_if_needed()
 
     def _run_first_launch_if_needed(self) -> None:
@@ -189,7 +203,7 @@ class MainWindow(QMainWindow):
         self.top_bar.set_search_active(False)
         self.sidebar.show()
         self.catalog.set_media_type(game.media_type, game.category)
-        self.sidebar.set_categories(self.catalog.categories_for(game.media_type))
+        self.sidebar.set_categories(self._categories_for_media(game.media_type))
         self.sidebar.select_category(game.category.upper())
         if not self._navigating_history:
             self._push_navigation(("detail", game.catalog_id))
@@ -228,7 +242,7 @@ class MainWindow(QMainWindow):
         self.top_bar.set_profile_active(False)
         self.sidebar.show()
         self.catalog.set_media_type(game.media_type, game.category)
-        self.sidebar.set_categories(self.catalog.categories_for(game.media_type))
+        self.sidebar.set_categories(self._categories_for_media(game.media_type))
         self.sidebar.select_category(game.category.upper())
         return game
 
@@ -238,13 +252,181 @@ class MainWindow(QMainWindow):
         self.top_bar.set_active_space(section)
         self.top_bar.set_search_active(False)
         self.profile_page.hide(); self.search_page.hide(); self.game_detail.hide(); self.quick_view.hide(); self.empty_section.hide()
-        media_type = {"ИГРЫ": "Игры", "ФИЛЬМЫ": "Фильмы", "СЕРИАЛЫ": "Сериалы", "ПРОГРАММЫ": "Программы"}.get(section)
+        media_type = {"ИГРЫ": "Игры", "ФИЛЬМЫ": "Фильмы", "СЕРИАЛЫ": "Сериалы", "ПРОГРАММЫ": "Программы"}.get(section,section)
         if media_type:
             self.catalog.set_media_type(media_type)
-            self.sidebar.set_categories(self.catalog.categories_for(media_type))
+            self.sidebar.set_categories(self._categories_for_media(media_type))
             self.sidebar.show(); self.catalog.show()
             if self.catalog.current_category:
                 self.sidebar.select_category(self.catalog.current_category)
+
+    def _refresh_custom_sections(self) -> None:
+        self.top_bar.set_custom_sections(self._custom_section_names())
+
+    def _categories_for_media(self, media_type: str) -> dict[str, int]:
+        categories = dict(self.catalog.categories_for(media_type))
+        for branch in self.custom_catalog_repository.branches(media_type):
+            categories.setdefault(str(branch["category"]).upper(), 0)
+        return categories
+
+    def _reload_catalog_items(self, media_type: str | None = None) -> None:
+        items=load_catalog_items()+self.custom_catalog_repository.items(); self.user_repository.apply_game_states(items)
+        self.catalog.replace_items(items,media_type or self.catalog.current_media_type)
+        for row in self.catalog.rows:row.sync_from_game()
+        if self.search_page.isVisible():
+            self.search_page.set_items(items)
+        else:
+            self.search_page.items = list(items)
+        if self.profile_page.isVisible():
+            self.profile_page.refresh(items)
+        else:
+            self.profile_page.games = list(items)
+        self._refresh_custom_sections()
+
+    def _custom_section_names(self) -> list[str]:
+        return [
+            value["name"]
+            for value in self.custom_catalog_repository.sections()
+            if value["name"] not in MEDIA_TYPES
+        ]
+
+    def _active_custom_section(self) -> str:
+        current = self.catalog.current_media_type
+        available = set(MEDIA_TYPES) | set(self._custom_section_names())
+        return current if current in available else ""
+
+    def _branches_for_media(self, media_type: str) -> list[dict]:
+        pairs: dict[tuple[str, str], dict] = {}
+        for item in self.catalog.items:
+            if item.media_type == media_type:
+                pairs[(item.category, item.subgroup)] = {
+                    "category": item.category,
+                    "subgroup": item.subgroup,
+                    "position": 100000,
+                }
+        for branch in self.custom_catalog_repository.branches(media_type):
+            pairs[(str(branch["category"]), str(branch["subgroup"]))] = branch
+        return sorted(
+            pairs.values(),
+            key=lambda value: (
+                int(value.get("position", 100000)),
+                str(value["category"]).casefold(),
+                str(value["subgroup"]).casefold(),
+            ),
+        )
+
+    def _open_custom_section_manager(self) -> None:
+        """The top + manages top-level local sections only."""
+        sections = self._custom_section_names()
+        dialog = CustomSectionDialog(sections, self)
+        if not dialog.exec():
+            return
+        name = dialog.section_name
+        try:
+            if dialog.action == "add":
+                if name in MEDIA_TYPES:
+                    raise ValueError("Такое имя занято официальным разделом.")
+                self.custom_catalog_repository.save_section(name)
+                self._reload_catalog_items(name)
+                self._on_section_selected(name)
+                return
+            if dialog.action == "rename":
+                old_name = dialog.original_section_name
+                if name in MEDIA_TYPES:
+                    raise ValueError("Такое имя занято официальным разделом.")
+                if not self.custom_catalog_repository.rename_section(old_name, name):
+                    raise ValueError(f"Раздел «{old_name}» не найден.")
+                self.navigation_history = [
+                    ("section", name) if kind == "section" and value == old_name else (kind, value)
+                    for kind, value in self.navigation_history
+                ]
+                self._reload_catalog_items(name)
+                self._on_section_selected(name)
+                return
+            if dialog.action == "delete":
+                answer = QMessageBox.warning(
+                    self,
+                    "Удалить пользовательский раздел",
+                    f"Удалить раздел «{name}» вместе со всеми его локальными "
+                    "подкатегориями и карточками?\n\nЭто действие нельзя отменить.",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Cancel,
+                )
+                if answer != QMessageBox.StandardButton.Yes:
+                    return
+                self.top_bar.set_active_space("ИГРЫ")
+                self.top_bar.prepare_section_removal()
+                self.navigation_history = [
+                    entry
+                    for entry in self.navigation_history
+                    if not (entry[0] == "section" and entry[1] == name)
+                ]
+                self.navigation_index = min(
+                    self.navigation_index, len(self.navigation_history) - 1
+                )
+                self.custom_catalog_repository.delete_section(name)
+                self._reload_catalog_items("Игры")
+                self._on_section_selected("ИГРЫ")
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Пользовательский раздел",
+                f"Не удалось изменить раздел.\n\n{exc}",
+            )
+
+    def _open_custom_branch_editor(self) -> None:
+        section = self._active_custom_section()
+        if not section:
+            QMessageBox.information(
+                self,
+                "Добавить подкатегорию",
+                "Откройте официальный или пользовательский раздел, "
+                "в который нужно добавить локальную подкатегорию.",
+            )
+            return
+        dialog = CustomBranchDialog(section, self)
+        if not dialog.exec():
+            return
+        try:
+            self.custom_catalog_repository.save_branch(*dialog.values())
+            self._reload_catalog_items(section)
+            self.sidebar.set_categories(self._categories_for_media(section))
+            QMessageBox.information(
+                self,
+                "Подкатегория добавлена",
+                "Новая подкатегория сохранена локально. Теперь в неё можно добавить свой объект.",
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Добавить подкатегорию",
+                f"Не удалось добавить подкатегорию.\n\n{exc}",
+            )
+
+    def _open_custom_catalog_editor(self) -> None:
+        selected_section = self._active_custom_section()
+        if not selected_section:
+            QMessageBox.information(self, "Добавить свой объект", "Сначала откройте нужный раздел.")
+            return
+        branches = self._branches_for_media(selected_section)
+        if not branches:
+            QMessageBox.information(
+                self,
+                "Добавить свой объект",
+                "Сначала добавьте категорию и подкатегорию одноимённой кнопкой в боковой панели.",
+            )
+            return
+        dialog=CustomCatalogDialog(
+            [selected_section],
+            self,
+            selected_section=selected_section,
+            branches=branches,
+        )
+        if not dialog.exec():return
+        try:
+            values=dialog.values(); catalog_id=self.custom_catalog_repository.save_item(**values); self._reload_catalog_items(values["section"]); self._on_section_selected(values["section"]); self.open_catalog_item(catalog_id)
+        except Exception as exc:
+            QMessageBox.critical(self,"Локальная карточка",f"Не удалось создать карточку.\n\n{exc}")
 
     def _push_navigation(self, entry: tuple[str, object]) -> None:
         if self.navigation_index >= 0 and self.navigation_history[self.navigation_index] == entry:
@@ -280,7 +462,7 @@ class MainWindow(QMainWindow):
                 self.game_detail.hide()
                 self.catalog.show()
                 self.catalog.set_media_type(media_type, category)
-                self.sidebar.set_categories(self.catalog.categories_for(media_type))
+                self.sidebar.set_categories(self._categories_for_media(media_type))
                 self.sidebar.select_category(category)
                 self.quick_view.hide()
             elif kind == "game":

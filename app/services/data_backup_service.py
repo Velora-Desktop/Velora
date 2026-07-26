@@ -17,7 +17,7 @@ from app.core.paths import APP_DATA_DIR, BACKUPS_DIR, LOGS_DIR, USER_IMAGES_DIR,
 
 
 LOGGER = logging.getLogger(__name__)
-APP_VERSION = "AW0.08"
+APP_VERSION = "AW0.09"
 MAX_AUTOMATIC_BACKUPS = 10
 
 

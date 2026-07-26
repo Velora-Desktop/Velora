@@ -1,15 +1,22 @@
 import os
+import tempfile
 import unittest
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication, QLabel, QPushButton
+from PySide6.QtTest import QTest
 
 from app.ui.catalog.catalog_view import CatalogView
 from app.ui.dialogs.about_dialog import AboutDialog
 from app.ui.dialogs.settings_dialog import LANGUAGES, SettingsDialog
 from app.ui.quick_view.quick_view import QuickView
+from app.ui.navigation.top_bar import TopBar
+from app.ui.profile.personal_library_page import PersonalLibraryPage
 from app.ui.widgets.platform_icons import PlatformIconRow
+from app.data.catalog_repository import load_catalog_items
+from app.data.user_repository import UserRepository
 
 
 class PublicAlphaUiTests(unittest.TestCase):
@@ -94,6 +101,51 @@ class PublicAlphaUiTests(unittest.TestCase):
             self.app.processEvents()
             self.assertEqual(view.group_sort_specs[view._group_sort_key(second)], second_spec)
         view.close()
+
+    def test_top_bar_scrolls_official_and_custom_sections_as_one_strip(self) -> None:
+        bar = TopBar()
+        bar.resize(1200, 70)
+        bar.set_custom_sections(["Футбол", "Книги", "Музыка", "Аниме"])
+        bar.show()
+        QTest.qWait(50)
+
+        buttons = bar.section_buttons + bar.custom_buttons
+        self.assertEqual(bar.back_button.size().toTuple(), (40, 40))
+        self.assertEqual(bar.forward_button.size().toTuple(), (40, 40))
+        self.assertEqual(
+            [button.property("sectionName") for button in buttons[:4]],
+            ["ИГРЫ", "ФИЛЬМЫ", "СЕРИАЛЫ", "ПРОГРАММЫ"],
+        )
+        self.assertTrue(all(button.parent() is bar.section_container for button in buttons))
+        scroll = bar.section_scroll.horizontalScrollBar()
+        self.assertGreater(scroll.maximum(), 0)
+        self.assertFalse(bar.section_back.isVisible())
+        self.assertTrue(bar.section_forward.isVisible())
+
+        scroll.setValue(min(150, scroll.maximum()))
+        bar._update_section_arrows()
+        self.assertTrue(bar.section_back.isVisible())
+        bar.set_active_space("ИГРЫ")
+        QTest.qWait(10)
+        self.assertEqual(scroll.value(), 0)
+        bar._section_animation.setDuration(200)
+        bar.section_forward.click()
+        bar.prepare_section_removal()
+        bar.set_custom_sections(["Футбол"])
+        QTest.qWait(10)
+        self.assertEqual(scroll.value(), 0)
+        bar.close()
+
+    def test_hidden_personal_library_can_be_refreshed_repeatedly(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = UserRepository(Path(directory) / "user.db")
+            page = PersonalLibraryPage(repository)
+            items = load_catalog_items()[:12]
+            for _ in range(12):
+                page.refresh(items)
+                self.app.processEvents()
+            self.assertGreater(page.smart_lists.count(), 0)
+            page.close()
 
 
 if __name__ == "__main__":

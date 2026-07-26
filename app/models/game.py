@@ -38,6 +38,7 @@ class GameData:
     subgroup: str = ""
     cover_path: str = ""
     critic_scores: dict[str, float | None] = field(default_factory=dict)
+    primary_critic_source: str = ""
     media_type: str = "Игры"
     hidden: bool = False
     user_interacted: bool = False
@@ -63,3 +64,7 @@ class GameData:
     stores: list[str] = field(default_factory=list)
     budget_amount: float | None = None
     budget_currency: str = ""
+    note: str = ""
+    tags: list[str] = field(default_factory=list)
+    source_type: str = "official"
+    archived: bool = False

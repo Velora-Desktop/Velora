@@ -2,13 +2,16 @@ from datetime import datetime
 
 from PySide6.QtCore import Signal
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QWidget
 
 from app.core.constants import ACCENT, DANGER, SUCCESS, WARNING
+from app.core.paths import resolve_resource_path
 from app.models.game import GameData
 from app.core.icon_registry import IconRegistry
 from app.ui.widgets.platform_icons import PlatformIconRow
 from app.ui.widgets.age_rating import AgeRatingValue
+from app.core.display_text import compact_entities
 
 
 COLUMN_WIDTHS = {
@@ -62,11 +65,20 @@ class GameRow(QFrame):
         )
         self.star.clicked.connect(self._toggle_star)
         layout.addWidget(self.star)
-        cover = QLabel("")
-        cover.setFixedSize(44, 40)
-        cover.setAlignment(__import__("PySide6.QtCore", fromlist=["Qt"]).Qt.AlignmentFlag.AlignCenter)
-        cover.setStyleSheet("background:#242B36; border:1px solid #313B47; border-radius:4px;")
-        layout.addWidget(cover)
+        self.cover = QLabel("")
+        self.cover.setFixedSize(28, 42)
+        self.cover.setAlignment(__import__("PySide6.QtCore", fromlist=["Qt"]).Qt.AlignmentFlag.AlignCenter)
+        self.cover.setStyleSheet("background:#18212A; border:0; border-radius:2px;")
+        cover_path = resolve_resource_path(game.cover_path) if game.cover_path else None
+        if cover_path and cover_path.is_file():
+            pixmap = QPixmap(str(cover_path))
+            if not pixmap.isNull():
+                self.cover.setPixmap(pixmap.scaled(
+                    self.cover.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                ))
+        layout.addWidget(self.cover)
         title = QLabel(game.title)
         title.setMinimumWidth(170)
         title.setStyleSheet("font-family:'Segoe UI'; font-size:10.5pt; font-weight:500;")
@@ -86,6 +98,9 @@ class GameRow(QFrame):
                             (game.platform, COLUMN_WIDTHS["platform"]), (game.mode, COLUMN_WIDTHS["mode"]),
                             (f"{game.age_rating}+", COLUMN_WIDTHS["age"]))):
             display_text = self._format_score(text) if column in (0, 1) else text
+            full_tooltip = ""
+            if column == 3:
+                display_text, full_tooltip = compact_entities(text)
             if column == 2:
                 self.status_button = QPushButton(display_text)
                 self.status_button.setFixedWidth(width)
@@ -110,6 +125,8 @@ class GameRow(QFrame):
                 continue
             label = QPushButton(display_text) if column == 1 else QLabel(display_text)
             label.setFixedWidth(width)
+            if full_tooltip:
+                label.setToolTip(full_tooltip)
             if isinstance(label, QLabel):
                 label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             if column in (0, 1):

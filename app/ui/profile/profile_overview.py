@@ -34,6 +34,8 @@ class ProfileOverview(QScrollArea):
         self.root.setSpacing(16)
         self._build_hero()
         self._build_summary()
+        self.today_panel, self.today_layout = self._panel("СЕГОДНЯ")
+        self.root.addWidget(self.today_panel)
         columns = QHBoxLayout()
         columns.setSpacing(16)
         self.recent_panel, self.recent_layout = self._panel("НЕДАВНЯЯ АКТИВНОСТЬ")
@@ -72,7 +74,7 @@ class ProfileOverview(QScrollArea):
         edit = QPushButton("РЕДАКТИРОВАТЬ ПРОФИЛЬ")
         edit.setProperty("primary", True)
         edit.setMinimumSize(210, 40)
-        edit.clicked.connect(lambda: self.section_requested.emit(4))
+        edit.clicked.connect(lambda: self.section_requested.emit(6))
         layout.addWidget(edit, 0, Qt.AlignmentFlag.AlignTop)
         self.root.addWidget(hero)
 
@@ -111,7 +113,7 @@ class ProfileOverview(QScrollArea):
             self.summary_values[key] = value
         layout.addLayout(grid)
         links = QHBoxLayout()
-        for text, index in (("МОИ ОЦЕНКИ", 1), ("ИЗБРАННОЕ", 2), ("СТАТИСТИКА", 3)):
+        for text, index in (("ПЛАНЫ И ОБЗОРЫ", 1), ("УМНАЯ БИБЛИОТЕКА", 2), ("МОИ ОЦЕНКИ", 3), ("ИЗБРАННОЕ", 4), ("СТАТИСТИКА", 5)):
             button = QPushButton(text)
             button.setObjectName("profileSectionLink")
             button.setMinimumHeight(36)
@@ -207,8 +209,22 @@ class ProfileOverview(QScrollArea):
             row.clicked.connect(lambda checked=False, catalog_id=game.catalog_id: self.catalog_item_requested.emit(catalog_id))
             self.favorite_layout.addWidget(row)
         more = QPushButton("ОТКРЫТЬ ВСЁ ИЗБРАННОЕ")
-        more.clicked.connect(lambda: self.section_requested.emit(2))
+        more.clicked.connect(lambda: self.section_requested.emit(3))
         self.favorite_layout.addWidget(more)
+
+    def refresh_today(self, queue, goals, drafts, games) -> None:
+        self._clear_after_heading(self.today_layout); by_id={game.catalog_id:game for game in games}; columns=QHBoxLayout()
+        for title,values in (("ЧТО ДАЛЬШЕ",queue[:3]),("АКТИВНЫЕ ЦЕЛИ",[goal for goal in goals if not goal.completed_at][:3]),("ЧЕРНОВИКИ",drafts[:3])):
+            box=QFrame(); box.setObjectName("profileSummaryCard"); layout=QVBoxLayout(box); heading=QLabel(title); heading.setStyleSheet("font-weight:700;color:#CDBAE1;"); layout.addWidget(heading)
+            if not values: layout.addWidget(self._empty("Пока пусто"))
+            for value in values:
+                if hasattr(value,"catalog_id"):
+                    game=by_id.get(value.catalog_id); text=game.title if game else value.catalog_id
+                    button=QPushButton(text); button.setObjectName("profileObjectLink"); button.clicked.connect(lambda checked=False,catalog_id=value.catalog_id:self.catalog_item_requested.emit(catalog_id)); layout.addWidget(button)
+                else:
+                    layout.addWidget(QLabel(value.title))
+            columns.addWidget(box,1)
+        self.today_layout.addLayout(columns)
 
     @staticmethod
     def _empty(text: str) -> QLabel:
