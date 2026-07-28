@@ -12,17 +12,21 @@ from app.ui.widgets.platform_icons import PlatformIconRow
 from app.ui.widgets.age_rating import AgeRatingValue
 from app.ui.widgets.critic_sources import apply_source_logo, source_brand_color, source_slots
 from app.core.display_text import compact_entities
+from app.ui.game_detail.system_requirements_panel import SystemRequirementsPanel
+from app.ui.game_detail.chronology_panel import ChronologyPanel
 
 
 class GameDetailPage(QScrollArea):
     favorite_changed = Signal(object, bool)
     rate_requested = Signal(object)
     status_changed = Signal(object, str)
+    catalog_item_requested = Signal(str)
 
     def __init__(self, repository=None, parent=None) -> None:
         super().__init__(parent)
         self.repository = repository
         self.game: GameData | None = None
+        self._status_menu_media_type = ""
         self.setWidgetResizable(True)
         self.setObjectName("gameDetailPage")
         content = QWidget(); self.root = QVBoxLayout(content)
@@ -50,6 +54,12 @@ class GameDetailPage(QScrollArea):
         self.tags_button=QPushButton("ТЕГИ"); self.tags_button.clicked.connect(self._edit_tags)
         personal_actions.addWidget(self.rate_button); personal_actions.addWidget(self.status_badge); personal_actions.addWidget(self.tags_button); personal_actions.addStretch(); info.addLayout(personal_actions)
         self.route = QLabel(); self.route.setStyleSheet(f"color:{ACCENT}; font-size:11pt;"); info.addWidget(self.route)
+        self.tags_widget = QWidget()
+        self.tags_grid = QGridLayout(self.tags_widget)
+        self.tags_grid.setContentsMargins(0, 0, 0, 0)
+        self.tags_grid.setHorizontalSpacing(7)
+        self.tags_grid.setVerticalSpacing(6)
+        info.addWidget(self.tags_widget)
         self.metadata = QGridLayout(); self.metadata.setHorizontalSpacing(34); self.metadata.setVerticalSpacing(12)
         self.meta_values = {}
         self.meta_captions = {}
@@ -86,6 +96,11 @@ class GameDetailPage(QScrollArea):
         self.root.addWidget(self.official_title)
         self.official_details = QGridLayout(); self.official_details.setSpacing(12)
         self.root.addLayout(self.official_details)
+        self.requirements_panel = SystemRequirementsPanel()
+        self.root.addWidget(self.requirements_panel)
+        self.chronology_panel = ChronologyPanel()
+        self.chronology_panel.catalog_item_requested.connect(self.catalog_item_requested.emit)
+        self.root.addWidget(self.chronology_panel)
 
         ratings_title = QLabel("ОЦЕНКИ И ИСТОЧНИКИ"); ratings_title.setStyleSheet("font-size:15pt; font-weight:600;"); self.root.addWidget(ratings_title)
         ratings = QHBoxLayout(); ratings.setSpacing(12)
@@ -111,7 +126,7 @@ class GameDetailPage(QScrollArea):
         from app.ui.dialogs.tag_editor_dialog import TagEditorDialog
         if TagEditorDialog(self.repository,self.game.catalog_id,self).exec():
             names={tag_id:name for tag_id,name,color,count in self.repository.tags()}; self.game.tags=[names[tag_id] for tag_id in self.repository.tag_ids_for(self.game.catalog_id) if tag_id in names]
-            self.tags_button.setText(f"ТЕГИ · {len(self.game.tags)}" if self.game.tags else "ТЕГИ")
+            self._render_tags(self.game)
 
     @staticmethod
     def _score_card(title: str, brand: str, color: str):
@@ -148,8 +163,15 @@ class GameDetailPage(QScrollArea):
 
     def set_game(self, game: GameData) -> None:
         from app.ui.catalog.status_menu import build_status_menu
-        self.status_badge.setMenu(build_status_menu(self.status_badge, self._change_status, game.media_type))
-        self.game = game; self.title.setText(game.title); self.route.setText(f"{game.category}  •  {game.subgroup or 'Без подгруппы'}"); self.tags_button.setText(f"ТЕГИ · {len(game.tags)}" if game.tags else "ТЕГИ")
+        if self._status_menu_media_type != game.media_type:
+            previous_menu = self.status_badge.menu()
+            self.status_badge.setMenu(
+                build_status_menu(self.status_badge, self._change_status, game.media_type)
+            )
+            self._status_menu_media_type = game.media_type
+            if previous_menu is not None:
+                previous_menu.deleteLater()
+        self.game = game; self.title.setText(game.title); self.route.setText(f"{game.category}  •  {game.subgroup or 'Без подгруппы'}"); self._render_tags(game)
         self.breadcrumb.setText(f"{game.media_type.upper()}  /  {game.category.upper()}  /  {(game.subgroup or 'КАРТОЧКА').upper()}")
         developer_text, developer_tooltip = compact_entities(game.developer)
         publisher_text, publisher_tooltip = compact_entities(game.publisher)
@@ -166,6 +188,9 @@ class GameDetailPage(QScrollArea):
         self.meta_values["Издатель"].setToolTip(publisher_tooltip)
         self.description.setText(game.description or "Описание для этого объекта пока не добавлено в Velora Studio.")
         self._fill_official_details(game)
+        self.chronology_panel.set_chronology(
+            game.franchise_name, game.chronology, game.catalog_id
+        )
         self.general_value.setText(self._score(game.general_score)); self.personal_value.setText(self._score(game.personal_score))
         self.rate_button.setText("ИЗМЕНИТЬ ОЦЕНКУ" if game.personal_score != "—" else "ОЦЕНИТЬ")
         self.status_badge.setText(game.status)
@@ -173,8 +198,7 @@ class GameDetailPage(QScrollArea):
         sources = source_slots(
             game.media_type,
             game.critic_scores,
-            game.primary_critic_source,
-            len(self.source_cards),
+            limit=len(self.source_cards),
         )
         for index, (card, label) in enumerate(self.source_cards):
             card.setVisible(index < len(sources))
@@ -209,6 +233,10 @@ class GameDetailPage(QScrollArea):
             item = self.official_details.takeAt(0)
             if item.widget(): item.widget().deleteLater()
         entries: list[tuple[str, str]] = []
+        self.requirements_panel.set_requirements(
+            game.system_requirements,
+            visible=game.media_type == "Игры",
+        )
         if game.media_type != "Игры":
             budget_title = "БЮДЖЕТ СЪЁМОК" if game.media_type in ("Фильмы", "Сериалы") else "БЮДЖЕТ РАЗРАБОТКИ"
             entries.append((budget_title, self._format_budget(game.budget_amount, game.budget_currency)))
@@ -217,13 +245,20 @@ class GameDetailPage(QScrollArea):
         if game.awards: entries.append(("НАГРАДЫ И ПРЕМИИ", "\n".join(f"• {value}" for value in game.awards)))
         if game.dlc: entries.append(("DLC", "\n".join(f"• {value}" for value in game.dlc)))
         if game.cast:
-            entries.append(("В ГЛАВНЫХ РОЛЯХ", "\n".join(f"{entry.get('actor','')} — {entry.get('role','')}" for entry in game.cast)))
-        if game.system_requirements:
-            labels=(("os","ОС"),("cpu","Процессор"),("gpu","Видеокарта"),("ram","RAM"),("storage","Место на диске"),("api","DirectX/API"),("additional","Дополнительно"))
-            minimum="\n".join(f"{label}: {game.system_requirements.get(key+'_min')}" for key,label in labels if game.system_requirements.get(key+"_min"))
-            recommended="\n".join(f"{label}: {game.system_requirements.get(key+'_rec')}" for key,label in labels if game.system_requirements.get(key+"_rec"))
-            entries.append(("МИНИМАЛЬНЫЕ ТРЕБОВАНИЯ", minimum or "Минимальные требования не указаны."))
-            entries.append(("РЕКОМЕНДУЕМЫЕ ТРЕБОВАНИЯ", recommended or "Рекомендуемые требования не указаны."))
+            cast_lines = []
+            for entry in game.cast:
+                if isinstance(entry, dict):
+                    actor = str(entry.get("actor", "")).strip()
+                    role = str(entry.get("role", "")).strip()
+                    cast_lines.append(
+                        f"{actor} — {role}" if actor and role else actor or role
+                    )
+                else:
+                    text = str(entry).strip()
+                    if text:
+                        cast_lines.append(text)
+            if cast_lines:
+                entries.append(("В ГЛАВНЫХ РОЛЯХ", "\n".join(cast_lines)))
         if game.source_code_type: entries.append(("ИСХОДНЫЙ КОД", game.source_code_type))
         if game.architectures: entries.append(("АРХИТЕКТУРЫ", ", ".join(game.architectures)))
         if game.programming_languages: entries.append(("ЯЗЫКИ РАЗРАБОТКИ", ", ".join(game.programming_languages)))
@@ -255,6 +290,30 @@ class GameDetailPage(QScrollArea):
                 panel.layout().addWidget(value)
             self.official_details.addWidget(panel,index//3,index%3)
         for column in range(3): self.official_details.setColumnStretch(column,1)
+
+    def _render_tags(self, game: GameData) -> None:
+        while self.tags_grid.count():
+            item = self.tags_grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        combined = [(tag, False) for tag in game.system_tags]
+        combined.extend((tag, True) for tag in game.tags if tag not in game.system_tags)
+        self.tags_button.setText(f"ТЕГИ · {len(combined)}" if combined else "ТЕГИ")
+        for index, (tag, personal) in enumerate(combined):
+            chip = QLabel(f"# {tag}")
+            chip.setToolTip("Личный тег" if personal else "Тег официального каталога")
+            if personal:
+                chip.setStyleSheet(
+                    "color:#E5CAFF;background:#26133D;border:1px solid #8B2CF5;"
+                    "border-radius:4px;padding:4px 9px;font-weight:600;"
+                )
+            else:
+                chip.setStyleSheet(
+                    "color:#C7D0D8;background:#101A22;border:1px solid #34434E;"
+                    "border-radius:4px;padding:4px 9px;"
+                )
+            self.tags_grid.addWidget(chip, index // 6, index % 6)
+        self.tags_widget.setVisible(bool(combined))
 
     @staticmethod
     def _format_budget(amount: float | None, currency: str) -> str:

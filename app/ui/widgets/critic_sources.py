@@ -54,13 +54,15 @@ def source_slots(
     primary_source: str = "",
     limit: int = 4,
 ) -> list[tuple[str, float | None]]:
-    """Return a stable number of critic cards without inventing scores."""
+    """Return critic cards in the catalog-defined order without a lead source."""
     if not any(value is not None for value in scores.values()):
         return []
     configured = list(SOURCE_SETS.get(media_type, ()))
-    available = [name for name, value in scores.items() if value is not None]
+    # Keys describe the four configured slots; a slot may intentionally have
+    # no score yet and must still keep its position.
+    available = list(scores)
     ordered: list[str] = []
-    for name in (primary_source, *available, *configured):
+    for name in (*available, *configured):
         if name and name not in ordered:
             ordered.append(name)
     return [(name, scores.get(name)) for name in ordered[:limit]]

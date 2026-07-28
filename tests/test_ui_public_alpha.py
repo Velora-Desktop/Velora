@@ -2,13 +2,16 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 from PySide6.QtTest import QTest
+from PySide6.QtCore import Qt
 
 from app.ui.catalog.catalog_view import CatalogView
+from app.ui.main_window import MainWindow
 from app.ui.dialogs.about_dialog import AboutDialog
 from app.ui.dialogs.settings_dialog import LANGUAGES, SettingsDialog
 from app.ui.quick_view.quick_view import QuickView
@@ -32,6 +35,72 @@ class PublicAlphaUiTests(unittest.TestCase):
         view.resize(1600, 900); self.app.processEvents()
         self.assertFalse(view._controls_compact)
         view.close()
+
+    def test_catalog_page_size_starts_at_fifty_and_uses_large_steps(self) -> None:
+        view = CatalogView()
+        self.assertEqual(view.page_size, 50)
+        self.assertEqual(
+            [view.page_size_combo.itemText(index) for index in range(view.page_size_combo.count())],
+            [
+                "50 на странице",
+                "100 на странице",
+                "200 на странице",
+                "500 на странице",
+            ],
+        )
+        for index, expected in enumerate((50, 100, 200, 500)):
+            view.page_size_combo.setCurrentIndex(index)
+            self.app.processEvents()
+            self.assertEqual(view.page_size, expected)
+        view.close()
+
+    def test_catalog_click_opens_quick_view_then_detail_for_every_media_type(self) -> None:
+        view = CatalogView()
+        selected = []
+        view.game_selected.connect(selected.append)
+        quick = QuickView()
+        opened = []
+        quick.detail_requested.connect(opened.append)
+        for media_type in ("Игры", "Фильмы", "Сериалы", "Программы"):
+            view.set_media_type(media_type)
+            self.app.processEvents()
+            self.assertTrue(view.rows, media_type)
+            row = view.rows[0]
+            row.title_button.click()
+            self.app.processEvents()
+            self.assertIs(selected[-1], row.game)
+            quick.set_game(row.game)
+            QTest.mouseClick(quick.summary, Qt.MouseButton.LeftButton)
+            self.app.processEvents()
+            self.assertIs(opened[-1], row.game)
+        view.close()
+        quick.close()
+
+    def test_reselecting_current_section_does_not_destroy_rows(self) -> None:
+        view = CatalogView()
+        view.set_media_type("Сериалы")
+        first_row = view.rows[0]
+        view.set_media_type("Сериалы", view.current_category)
+        self.app.processEvents()
+        self.assertIs(view.rows[0], first_row)
+        view.close()
+
+    def test_repeated_detail_transitions_across_all_sections_are_stable(self) -> None:
+        with patch.object(MainWindow, "_run_first_launch_if_needed", return_value=None):
+            window = MainWindow()
+        window.show()
+        self.app.processEvents()
+        samples = []
+        for media_type in ("Игры", "Фильмы", "Сериалы", "Программы"):
+            samples.extend(
+                item for item in window.catalog.items if item.media_type == media_type
+            )
+        for game in samples[::max(1, len(samples) // 40)]:
+            window._on_detail_requested(game)
+            self.app.processEvents()
+            self.assertIs(window.game_detail.game, game)
+            self.assertTrue(window.game_detail.isVisible())
+        window.close()
 
     def test_public_alpha_dialog_content_and_quick_view_bounds(self) -> None:
         settings = SettingsDialog(True, ())

@@ -212,9 +212,9 @@ class ProfileOverview(QScrollArea):
         more.clicked.connect(lambda: self.section_requested.emit(3))
         self.favorite_layout.addWidget(more)
 
-    def refresh_today(self, queue, goals, drafts, games) -> None:
+    def refresh_today(self, goals, drafts, games) -> None:
         self._clear_after_heading(self.today_layout); by_id={game.catalog_id:game for game in games}; columns=QHBoxLayout()
-        for title,values in (("ЧТО ДАЛЬШЕ",queue[:3]),("АКТИВНЫЕ ЦЕЛИ",[goal for goal in goals if not goal.completed_at][:3]),("ЧЕРНОВИКИ",drafts[:3])):
+        for title,values in (("АКТИВНЫЕ ЦЕЛИ",[goal for goal in goals if not goal.completed_at][:3]),("ЧЕРНОВИКИ",drafts[:3])):
             box=QFrame(); box.setObjectName("profileSummaryCard"); layout=QVBoxLayout(box); heading=QLabel(title); heading.setStyleSheet("font-weight:700;color:#CDBAE1;"); layout.addWidget(heading)
             if not values: layout.addWidget(self._empty("Пока пусто"))
             for value in values:

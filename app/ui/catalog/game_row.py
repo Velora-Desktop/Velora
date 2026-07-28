@@ -79,10 +79,23 @@ class GameRow(QFrame):
                     Qt.TransformationMode.SmoothTransformation,
                 ))
         layout.addWidget(self.cover)
-        title = QLabel(game.title)
-        title.setMinimumWidth(170)
-        title.setStyleSheet("font-family:'Segoe UI'; font-size:10.5pt; font-weight:500;")
-        layout.addWidget(title, 2)
+        self.title_button = QPushButton(game.title)
+        self.title_button.setObjectName("catalogTitleLink")
+        self.title_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.title_button.setMinimumWidth(170)
+        self.title_button.setToolTip("Показать быстрый просмотр")
+        self.title_button.setStyleSheet(
+            "QPushButton#catalogTitleLink {"
+            "font-family:'Segoe UI';font-size:10.5pt;font-weight:500;"
+            "text-align:left;padding:0 6px;border:0;background:transparent;color:#F1F2F4;"
+            "}"
+            "QPushButton#catalogTitleLink:hover {color:#CFA1FF;background:transparent;}"
+            "QPushButton#catalogTitleLink:pressed {color:#A54BFF;background:transparent;}"
+        )
+        self.title_button.clicked.connect(
+            lambda checked=False: self.selected.emit(self.game)
+        )
+        layout.addWidget(self.title_button, 2)
 
         columns = QWidget()
         columns.setObjectName("rowColumns")

@@ -206,11 +206,41 @@ class UserRepository:
         finally:connection.close()
 
     def add_tag(self, name: str, color: str = "#8B2CF5") -> int:
+        clean_name = name.strip()
+        if not clean_name:
+            raise ValueError("Название тега не может быть пустым.")
         connection = sqlite3.connect(self.path); now = datetime.now(timezone.utc).isoformat()
         try:
-            connection.execute("INSERT OR IGNORE INTO user_tags(name,color,created_at) VALUES(?,?,?)", (name.strip(), color, now))
-            row = connection.execute("SELECT id FROM user_tags WHERE name=? COLLATE NOCASE", (name.strip(),)).fetchone(); connection.commit(); return int(row[0])
+            connection.execute("INSERT OR IGNORE INTO user_tags(name,color,created_at) VALUES(?,?,?)", (clean_name, color, now))
+            row = connection.execute("SELECT id FROM user_tags WHERE name=? COLLATE NOCASE", (clean_name,)).fetchone(); connection.commit(); return int(row[0])
         finally: connection.close()
+
+    def rename_tag(self, tag_id: int, name: str) -> None:
+        clean_name = name.strip()
+        if not clean_name:
+            raise ValueError("Название тега не может быть пустым.")
+        connection = sqlite3.connect(self.path)
+        try:
+            conflict = connection.execute(
+                "SELECT id FROM user_tags WHERE name=? COLLATE NOCASE AND id<>?",
+                (clean_name, tag_id),
+            ).fetchone()
+            if conflict:
+                raise ValueError("Тег с таким названием уже существует.")
+            connection.execute("UPDATE user_tags SET name=? WHERE id=?", (clean_name, tag_id))
+            connection.commit()
+        finally:
+            connection.close()
+
+    def delete_tag(self, tag_id: int) -> None:
+        connection = sqlite3.connect(self.path)
+        try:
+            connection.execute("PRAGMA foreign_keys=ON")
+            connection.execute("DELETE FROM user_item_tags WHERE tag_id=?", (tag_id,))
+            connection.execute("DELETE FROM user_tags WHERE id=?", (tag_id,))
+            connection.commit()
+        finally:
+            connection.close()
 
     def assign_tag(self, catalog_id: str, tag_id: int, assigned: bool = True) -> None:
         connection = sqlite3.connect(self.path); now = datetime.now(timezone.utc).isoformat()

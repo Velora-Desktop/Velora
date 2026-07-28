@@ -101,7 +101,7 @@ class ProfilePage(QWidget):
         self.games = list(games); profile = self.repository.load_profile(); self.profile_name.setText(profile.display_name); self.name_edit.setText(profile.display_name)
         self._pending_avatar_path = profile.avatar_path; self.avatar_preview.set_avatar(profile.avatar_path); self.overview.refresh(profile, self.games)
         self.planning.refresh(self.games); self.personal_library.refresh(self.games)
-        self.overview.refresh_today(self.planning_repository.queue(), self.repository.goals(), self.planning_repository.drafts(), self.games)
+        self.overview.refresh_today(self.repository.goals(), self.planning_repository.drafts(), self.games)
         favorites = [game for game in self.games if game.favorite]
         rated = [game for game in self.games if game.personal_score != "—"]
         self.favorites_table.setSortingEnabled(False); self.ratings_table.setSortingEnabled(False)

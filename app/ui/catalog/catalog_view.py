@@ -32,7 +32,7 @@ class CatalogView(QWidget):
         self.current_media_type = "Игры"
         self.current_category = ""
         self.hide_adult_content = False
-        self.page_size = 25
+        self.page_size = 50
         self.current_page = 1
         self.collapsed_groups: set[str] = set()
         self.group_rows: dict[str, list[GameRow]] = {}
@@ -101,8 +101,8 @@ class CatalogView(QWidget):
         self.range_label = QLabel()
         pagination.addWidget(self.range_label)
         self.page_size_combo = QComboBox()
-        self.page_size_combo.addItems(("10 на странице", "25 на странице", "50 на странице", "100 на странице"))
-        self.page_size_combo.setCurrentIndex(1)
+        self.page_size_combo.addItems(("50 на странице", "100 на странице", "200 на странице", "500 на странице"))
+        self.page_size_combo.setCurrentIndex(0)
         self.page_size_combo.setFixedWidth(220)
         self.page_size_combo.currentIndexChanged.connect(self._change_page_size)
         pagination.addWidget(self.page_size_combo)
@@ -158,10 +158,16 @@ class CatalogView(QWidget):
         return catalog_categories(load_catalog_items(), "Игры")
 
     def set_media_type(self, media_type: str, category: str = "") -> None:
-        self.current_media_type = media_type
         categories = self.categories_for(media_type)
         wanted = category.upper()
-        self.current_category = wanted if wanted in categories else next(iter(categories), "")
+        target_category = wanted if wanted in categories else next(iter(categories), "")
+        if (
+            media_type == self.current_media_type
+            and target_category == self.current_category
+        ):
+            return
+        self.current_media_type = media_type
+        self.current_category = target_category
         self.current_page = 1
         self.search.clear()
         self._configure_controls()
@@ -509,7 +515,7 @@ class CatalogView(QWidget):
         self._apply_view()
 
     def _change_page_size(self, index: int) -> None:
-        self.page_size = (10, 25, 50, 100)[index]
+        self.page_size = (50, 100, 200, 500)[index]
         self.current_page = 1
         self._apply_view()
 

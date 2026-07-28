@@ -21,7 +21,6 @@ class PlanningPage(QTabWidget):
 
     def __init__(self, repository: PersonalLibraryRepository, parent=None) -> None:
         super().__init__(parent); self.repository=repository; self.items=[]; self.by_id={}; self._lists=[]; self.setDocumentMode(True)
-        self.addTab(self._queue_tab(),"ЧТО ДАЛЬШЕ")
         self.addTab(self._choice_tab(),"ВЫБРАТЬ ЗА МЕНЯ")
         self.addTab(self._drafts_tab(),"ЧЕРНОВИКИ И ШАБЛОНЫ")
         self.addTab(self._journal_tab(),"ДНЕВНИК")
@@ -43,7 +42,7 @@ class PlanningPage(QTabWidget):
         random_button=QPushButton("ВЫБРАТЬ 5 ВАРИАНТОВ"); random_button.setProperty("primary",True); random_button.clicked.connect(self._random_choice); controls.addWidget(random_button); controls.addStretch(1); root.addLayout(controls)
         self.choice_cards=QGridLayout(); self.choice_cards.setHorizontalSpacing(14); root.addLayout(self.choice_cards)
         self.choice_result=QLabel("Нажмите кнопку, чтобы сформировать новую пятёрку."); self.choice_result.setObjectName("muted"); root.addWidget(self.choice_result)
-        self.queue_duration=QLabel(); self.queue_duration.setObjectName("muted"); root.addWidget(self.queue_duration); root.addStretch(1); self._choice_catalog_id=None
+        root.addStretch(1); self._choice_catalog_id=None
         return tab
 
     def _drafts_tab(self):
@@ -58,11 +57,11 @@ class PlanningPage(QTabWidget):
 
     def refresh(self, items) -> None:
         self.items=list(items); self.by_id={value.catalog_id:value for value in self.items}
-        for combo in (self.queue_object,self.journal_object,self.archive_object):
+        for combo in (self.journal_object,self.archive_object):
             current=combo.currentData(); combo.blockSignals(True); combo.clear()
             for value in sorted(self.items,key=lambda x:x.title.casefold()):combo.addItem(f"{value.media_type} · {value.title}",value.catalog_id)
             index=combo.findData(current); combo.setCurrentIndex(max(0,index)); combo.blockSignals(False)
-        self._refresh_draft_objects(); self._refresh_queue(); self._refresh_templates(); self._load_draft(); self._load_journal(); self._refresh_archive(); self._refresh_queue_duration()
+        self._refresh_draft_objects(); self._refresh_templates(); self._load_draft(); self._load_journal(); self._refresh_archive()
 
     def _refresh_draft_objects(self):
         if not hasattr(self,"draft_object"):return

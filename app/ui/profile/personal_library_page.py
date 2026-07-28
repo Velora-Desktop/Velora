@@ -53,6 +53,7 @@ class PersonalLibraryPage(QWidget):
         self.tabs.addTab(self._smart_tab(),"УМНЫЕ СПИСКИ")
         self.tabs.addTab(self._activity_tab(),"ИСТОРИЯ")
         self.tabs.addTab(self._goals_tab(),"ЦЕЛИ")
+        self.tabs.addTab(self._tags_tab(),"ТЕГИ")
         self.tabs.addTab(self._notes_tab(),"ЗАМЕТКИ")
         self.tabs.addTab(self._analytics_tab(),"АНАЛИТИКА ВКУСА")
 
@@ -69,8 +70,18 @@ class PersonalLibraryPage(QWidget):
         tab=QWidget(); layout=QVBoxLayout(tab); actions=QHBoxLayout(); add=QPushButton("+ НОВАЯ ЦЕЛЬ"); add.clicked.connect(self._new_goal); actions.addWidget(add); actions.addStretch(); layout.addLayout(actions); self.goals_layout=QVBoxLayout(); layout.addLayout(self.goals_layout); layout.addStretch(); return tab
 
     def _tags_tab(self):
-        tab=QWidget(); layout=QVBoxLayout(tab); row=QHBoxLayout(); self.tag_name=QLineEdit(); self.tag_name.setPlaceholderText("Название нового тега"); row.addWidget(self.tag_name,1); add=QPushButton("ДОБАВИТЬ ТЕГ"); add.clicked.connect(self._add_tag); row.addWidget(add); layout.addLayout(row); self.tags_list=QListWidget(); layout.addWidget(self.tags_list,1)
-        assign=QHBoxLayout(); self.tag_item=QComboBox(); assign.addWidget(self.tag_item,2); self.tag_choice=QComboBox(); assign.addWidget(self.tag_choice,1); apply=QPushButton("НАЗНАЧИТЬ"); apply.clicked.connect(self._assign_tag); assign.addWidget(apply); layout.addLayout(assign)
+        tab=QWidget(); layout=QVBoxLayout(tab)
+        create_row=QHBoxLayout(); self.tag_name=QLineEdit(); self.tag_name.setPlaceholderText("Название нового личного тега"); create_row.addWidget(self.tag_name,1)
+        add=QPushButton("ДОБАВИТЬ ТЕГ"); add.clicked.connect(self._add_tag); create_row.addWidget(add); layout.addLayout(create_row)
+        content=QHBoxLayout()
+        left=QVBoxLayout(); self.tags_list=QListWidget(); self.tags_list.currentRowChanged.connect(self._show_tag_items); left.addWidget(self.tags_list,1)
+        tag_actions=QHBoxLayout(); rename=QPushButton("ПЕРЕИМЕНОВАТЬ"); rename.clicked.connect(self._rename_tag); tag_actions.addWidget(rename)
+        delete=QPushButton("УДАЛИТЬ"); delete.clicked.connect(self._delete_tag); tag_actions.addWidget(delete); left.addLayout(tag_actions); content.addLayout(left,1)
+        right=QVBoxLayout(); self.tag_items_table=self._table(("Тип","Название","Категория","Статус"))
+        self.tag_items_table.cellDoubleClicked.connect(lambda r,c:self._open_table(self.tag_items_table,r)); right.addWidget(self.tag_items_table,1); content.addLayout(right,3)
+        layout.addLayout(content,1)
+        assign=QHBoxLayout(); self.tag_item=QComboBox(); assign.addWidget(self.tag_item,2); self.tag_choice=QComboBox(); assign.addWidget(self.tag_choice,1)
+        apply=QPushButton("НАЗНАЧИТЬ"); apply.clicked.connect(self._assign_tag); assign.addWidget(apply); layout.addLayout(assign)
         hint=QLabel("Теги назначаются объектам локально и участвуют в пользовательских умных списках."); hint.setObjectName("muted"); layout.addWidget(hint); return tab
 
     def _repeats_tab(self):
@@ -89,10 +100,10 @@ class PersonalLibraryPage(QWidget):
         table=QTableWidget(0,len(headers)); table.setHorizontalHeaderLabels(headers); table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers); table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); table.verticalHeader().hide(); table.setShowGrid(False); table.horizontalHeader().setStretchLastSection(True); return table
 
     def refresh(self, items) -> None:
-        self.items=list(items); self._refresh_object_choices(); self._refresh_smart(); self._refresh_activity(); self._refresh_goals(); self._refresh_analytics()
+        self.items=list(items); self._refresh_object_choices(); self._refresh_smart(); self._refresh_activity(); self._refresh_goals(); self._refresh_tags(); self._refresh_analytics()
 
     def _refresh_object_choices(self):
-        for combo in (self.note_item,):
+        for combo in (self.note_item, self.tag_item):
             current=combo.currentData()
             blocker = QSignalBlocker(combo)
             combo.clear()
@@ -171,16 +182,58 @@ class PersonalLibraryPage(QWidget):
         if self.tag_name.text().strip():self.repository.add_tag(self.tag_name.text());self.tag_name.clear();self._refresh_tags()
 
     def _refresh_tags(self):
+        selected_id = None
+        selected_item = self.tags_list.currentItem()
+        if selected_item:
+            selected_id = selected_item.data(Qt.ItemDataRole.UserRole)
+        blocker = QSignalBlocker(self.tags_list)
         self.tags_list.clear()
         current=self.tag_choice.currentData(); self.tag_choice.clear()
         for tag_id,name,color,count in self.repository.tags():
             item=QListWidgetItem(f"#{name}   {count}"); item.setData(Qt.ItemDataRole.UserRole,tag_id); self.tags_list.addItem(item); self.tag_choice.addItem(f"#{name}",tag_id)
         index=self.tag_choice.findData(current)
         if index>=0:self.tag_choice.setCurrentIndex(index)
+        target = next((row for row in range(self.tags_list.count()) if self.tags_list.item(row).data(Qt.ItemDataRole.UserRole)==selected_id), 0)
+        self.tags_list.setCurrentRow(target if self.tags_list.count() else -1)
+        del blocker
+        self._show_tag_items(self.tags_list.currentRow())
+
+    def _show_tag_items(self, row: int) -> None:
+        if row < 0 or row >= self.tags_list.count():
+            self.tag_items_table.setRowCount(0); return
+        tag_id = self.tags_list.item(row).data(Qt.ItemDataRole.UserRole)
+        tag = next((name for current_id,name,_color,_count in self.repository.tags() if current_id==tag_id), "")
+        values = [game for game in self.items if tag in game.tags]
+        self._fill(self.tag_items_table,[(g.media_type,g.title,g.category,g.status,g.catalog_id) for g in values])
+
+    def _rename_tag(self):
+        item=self.tags_list.currentItem()
+        if not item:return
+        tag_id=int(item.data(Qt.ItemDataRole.UserRole))
+        current=next((name for current_id,name,_color,_count in self.repository.tags() if current_id==tag_id),"")
+        name,ok=QInputDialog.getText(self,"Переименовать тег","Новое название",text=current)
+        if not ok:return
+        try:self.repository.rename_tag(tag_id,name);self._refresh_tags()
+        except ValueError as error:QMessageBox.warning(self,"Тег не изменён",str(error))
+
+    def _delete_tag(self):
+        item=self.tags_list.currentItem()
+        if not item:return
+        tag_id=int(item.data(Qt.ItemDataRole.UserRole)); name=item.text().split("   ",1)[0]
+        if QMessageBox.question(self,"Удалить тег",f"Удалить {name} у всех объектов?")==QMessageBox.StandardButton.Yes:
+            self.repository.delete_tag(tag_id)
+            for game in self.items:
+                game.tags=[tag for tag in game.tags if f"#{tag}" != name]
+            self._refresh_tags();self._refresh_activity()
 
     def _assign_tag(self):
         catalog_id=self.tag_item.currentData(); tag_id=self.tag_choice.currentData()
-        if catalog_id and tag_id:self.repository.assign_tag(catalog_id,int(tag_id));self._refresh_tags();self._refresh_activity()
+        if catalog_id and tag_id:
+            self.repository.assign_tag(catalog_id,int(tag_id))
+            names={current_id:name for current_id,name,_color,_count in self.repository.tags()}
+            game=next((value for value in self.items if value.catalog_id==catalog_id),None)
+            if game and int(tag_id) in names and names[int(tag_id)] not in game.tags:game.tags.append(names[int(tag_id)])
+            self._refresh_tags();self._refresh_activity()
 
     def _add_repeat(self):
         catalog_id=self.repeat_item.currentData()

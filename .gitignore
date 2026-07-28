@@ -12,3 +12,5 @@ workspace/
 data/*.bak
 data/*.tmp
 data/backups/
+data/catalog.before_*.db
+data/user.db

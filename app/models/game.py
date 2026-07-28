@@ -65,6 +65,9 @@ class GameData:
     budget_amount: float | None = None
     budget_currency: str = ""
     note: str = ""
+    system_tags: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    franchise_name: str = ""
+    chronology: list[dict[str, object]] = field(default_factory=list)
     source_type: str = "official"
     archived: bool = False

@@ -33,7 +33,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         configure_logging()
-        self.setWindowTitle("Velora AW0.09 · каталог AW0.099")
+        self.setWindowTitle("Velora AW0.10 · каталог AW0.0101")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
@@ -140,6 +140,7 @@ class MainWindow(QMainWindow):
         self.game_detail.status_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
         self.game_detail.status_changed.connect(self.quick_view.set_external_status)
         self.game_detail.favorite_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
+        self.game_detail.catalog_item_requested.connect(self.open_catalog_item)
 
         QShortcut(QKeySequence("Ctrl+F"), self, activated=self._open_global_search)
         QShortcut(QKeySequence("Ctrl+W"), self, activated=self.quick_view.hide)
@@ -202,7 +203,14 @@ class MainWindow(QMainWindow):
         self.top_bar.set_active_space(game.media_type.upper())
         self.top_bar.set_search_active(False)
         self.sidebar.show()
-        self.catalog.set_media_type(game.media_type, game.category)
+        # Do not rebuild the catalog while handling a signal emitted by one
+        # of its rows. Deleting the sender during its own click event caused
+        # intermittent crashes after repeated attempts to open a card.
+        if (
+            self.catalog.current_media_type != game.media_type
+            or self.catalog.current_category != game.category.upper()
+        ):
+            self.catalog.set_media_type(game.media_type, game.category)
         self.sidebar.set_categories(self._categories_for_media(game.media_type))
         self.sidebar.select_category(game.category.upper())
         if not self._navigating_history:

@@ -9,7 +9,7 @@ from app.ui.splash_screen import VeloraSplash
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Velora")
-    app.setApplicationVersion("AW0.09")
+    app.setApplicationVersion("AW0.10")
     splash = VeloraSplash()
     windows = []
     def open_main_window() -> None:

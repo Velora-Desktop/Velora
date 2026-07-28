@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFrame,
@@ -45,6 +45,7 @@ class QuickView(QFrame):
         self.setMinimumHeight(315)
         self.setMaximumHeight(380)
         self.current_game: GameData | None = None
+        self._status_menu_media_type = ""
 
         root = QHBoxLayout(self)
         root.setContentsMargins(10, 4, 8, 8)
@@ -252,6 +253,31 @@ class QuickView(QFrame):
         close_column.addWidget(close, 0, Qt.AlignmentFlag.AlignTop)
         close_column.addStretch()
         root.addLayout(close_column)
+        self._enable_detail_click_targets()
+
+    def _enable_detail_click_targets(self) -> None:
+        """Make passive Quick View surfaces open the canonical detail page."""
+        targets = self.findChildren(QLabel)
+        targets.extend(
+            frame
+            for frame in self.findChildren(QFrame)
+            if frame.objectName() in {"ratingCard"}
+        )
+        for target in targets:
+            target.setProperty("quickDetailTarget", True)
+            target.setCursor(Qt.CursorShape.PointingHandCursor)
+            target.setToolTip("Открыть полную страницу")
+            target.installEventFilter(self)
+
+    def eventFilter(self, watched, event) -> bool:
+        if (
+            watched.property("quickDetailTarget")
+            and event.type() == QEvent.Type.MouseButtonRelease
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            self._request_detail()
+            return True
+        return super().eventFilter(watched, event)
 
     @staticmethod
     def _meta_value() -> QLabel:
@@ -304,7 +330,14 @@ class QuickView(QFrame):
         return divider
 
     def set_game(self, game: GameData) -> None:
-        self.status.setMenu(build_status_menu(self.status, self._change_status, game.media_type))
+        if self._status_menu_media_type != game.media_type:
+            previous_menu = self.status.menu()
+            self.status.setMenu(
+                build_status_menu(self.status, self._change_status, game.media_type)
+            )
+            self._status_menu_media_type = game.media_type
+            if previous_menu is not None:
+                previous_menu.deleteLater()
         self.current_game = game
         labels = {
             "Игры": ("Жанр:","Год выхода:","Разработчик:","Платформа:","Издатель:","Кол-во игроков:","Возраст:",""),
@@ -330,10 +363,7 @@ class QuickView(QFrame):
         self.summary.setText(summary if len(summary) <= 190 else summary[:187].rstrip() + "…")
         self.general_score.setText(self._format_score(game.general_score))
         sources = [name for name, value in game.critic_scores.items() if value is not None]
-        if game.primary_critic_source in sources:
-            sources.remove(game.primary_critic_source)
-            sources.insert(0, game.primary_critic_source)
-        self.vote_count.set_sources(sources, game.primary_critic_source)
+        self.vote_count.set_sources(sources)
         self.personal_score.setText(self._format_score(game.personal_score))
         self.general_stars.setText(self._stars_for_score(game.general_score))
         self.personal_stars.setText(self._stars_for_score(game.personal_score))
