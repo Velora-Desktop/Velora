@@ -101,7 +101,7 @@ MAJOR_GROUPS = (
     ),
 )
 
-CURRENT_CYCLE_GROUPS = (
+AW010_GROUPS = (
     (
         "ИНТЕРФЕЙС И UX",
         (
@@ -132,7 +132,23 @@ CURRENT_CYCLE_GROUPS = (
     ),
 )
 
+CURRENT_CYCLE_GROUPS = (
+    (
+        "НОВЫЙ ЦИКЛ",
+        (
+            "<b>Открыта разработка AW0.11.</b>",
+            "Крупные изменения AW0.11 фиксируются отдельно от завершённого цикла AW0.10.",
+            "Микропатчи каталога продолжают собственную последовательную нумерацию.",
+        ),
+    ),
+)
+
 MAJOR_RELEASE_HISTORY = (
+    (
+        "AW0.10",
+        "Теги и хронологии игровых серий, системные требования, устойчивые "
+        "переходы между каталогом и карточками, крупная пагинация и объединение дублей.",
+    ),
     (
         "AW0.08",
         "Публичная альфа: устойчивый слой данных, первый запуск, профиль, "
@@ -292,8 +308,8 @@ class ChangelogDialog(QDialog):
         root.addWidget(title)
 
         cycle = QLabel(
-            "<b>AW0.10 — НОВЫЙ ЦИКЛ РАЗРАБОТКИ</b><br>"
-            "<span style='color:#91A1B2'>Цикл открыт после завершения AW0.09. "
+            "<b>AW0.11 — НОВЫЙ ЦИКЛ РАЗРАБОТКИ</b><br>"
+            "<span style='color:#91A1B2'>Цикл открыт после завершения AW0.10. "
             "Новые изменения будут фиксироваться здесь отдельно от микропатчей каталога.</span>"
         )
         cycle.setTextFormat(Qt.TextFormat.RichText)
@@ -310,7 +326,7 @@ class ChangelogDialog(QDialog):
         major_widget = QWidget()
         major_layout = QVBoxLayout(major_widget)
         major_layout.setContentsMargins(0, 0, 4, 0)
-        current_title = QLabel("КРУПНЫЕ ИЗМЕНЕНИЯ AW0.10")
+        current_title = QLabel("КРУПНЫЕ ИЗМЕНЕНИЯ AW0.11")
         current_title.setStyleSheet("font-size:12pt;font-weight:800;color:#F0F1F4;")
         major_layout.addWidget(current_title)
         current_grid = QGridLayout()
@@ -318,6 +334,16 @@ class ChangelogDialog(QDialog):
         for index, (heading, entries) in enumerate(CURRENT_CYCLE_GROUPS):
             current_grid.addWidget(_major_card(heading, entries), index // 2, index % 2)
         major_layout.addLayout(current_grid)
+
+        aw010_title = QLabel("КРУПНЫЕ ИЗМЕНЕНИЯ AW0.10")
+        aw010_title.setStyleSheet("font-size:12pt;font-weight:800;color:#F0F1F4;")
+        major_layout.addSpacing(8)
+        major_layout.addWidget(aw010_title)
+        aw010_grid = QGridLayout()
+        aw010_grid.setSpacing(10)
+        for index, (heading, entries) in enumerate(AW010_GROUPS):
+            aw010_grid.addWidget(_major_card(heading, entries), index // 2, index % 2)
+        major_layout.addLayout(aw010_grid)
 
         major_title = QLabel("КРУПНЫЕ ИЗМЕНЕНИЯ AW0.09")
         major_title.setStyleSheet("font-size:12pt;font-weight:800;color:#F0F1F4;")

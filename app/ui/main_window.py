@@ -33,7 +33,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         configure_logging()
-        self.setWindowTitle("Velora AW0.10 · каталог AW0.0101")
+        self.setWindowTitle("Velora AW0.11 · каталог AW0.0101")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
