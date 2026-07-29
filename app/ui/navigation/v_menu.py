@@ -1,6 +1,7 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QMenu
 from app.core.icon_registry import IconRegistry
+from app.core.constants import APP_VERSION
 
 
 class VMenu(QMenu):
@@ -11,7 +12,7 @@ class VMenu(QMenu):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.addSection("VELORA AW0.11 · КАТАЛОГ AW0.0101")
+        self.addSection(f"VELORA {APP_VERSION} · МИКРОПАТЧ AW0.221")
         self.addAction(IconRegistry.icon("settings_gears", "dark", "ui"), "Настройки").triggered.connect(self.settings_requested)
         self.addAction(IconRegistry.icon("info", "dark", "feedback"), "О проекте").triggered.connect(self.about_requested)
         self.addAction(IconRegistry.icon("history_recent", "dark", "ui"), "История изменений").triggered.connect(self.changelog_requested)

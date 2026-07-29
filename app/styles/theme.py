@@ -28,24 +28,35 @@ def application_stylesheet() -> str:
     QPushButton[primary="true"]:hover {{ background:#7B25D5; }}
     QPushButton[danger="true"] {{ color:#FF7676; border:1px solid #713238; background:#211014; }}
     QPushButton[future="true"] {{ color:#73808C; border-color:#1A252E; background:#080E13; }}
-    QPushButton[active="true"] {{ color: #D4A4FF; border-bottom: 3px solid {ACCENT}; border-radius: 0; background: rgba(139,44,245,0.08); }}
+    QPushButton[active="true"] {{ color: #D4A4FF; border:0; border-bottom: 3px solid {ACCENT}; border-radius: 0; background: transparent; }}
     QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QListWidget, QTableWidget {{ background: {SURFACE_INPUT}; border: 1px solid {BORDER}; border-radius: 6px; padding: 7px 11px; min-height: 22px; selection-background-color:#5F1BAE; selection-color:white; }}
     QComboBox {{ padding-right:30px; }}
     QComboBox::drop-down {{ width:28px; border:0; background:transparent; }}
     QComboBox::down-arrow {{ width:9px; height:6px; }}
     QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus, QListWidget:focus, QTableWidget:focus {{ border-color: {ACCENT}; }}
-    QTabWidget::pane {{ border:1px solid #202D37; border-radius:7px; background:#060C11; top:-1px; }}
+    QSpinBox::up-button, QSpinBox::down-button,
+    QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
+        width:0; height:0; border:0; background:transparent;
+    }}
+    QTabWidget, QTabBar, QStackedWidget {{
+        background:{SURFACE_PANEL};
+    }}
+    QTabWidget QStackedWidget > QWidget,
+    QScrollArea > QWidget > QWidget {{
+        background:{SURFACE_PANEL};
+    }}
+    QTabWidget::pane {{ border:1px solid #202D37; border-radius:7px; background:{SURFACE_PANEL}; top:-1px; }}
     QTabBar::tab {{ background:transparent; color:#909BA5; padding:10px 16px; border-bottom:2px solid transparent; }}
     QTabBar::tab:hover {{ color:#E7EAF0; background:#160B24; }}
-    QTabBar::tab:selected {{ color:#E4C7FF; border-bottom-color:{ACCENT}; background:#100A1A; }}
-    QTabWidget#profileTabs::pane {{ border:0; background:transparent; top:-1px; }}
+    QTabBar::tab:selected {{ color:#E4C7FF; border-bottom-color:{ACCENT}; background:transparent; }}
+    QTabWidget#profileTabs::pane {{ border:0; background:{SURFACE_PANEL}; top:-1px; }}
     QWidget#veloraPanel {{ background:#0B1018; border:1px solid #242D3B; border-radius:8px; }}
     QToolButton#randomCoverCard {{ background:#0B121A; border:1px solid #2A3540; border-radius:8px; color:#F1F2F4; padding:10px; font-weight:600; }}
     QToolButton#randomCoverCard:hover {{ background:#1A0D2B; border-color:{ACCENT}; color:#E7C7FF; }}
-    QTabBar#profileTabBar {{ background:#05090D; }}
+    QTabBar#profileTabBar {{ background:{SURFACE_PANEL}; }}
     QTabBar#profileTabBar::tab {{ min-width:118px; min-height:25px; margin-right:4px; padding:9px 15px; color:#9BA2AC; background:transparent; border:1px solid transparent; border-bottom:3px solid transparent; border-radius:5px 5px 0 0; }}
     QTabBar#profileTabBar::tab:hover {{ color:white; background:#160B24; border-color:#552080; border-bottom-color:#7B2BD0; }}
-    QTabBar#profileTabBar::tab:selected {{ color:#F0DEFF; background:#17102B; border-color:#7330AD; border-bottom-color:{ACCENT}; }}
+    QTabBar#profileTabBar::tab:selected {{ color:#F0DEFF; background:transparent; border-color:transparent; border-bottom-color:{ACCENT}; }}
     QPushButton#profileSectionLink {{ background:transparent; color:#D7D3DE; border:1px solid #303046; border-radius:6px; padding:8px 14px; }}
     QPushButton#profileSectionLink:hover {{ background:#1A0D2B; color:white; border-color:#8436D2; }}
     QPushButton#profileSectionLink:pressed {{ background:#25103D; border-color:{ACCENT}; }}
@@ -63,12 +74,21 @@ def application_stylesheet() -> str:
     QLabel#caption {{ color: #AAB2BA; font-size: 8.5pt; font-weight: 600; }}
     QLabel#groupHeader {{ color: #CCD1D6; font-size: 9pt; font-weight: 600; padding: 9px 12px 5px 12px; }}
     QScrollArea {{ border: 0; background: transparent; }}
-    QScrollBar:vertical {{ background:#071016; width:8px; margin:0; }}
-    QScrollBar::handle:vertical {{ background:#2B3540; border-radius:4px; min-height:30px; }}
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height:0; }}
-    QScrollBar:horizontal {{ background:#071016; height:8px; margin:0; }}
-    QScrollBar::handle:horizontal {{ background:#2B3540; border-radius:4px; min-width:30px; }}
-    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width:0; }}
+    QAbstractScrollArea::viewport {{ background:{SURFACE_PANEL}; }}
+    QScrollBar:vertical {{ background:rgba(7,16,22,90); width:8px; margin:0; border:0; }}
+    QScrollBar::handle:vertical {{ background:#542078; border-radius:4px; min-height:32px; }}
+    QScrollBar::handle:vertical:hover {{ background:#7130A9; }}
+    QScrollBar::handle:vertical:pressed {{ background:{ACCENT}; }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height:0; background:transparent; }}
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background:transparent; }}
+    QScrollBar:horizontal {{ background:rgba(7,16,22,90); height:8px; margin:0; border:0; }}
+    QScrollBar::handle:horizontal {{ background:#542078; border-radius:4px; min-width:32px; }}
+    QScrollBar::handle:horizontal:hover {{ background:#7130A9; }}
+    QScrollBar::handle:horizontal:pressed {{ background:{ACCENT}; }}
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width:0; background:transparent; }}
+    QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{ background:transparent; }}
+    QTableCornerButton::section {{ background:{SURFACE_PANEL}; border:0; }}
+    QAbstractScrollArea::corner {{ background:{SURFACE_PANEL}; border:0; }}
     QMenu {{ background:#091118; border:1px solid #26333D; padding:6px; }}
     QMenu::item {{ padding:8px 24px 8px 12px; border-radius:4px; }}
     QMenu::item:selected {{ background:#160B24; color:white; }}

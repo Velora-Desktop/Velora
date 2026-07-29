@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMenu, QPushButton, QWidgetAction
 
 from app.core.constants import DANGER, SUCCESS, WARNING
@@ -26,6 +27,111 @@ STATUS_ICONS = {
     "НЕ СМОТРЕЛ": "not_watched", "СМОТРЮ": "watching", "ПОСМОТРЕЛ": "watched", "ЖДУ НОВЫЙ СЕЗОН": "waiting_new_season",
     "НЕ ИСПОЛЬЗОВАЛ": "not_used", "ИСПОЛЬЗУЮ": "using", "ИСПОЛЬЗОВАЛ": "used", "ОТКАЗАЛСЯ": "abandoned",
 }
+
+_STATUS_BUTTON_STYLE = """
+QPushButton#veloraStatusButton {
+    color:#8A929A;
+    border:1px solid #38434D;
+    border-radius:5px;
+    background:#111820;
+    font-weight:600;
+    padding:3px 22px 3px 8px;
+    text-align:center;
+}
+QPushButton#veloraStatusButton[statusKind="active"] {
+    color:#FFCC00;
+    border-color:#775000;
+    background:#251A07;
+}
+QPushButton#veloraStatusButton[statusKind="success"] {
+    color:#13D56B;
+    border-color:#1B6D35;
+    background:#092013;
+}
+QPushButton#veloraStatusButton[statusKind="danger"] {
+    color:#FF4A4A;
+    border-color:#7A2828;
+    background:#251010;
+}
+QPushButton#veloraStatusButton:hover {
+    border-color:#A54BFF;
+}
+QPushButton#veloraStatusButton:focus {
+    border-color:#A54BFF;
+}
+QPushButton#veloraStatusButton::menu-indicator {
+    subcontrol-position:right center;
+    right:8px;
+}
+"""
+
+
+def _status_kind(status: str) -> str:
+    color, _border, _background = status_visual(status)
+    if color == SUCCESS:
+        return "success"
+    if color == WARNING or status == "ЖДУ НОВЫЙ СЕЗОН":
+        return "active"
+    if color == DANGER:
+        return "danger"
+    return "neutral"
+
+
+class StatusButton(QPushButton):
+    """Persistent status control shared by every game presentation.
+
+    Status changes update a dynamic property on the existing button.  The
+    widget, its geometry, menu and stylesheet are not replaced during normal
+    state changes, preventing native/unstyled surfaces from flashing between
+    adjacent catalog cells.
+    """
+
+    def __init__(
+        self,
+        callback: Callable[[str], None],
+        media_type: str = "Игры",
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self._callback = callback
+        self._media_type = ""
+        self._status_value = ""
+        self.setObjectName("veloraStatusButton")
+        self.setAutoFillBackground(False)
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
+        self.setStyleSheet(_STATUS_BUTTON_STYLE)
+        self.set_media_type(media_type)
+
+    @property
+    def status_value(self) -> str:
+        return self._status_value
+
+    def set_status(self, status: str) -> None:
+        status = status or "НЕ НАЧИНАЛ"
+        kind = _status_kind(status)
+        text_changed = self.text() != status
+        kind_changed = self.property("statusKind") != kind
+        self._status_value = status
+        if text_changed:
+            self.setText(status)
+        if kind_changed:
+            self.setUpdatesEnabled(False)
+            self.setProperty("statusKind", kind)
+            style = self.style()
+            style.unpolish(self)
+            style.polish(self)
+            self.setUpdatesEnabled(True)
+        if text_changed or kind_changed:
+            self.update()
+
+    def set_media_type(self, media_type: str) -> None:
+        if media_type == self._media_type and self.menu() is not None:
+            return
+        old_menu = self.menu()
+        self._media_type = media_type
+        self.setMenu(build_status_menu(self, self._callback, media_type))
+        if old_menu is not None:
+            old_menu.deleteLater()
 
 
 def status_visual(status: str) -> tuple[str, str, str]:

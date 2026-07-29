@@ -8,9 +8,9 @@ from app.data.user_repository import LocalProfile, UserRepository
 from app.ui.profile.statistics_dashboard import StatisticsDashboard
 from app.ui.profile.profile_overview import ProfileOverview
 from app.ui.profile.profile_widgets import AvatarLabel, GlowingTabBar, store_profile_avatar
-from app.ui.profile.personal_library_page import PersonalLibraryPage
-from app.ui.profile.planning_page import PlanningPage
-from app.data.personal_library_repository import PersonalLibraryRepository
+from app.ui.profile.assistant_page import AssistantPage
+from app.ui.profile.creator_page import CreatorPage
+from app.ui.profile.profile_dialog import ProfileDialog
 from app.navigation.routes import catalog_uri
 
 
@@ -30,30 +30,28 @@ class ProfilePage(QWidget):
         root.addLayout(heading)
         self.tabs = QTabWidget(); self.tabs.setObjectName("profileTabs"); self.tabs.setDocumentMode(True); self.tabs.setTabBar(GlowingTabBar())
         self.tabs.addTab(self._build_overview_tab(), "ОБЗОР")
-        self.tabs.addTab(self._build_planning_tab(), "ПЛАНЫ И ОБЗОРЫ")
-        self.tabs.addTab(self._build_library_tab(), "УМНАЯ БИБЛИОТЕКА")
+        self.tabs.addTab(self._build_assistant_tab(), "АССИСТЕНТ")
+        self.creator = CreatorPage()
+        self.tabs.addTab(self.creator, "CREATOR")
         self.tabs.addTab(self._build_ratings_tab(), "МОИ ОЦЕНКИ")
         self.tabs.addTab(self._build_favorites_tab(), "ИЗБРАННОЕ")
         self.tabs.addTab(self._build_statistics_tab(), "СТАТИСТИКА")
-        self.tabs.addTab(self._build_profile_tab(), "ПРОФИЛЬ")
         root.addWidget(self.tabs, 1)
 
     def _build_overview_tab(self) -> QWidget:
         self.overview = ProfileOverview()
-        self.overview.section_requested.connect(self.tabs.setCurrentIndex)
+        self.overview.section_requested.connect(self._open_section)
+        self.overview.edit_profile_requested.connect(self._edit_profile)
         self.overview.catalog_item_requested.connect(self.catalog_item_requested.emit)
         return self.overview
 
-    def _build_library_tab(self) -> QWidget:
-        self.personal_library = PersonalLibraryPage(self.repository)
-        self.personal_library.catalog_item_requested.connect(self.catalog_item_requested.emit)
-        return self.personal_library
-
-    def _build_planning_tab(self) -> QWidget:
-        self.planning_repository = PersonalLibraryRepository(self.repository.path)
-        self.planning = PlanningPage(self.planning_repository)
-        self.planning.catalog_item_requested.connect(self.catalog_item_requested.emit)
-        return self.planning
+    def _build_assistant_tab(self) -> QWidget:
+        self.assistant = AssistantPage(self.repository)
+        self.assistant.catalog_item_requested.connect(self.catalog_item_requested.emit)
+        self.planning = self.assistant.planning
+        self.personal_library = self.assistant.library
+        self.planning_repository = self.assistant.planning_repository
+        return self.assistant
 
     def _build_profile_tab(self) -> QWidget:
         tab = QWidget(); layout = QVBoxLayout(tab); layout.setContentsMargins(18, 22, 18, 18)
@@ -98,10 +96,11 @@ class ProfilePage(QWidget):
         return table
 
     def refresh(self, games) -> None:
-        self.games = list(games); profile = self.repository.load_profile(); self.profile_name.setText(profile.display_name); self.name_edit.setText(profile.display_name)
-        self._pending_avatar_path = profile.avatar_path; self.avatar_preview.set_avatar(profile.avatar_path); self.overview.refresh(profile, self.games)
-        self.planning.refresh(self.games); self.personal_library.refresh(self.games)
-        self.overview.refresh_today(self.repository.goals(), self.planning_repository.drafts(), self.games)
+        self.games = list(games); profile = self.repository.load_profile(); self.profile_name.setText(profile.display_name)
+        self.overview.refresh(profile, self.games)
+        self.assistant.refresh(self.games)
+        self.creator.refresh()
+        self.overview.refresh_today(self.repository.goals(), self.games)
         favorites = [game for game in self.games if game.favorite]
         rated = [game for game in self.games if game.personal_score != "—"]
         self.favorites_table.setSortingEnabled(False); self.ratings_table.setSortingEnabled(False)
@@ -119,6 +118,17 @@ class ProfilePage(QWidget):
 
     def show_overview(self) -> None:
         self.tabs.setCurrentIndex(0)
+
+    def _open_section(self, section: str) -> None:
+        indexes = {"assistant": 1, "creator": 2, "ratings": 3, "favorites": 4, "statistics": 5}
+        if section in indexes:
+            self.tabs.setCurrentIndex(indexes[section])
+
+    def _edit_profile(self) -> None:
+        if ProfileDialog(self.repository, self.games, self).exec():
+            profile = self.repository.load_profile()
+            self.profile_name.setText(profile.display_name)
+            self.overview.refresh(profile, self.games)
 
     @staticmethod
     def _fill(table: QTableWidget, rows) -> None:

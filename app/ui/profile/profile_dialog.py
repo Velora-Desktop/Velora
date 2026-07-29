@@ -1,16 +1,23 @@
-from PySide6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit, QVBoxLayout
+from PySide6.QtWidgets import QFileDialog, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit, QVBoxLayout
 
 from app.data.user_repository import LocalProfile, UserRepository
+from app.ui.profile.profile_widgets import AvatarLabel, store_profile_avatar
 
 
 class ProfileDialog(QDialog):
     def __init__(self, repository: UserRepository, games, parent=None) -> None:
         super().__init__(parent); self.repository = repository; self.games = list(games)
         self.setWindowTitle("МОЙ VELORA — локальный профиль"); self.setMinimumSize(680, 520)
-        profile = repository.load_profile(); root = QVBoxLayout(self)
+        profile = repository.load_profile(); self._avatar_path = profile.avatar_path; root = QVBoxLayout(self)
         title = QLabel("МОЙ VELORA"); title.setStyleSheet("font-family:Georgia; font-size:24pt; letter-spacing:2px;"); root.addWidget(title)
         privacy = QLabel("Профиль и все личные данные хранятся только на этом компьютере. Они не отправляются на серверы Velora.")
         privacy.setObjectName("muted"); privacy.setWordWrap(True); root.addWidget(privacy)
+        avatar_row = QHBoxLayout()
+        self.avatar = AvatarLabel(124); self.avatar.set_avatar(profile.avatar_path); avatar_row.addWidget(self.avatar)
+        avatar_actions = QVBoxLayout()
+        choose = QPushButton("ВЫБРАТЬ ИЗОБРАЖЕНИЕ"); choose.clicked.connect(self._choose_avatar); avatar_actions.addWidget(choose)
+        remove = QPushButton("УБРАТЬ АВАТАР"); remove.clicked.connect(self._remove_avatar); avatar_actions.addWidget(remove)
+        avatar_actions.addStretch(); avatar_row.addLayout(avatar_actions); avatar_row.addStretch(); root.addLayout(avatar_row)
         form = QFormLayout(); self.name = QLineEdit(profile.display_name); self.bio = QTextEdit(profile.bio); self.bio.setMaximumHeight(90)
         form.addRow("Имя", self.name); form.addRow("О себе", self.bio); root.addLayout(form)
         stats = QLabel(self._statistics()); stats.setStyleSheet("background:#09131A; border:1px solid #273640; border-radius:8px; padding:18px; font-size:11pt;")
@@ -27,4 +34,17 @@ class ProfileDialog(QDialog):
 
     def _save(self) -> None:
         name = self.name.text().strip() or "Пользователь"
-        self.repository.save_profile(LocalProfile(name, self.bio.toPlainText().strip(), "")); self.accept()
+        avatar_path = store_profile_avatar(self._avatar_path) if self._avatar_path else ""
+        self.repository.save_profile(LocalProfile(name, self.bio.toPlainText().strip(), avatar_path)); self.accept()
+
+    def _choose_avatar(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Выберите аватар", "", "Изображения (*.png *.jpg *.jpeg *.webp)"
+        )
+        if path:
+            self._avatar_path = path
+            self.avatar.set_avatar(path)
+
+    def _remove_avatar(self) -> None:
+        self._avatar_path = ""
+        self.avatar.set_avatar("")

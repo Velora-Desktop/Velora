@@ -5,7 +5,7 @@ import unittest
 from app.data.catalog_repository import CATALOG_DB
 
 
-class CatalogAw00101CoverTests(unittest.TestCase):
+class CurrentCatalogCoverTests(unittest.TestCase):
     EXPECTED = {
         "g-shooter-aw0092-003": "assets/covers/catalog/apex_legends.jpg",
         "g-shooter-fps-007": "assets/covers/catalog/bioshock.jpg",
@@ -14,7 +14,7 @@ class CatalogAw00101CoverTests(unittest.TestCase):
         "g-shooter-aw0092-001": "assets/covers/catalog/counter_strike_2.jpg",
     }
 
-    def test_aw00101_has_five_portable_cover_paths(self) -> None:
+    def test_aw0221_keeps_five_portable_cover_paths(self) -> None:
         with sqlite3.connect(CATALOG_DB) as connection:
             rows = dict(
                 connection.execute(
@@ -26,7 +26,7 @@ class CatalogAw00101CoverTests(unittest.TestCase):
             version = connection.execute(
                 "SELECT value FROM metadata WHERE key='catalog_version'"
             ).fetchone()[0]
-        self.assertEqual(version, "AW0.0101")
+        self.assertEqual(version, "AW0.221")
         self.assertEqual(rows, self.EXPECTED)
         for relative_path in rows.values():
             path = Path(__file__).resolve().parents[1] / relative_path

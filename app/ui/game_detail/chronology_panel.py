@@ -78,6 +78,9 @@ class ChronologyPanel(QFrame):
         self.setStyleSheet(
             "QFrame#chronologyPanel {background:#101820;"
             "border:1px solid #2A3640;border-radius:4px;}"
+            "QFrame#chronologyPanel QScrollArea,"
+            "QFrame#chronologyPanel QScrollArea > QWidget > QWidget {"
+            "background:transparent;border:0;}"
         )
         root = QVBoxLayout(self)
         root.setContentsMargins(22, 18, 22, 18)
@@ -92,6 +95,7 @@ class ChronologyPanel(QFrame):
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setFixedHeight(262)
+        self.scroll.viewport().setStyleSheet("background:transparent;")
         root.addWidget(self.scroll)
         self.setVisible(False)
 
@@ -102,6 +106,9 @@ class ChronologyPanel(QFrame):
         current_id: str,
     ) -> None:
         container = QWidget()
+        container.setObjectName("chronologyTrack")
+        container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        container.setStyleSheet("background:transparent;border:0;")
         row = QHBoxLayout(container)
         row.setContentsMargins(2, 2, 2, 8)
         row.setSpacing(10)

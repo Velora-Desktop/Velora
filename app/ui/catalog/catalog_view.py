@@ -13,6 +13,7 @@ from app.services.age_filter_service import AgeFilterService
 from app.core.icon_registry import IconRegistry
 from app.core.platforms import sorted_platforms
 from app.ui.catalog.game_row import COLUMN_AREA_WIDTH, COLUMN_LABELS, COLUMN_SPACING, COLUMN_WIDTHS, GameRow
+from app.ui.catalog.single_row_integration import build_single_row_presenter
 
 
 class CatalogView(QWidget):
@@ -24,6 +25,7 @@ class CatalogView(QWidget):
     favorite_changed = Signal(object, bool)
     detail_requested = Signal(object)
     hidden_requested = Signal(object)
+    aw02_action_requested = Signal(object, str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -42,6 +44,7 @@ class CatalogView(QWidget):
         self.group_sort_specs: dict[tuple[str, str, str], tuple[str, bool]] = {}
         self.group_sort_directions: dict[tuple[tuple[str, str, str], str], bool] = {}
         self.header_column_widgets: dict[QWidget, dict[str, QPushButton]] = {}
+        self.single_row_presenter = build_single_row_presenter()
 
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 10, 12, 8)
@@ -263,6 +266,13 @@ class CatalogView(QWidget):
                 row.favorite_changed.connect(self.favorite_changed)
                 row.detail_requested.connect(self.detail_requested)
                 row.hidden_requested.connect(self.hidden_requested)
+                row.aw02_action_requested.connect(self.aw02_action_requested)
+                if (
+                    self.single_row_presenter is not None
+                    and game.catalog_id
+                    == self.single_row_presenter.target_legacy_catalog_id
+                ):
+                    self.single_row_presenter.bind(row)
                 self.list_layout.addWidget(row)
                 self.rows.append(row)
                 rows.append(row)
@@ -411,6 +421,17 @@ class CatalogView(QWidget):
 
     def _matching_rows(self) -> list[GameRow]:
         query = self.search.text().strip().casefold()
+        normalized_tag_query = query.lstrip("#").strip()
+        known_tags = {
+            tag.casefold()
+            for row in self.rows
+            for tag in (*row.game.system_tags, *row.game.tags)
+        }
+        tag_query = (
+            normalized_tag_query
+            if normalized_tag_query and normalized_tag_query in known_tags
+            else ""
+        )
         filter_mode = self.control_combos[1].currentText()
         platform = self.control_combos[2].currentText()
         status = self.control_combos[3].currentText()
@@ -418,8 +439,16 @@ class CatalogView(QWidget):
         ordered_rows = [row for group_rows in self.group_rows.values() for row in group_rows]
         for row in ordered_rows:
             game = row.game
-            if query and query not in game.title.casefold():
-                continue
+            if query:
+                if tag_query:
+                    item_tags = {
+                        tag.casefold()
+                        for tag in (*game.system_tags, *game.tags)
+                    }
+                    if tag_query not in item_tags:
+                        continue
+                elif query not in game.title.casefold():
+                    continue
             if self.hide_adult_content and not AgeFilterService.is_visible(game.age_rating, True):
                 continue
             if game.hidden or game.archived:
@@ -436,6 +465,12 @@ class CatalogView(QWidget):
                 continue
             rows.append(row)
         return rows
+
+    def set_tag_filter(self, tag: str) -> None:
+        """Apply an exact tag query without resetting per-group sort state."""
+        normalized = tag.strip().lstrip("#").strip()
+        self.search.setText(f"#{normalized}" if normalized else "")
+        self.search.setFocus()
 
     def _sort_value(self, row: GameRow, column: str):
         game = row.game
@@ -496,6 +531,18 @@ class CatalogView(QWidget):
                 row.set_personal_score(score)
                 break
         self._apply_view()
+
+    def refresh_integrated_row(self, catalog_id: str):
+        """Refresh only the opt-in AW0.2 row; never rebuild or reorder the list."""
+        presenter = self.single_row_presenter
+        if presenter is None or catalog_id not in (
+            presenter.target_catalog_id, presenter.target_legacy_catalog_id
+        ):
+            return None
+        for row in self.rows:
+            if row.game.catalog_id == presenter.target_legacy_catalog_id:
+                return presenter.refresh(row)
+        return None
 
     def refresh_filters(self, *_args) -> None:
         self._apply_view()

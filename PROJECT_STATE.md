@@ -1,5 +1,56 @@
 # Velora project state
 
+## AW0.22 — цикл завершён
+
+- Версия приложения зафиксирована как `AW0.22`.
+- Официальный каталог опубликован микропатчем `AW0.221`.
+- Эталонная карточка Doom Eternal, универсальный Journey UI, Creator Source
+  Model и компактная структура «Мой Velora» включены в релиз.
+- Contracts 1, `user.db Schema 1`, Unit of Work и безопасные границы хранения
+  сохранены без несовместимых изменений.
+- Velora Studio зафиксирована как `0.11`.
+
+## AW0.21 — Journey implementation
+
+- Реализован универсальный read-model поток: существующие данные AW0.2 →
+  Journey Presentation → Journey UI и Creator Source Model.
+- Реестр содержит 21 композиционный Journey Template; Doom Eternal использует
+  Story Campaign с Arena Shooter, mission, encounter и boss-модификаторами.
+- Эталонная карточка Doom показывает Journey карточками этапов и позволяет
+  отмечать подходящий материал для Creator.
+- Creator placeholder читает подготовленную application-модель и показывает
+  реальные категории и preview источников.
+- Studio получила шестую вкладку Journey с каталогом шаблонов и preview.
+- Schema 1, repositories, Unit of Work и существующий domain Journey не менялись.
+- Creator marks и конфигурация Studio preview пока живут только в сессии.
+
+## AW0.21 — новый UX-цикл
+
+- Текущая версия приложения: `AW0.21`; каталог остаётся `0.21`;
+  `user.db Schema 1` и Contracts 1 не изменяются.
+- AW0.21 развивает готовое ядро AW0.2 и не является переписыванием проекта.
+- Главная цель цикла — превратить Doom Eternal в эталонную карточку игры,
+  пригодную для последующего переиспользования всеми карточками Games UI.
+- «Мой Velora» использует новую компактную структуру: Обзор, Ассистент,
+  Creator, Мои оценки, Избранное и Статистика.
+- Journey в этом цикле проектируется как пользовательское представление пути
+  прохождения поверх существующих playthrough, checkpoints, impressions,
+  ratings и immutable event history.
+- Creator Backend, AI-рекомендации, DOCX Export, новая Schema и массовое
+  подключение остальных игр в границы AW0.21 не входят.
+- Цикл открыт локально; Git commit, тег и публикация на GitHub не выполнялись.
+
+## AW0.2 — текущая реализация Architecture Freeze
+
+- Текущая версия приложения: `AW0.2`; каталог `0.21`; `user.db Schema 1`.
+- Нормальный запуск из `C:\Velora\main.py` выполняет безопасную подготовку storage без переменных окружения.
+- Legacy-профиль проходит one-time reset только после проверенного snapshot; исходная база перемещается в `legacy`, активная Schema 1 выбирается через `active_generation.json`.
+- Doom Eternal — единственная подключённая вертикаль нового ядра: read-side включён по умолчанию, диагностические подписи и тестовые значения удалены.
+- Статус, игровое время и итоговая личная оценка Doom Eternal записываются через application services, Unit of Work и typed repositories; строка обновляется адресно.
+- Остальные карточки, Quick View и навигация сохраняют legacy-поведение и существующий визуальный стиль.
+- Velora Studio имеет версию `0.1`; узкий мост Doom Eternal сохраняет изменения в Catalog 0.21 после snapshot и не открывает `user.db` на запись.
+- Проверки финальной интеграции: Velora `125/125`, Studio `12/12`, compileall и запуск обоих приложений успешны.
+
 ## AW0.11 — новый цикл разработки
 
 - Текущая версия приложения: `AW0.11`.
@@ -284,3 +335,65 @@
 - Technical Wikidata platform identifiers are translated to readable platform names before icons and overflow tooltips are built.
 - Missing official ratings are rendered as `—`, never as a real red `0.0` score.
 - Catalog audit: 400 official cards total; 188 currently require verified critic sources (60 games, 21 films, 26 series, 81 programs). These values must not be invented or inferred from user ratings.
+## AW0.2 implementation foundation
+
+- Block 1 Contracts and Safety Foundations: complete.
+- Block 2 Schema Creation, AW0.2 Reset Boundary and Repository Foundation:
+  complete.
+- Schema 1 creators exist for catalog.db and user.db.
+- One-time reset uses verified snapshots, an external journal, generation
+  quarantine and an atomic active-generation pointer.
+- Typed repositories operate through database-specific Units of Work.
+- AW0.2 storage remains disconnected from the AW0.1 UI until a later block.
+- Block 3 Games Core Vertical Smoke Slice: complete.
+- Added UI-independent Library, Playthrough, Journey, Rating, Impression and
+  Game Progress services.
+- Added typed `GameRowReadModel` for the future Games catalog row.
+- Projection changes and immutable Journey events share one explicit
+  `user.db` transaction; post-commit events are emitted only after commit.
+- Block 3 validation: 15/15 focused tests and 96/96 full regression tests.
+- Block 4A Games Row Integration Preparation: complete.
+- Added a read-only Games row query facade with typed filtering, stable
+  sorting, pagination, selection identity and state-derived row actions.
+- Added UI-neutral loading, empty, error and result contracts.
+- Block 4A validation: 20/20 focused tests and 116/116 full regression tests.
+- Existing Games UI remains unchanged and disconnected from the AW0.2 facade.
+- Block 4B Single Games Row UI Integration: complete.
+- The existing Doom Eternal row has an opt-in read-only presenter using
+  `GamesRowQueryService`, `GameRowDto` and `RowSelectionIdentity`.
+- Legacy readable ID and Contracts 1 UUID remain explicitly separated.
+- Feature flag `VELORA_AW02_SINGLE_ROW_READ` is disabled by default and
+  restores the untouched legacy path when absent.
+- Block 4B validation: 12/12 focused tests and 128/128 full regression tests.
+- No remaining row or write action has been connected automatically.
+- Block 4B Verification adds temporary, opt-in Doom Eternal data-path proof.
+- Successful AW0.2 DTO rendering adds the presenter-owned `AW0.2 READ` marker
+  without adding a widget or changing row geometry.
+- `VELORA_AW02_SINGLE_ROW_DIAGNOSTIC=1` changes only the debug presentation
+  value; both databases remain byte-for-byte unchanged.
+- Typed read failures restore the captured legacy row and never show a false
+  success marker.
+- Verification validation: 18/18 focused tests and 134/134 full regression
+  tests.
+- Manual runtime confirmation is the current gate; diagnostics must remain
+  until that confirmation.
+- Next authorized stage: a separately scoped narrow block.
+# AW0.2 Doom Eternal visual slice
+
+Первый пользовательский визуальный срез AW0.2 подключён для Doom Eternal.
+Строка каталога и подробная страница используют Schema 1 и application
+services для прохождений, времени, checkpoints, впечатлений, оценок и Journey.
+Остальные карточки остаются на legacy-пути до отдельного этапа интеграции.
+Подробный отчёт: `docs/implementation/AW0.2_DOOM_FULL_VISUAL_SLICE_REPORT.md`.
+
+# AW0.21 Doom Eternal reference UX
+
+- Existing `JourneyView` and entry widgets were expanded instead of creating
+  a parallel Doom-only screen.
+- Journey now renders a compact summary, a selectable stage route and one
+  focused stage detail with Creator context.
+- The outer `GameDetailPage` remains the only vertical scroll owner.
+- Schema 1, services, repositories, Journey models and Creator session
+  contracts remain unchanged.
+- Visual implementation report:
+  `docs/implementation/AW0.21_DOOM_REFERENCE_UX_REPORT.md`.

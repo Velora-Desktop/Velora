@@ -36,6 +36,14 @@ class PublicAlphaUiTests(unittest.TestCase):
         self.assertFalse(view._controls_compact)
         view.close()
 
+    def test_quick_view_time_action_has_explicit_velora_hover(self) -> None:
+        quick = QuickView()
+        style = quick.time_button.styleSheet()
+        self.assertIn("QPushButton#timeAction:hover", style)
+        self.assertIn("color:#8B2CF5", style)
+        self.assertIn("border-color:#8B2CF5", style)
+        quick.close()
+
     def test_catalog_page_size_starts_at_fifty_and_uses_large_steps(self) -> None:
         view = CatalogView()
         self.assertEqual(view.page_size, 50)
@@ -70,10 +78,41 @@ class PublicAlphaUiTests(unittest.TestCase):
             self.app.processEvents()
             self.assertIs(selected[-1], row.game)
             quick.set_game(row.game)
+            opened.clear()
             QTest.mouseClick(quick.summary, Qt.MouseButton.LeftButton)
+            self.app.processEvents()
+            self.assertFalse(opened)
+            quick.title_button.click()
             self.app.processEvents()
             self.assertIs(opened[-1], row.game)
         view.close()
+        quick.close()
+
+    def test_only_quick_view_title_opens_full_detail(self) -> None:
+        quick = QuickView()
+        game = load_catalog_items()[0]
+        opened = []
+        quick.detail_requested.connect(opened.append)
+        quick.set_game(game)
+        passive_targets = [
+            quick.summary,
+            quick.general_score,
+            quick.personal_score,
+            quick.playtime,
+        ]
+        for target in passive_targets:
+            QTest.mouseClick(target, Qt.MouseButton.LeftButton)
+            self.app.processEvents()
+        self.assertEqual(opened, [])
+        self.assertFalse(
+            any(
+                bool(widget.property("quickDetailTarget"))
+                for widget in quick.findChildren(QLabel)
+            )
+        )
+        quick.title_button.click()
+        self.app.processEvents()
+        self.assertEqual(opened, [game])
         quick.close()
 
     def test_reselecting_current_section_does_not_destroy_rows(self) -> None:

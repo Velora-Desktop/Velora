@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QMainWindow, QM
 
 from app.styles.theme import application_stylesheet
 from app.ui.catalog.catalog_view import CatalogView
+from app.ui.catalog.doom_integration_controller import DoomIntegrationController
 from app.ui.dialogs.placeholder_dialog import show_placeholder
 from app.ui.dialogs.about_dialog import AboutDialog
 from app.ui.dialogs.changelog_dialog import ChangelogDialog
@@ -20,6 +21,7 @@ from app.data.catalog_repository import MEDIA_TYPES, load_catalog_items, catalog
 from app.data.catalog_repository import CATALOG_DB
 from app.services.data_backup_service import DataBackupService
 from app.services.logging_service import configure_logging
+from app.core.constants import APP_VERSION
 from app.ui.profile.profile_page import ProfilePage
 from app.ui.search.search_page import SearchPage
 from app.ui.dialogs.custom_catalog_dialog import (
@@ -33,7 +35,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         configure_logging()
-        self.setWindowTitle("Velora AW0.11 · каталог AW0.0101")
+        self.setWindowTitle(f"Velora {APP_VERSION} · микропатч AW0.221")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
@@ -66,10 +68,12 @@ class MainWindow(QMainWindow):
         center_layout.setContentsMargins(0, 0, 0, 0)
         center_layout.setSpacing(10)
         self.catalog = CatalogView()
+        self.doom_integration = DoomIntegrationController.create(self.catalog)
         self.catalog.replace_items(initial_items,"Игры")
         self.user_repository.apply_game_states(self.catalog.items)
         for row in self.catalog.rows:
             row.sync_from_game()
+        self.catalog.refresh_integrated_row("g-shooter-fps-002")
         self.catalog.setObjectName("catalogPanel")
         self.catalog.set_hide_adult_content(self.hide_adult_content)
         self.quick_view = QuickView()
@@ -119,8 +123,14 @@ class MainWindow(QMainWindow):
         self.catalog.placeholder_requested.connect(self._placeholder)
         self.catalog.game_selected.connect(self._on_game_selected)
         self.catalog.status_changed.connect(self.quick_view.set_external_status)
+        if self.doom_integration is not None:
+            self.catalog.status_changed.connect(self.doom_integration.status_changed)
         self.catalog.rating_requested.connect(self._rate_from_catalog)
         self.catalog.detail_requested.connect(self._on_detail_requested)
+        if self.doom_integration is not None:
+            self.catalog.aw02_action_requested.connect(
+                self.doom_integration.handle_row_action
+            )
         self.catalog.hidden_requested.connect(self._hide_game)
         self.catalog.favorite_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
         self.catalog.favorite_changed.connect(self.catalog.refresh_filters)
@@ -129,18 +139,26 @@ class MainWindow(QMainWindow):
         self.quick_view.rating_changed.connect(self.catalog.set_game_score)
         self.quick_view.favorite_changed.connect(self.catalog.refresh_filters)
         self.quick_view.favorite_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
-        self.quick_view.status_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
-        self.quick_view.rating_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
-        self.quick_view.playtime_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
+        self.quick_view.status_changed.connect(self._save_transitional_game_state)
+        self.quick_view.rating_changed.connect(self._save_transitional_game_state)
+        self.quick_view.playtime_changed.connect(self._save_transitional_game_state)
+        if self.doom_integration is not None:
+            self.quick_view.status_changed.connect(self.doom_integration.status_changed)
+            self.quick_view.rating_changed.connect(self.doom_integration.rating_changed)
+            self.quick_view.playtime_changed.connect(self.doom_integration.playtime_changed)
         self.quick_view.detail_requested.connect(self._on_detail_requested)
         self.quick_view.hidden_requested.connect(self._hide_game)
         self.game_detail.favorite_changed.connect(self.catalog.refresh_filters)
         self.game_detail.rate_requested.connect(self._rate_from_detail)
         self.game_detail.status_changed.connect(self.catalog.set_game_status)
-        self.game_detail.status_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
+        self.game_detail.status_changed.connect(self._save_transitional_game_state)
         self.game_detail.status_changed.connect(self.quick_view.set_external_status)
+        if self.doom_integration is not None:
+            self.game_detail.status_changed.connect(self.doom_integration.status_changed)
         self.game_detail.favorite_changed.connect(lambda game, value: self.user_repository.save_game_state(game))
         self.game_detail.catalog_item_requested.connect(self.open_catalog_item)
+        self.game_detail.tag_filter_requested.connect(self._filter_catalog_by_tag)
+        self.game_detail.aw02_changed.connect(self._refresh_doom_aw02_views)
 
         QShortcut(QKeySequence("Ctrl+F"), self, activated=self._open_global_search)
         QShortcut(QKeySequence("Ctrl+W"), self, activated=self.quick_view.hide)
@@ -218,6 +236,24 @@ class MainWindow(QMainWindow):
         self.game_detail.set_game(game)
         self._show_center_page(self.game_detail)
 
+    def _refresh_doom_aw02_views(self) -> None:
+        self.catalog.refresh_integrated_row("g-shooter-fps-002")
+        if (
+            self.game_detail.game is not None
+            and self.game_detail.game.catalog_id == "g-shooter-fps-002"
+        ):
+            self.game_detail.refresh_aw02()
+            self.game_detail.set_game(self.game_detail.game)
+
+    def _save_transitional_game_state(self, game, _value=None) -> None:
+        """Legacy persistence remains active for every row except the AW0.2 slice."""
+        if (
+            self.doom_integration is not None
+            and self.doom_integration.handles(game)
+        ):
+            return
+        self.user_repository.save_game_state(game)
+
     def _show_profile(self) -> None:
         self.top_bar.set_profile_active(True)
         self.profile_page.refresh(self.catalog.items)
@@ -267,6 +303,11 @@ class MainWindow(QMainWindow):
             self.sidebar.show(); self.catalog.show()
             if self.catalog.current_category:
                 self.sidebar.select_category(self.catalog.current_category)
+
+    def _filter_catalog_by_tag(self, tag: str) -> None:
+        """Open global search with an exact official or personal tag query."""
+        self._open_global_search()
+        self.search_page.set_tag_query(tag)
 
     def _refresh_custom_sections(self) -> None:
         self.top_bar.set_custom_sections(self._custom_section_names())

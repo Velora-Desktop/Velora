@@ -10,7 +10,6 @@ REQUIREMENT_ROWS = (
     ("ram", "Память"),
     ("storage", "Место на диске"),
     ("gpu", "Видеокарта"),
-    ("api", "DirectX / API"),
     ("additional", "Дополнительно"),
 )
 
@@ -24,6 +23,7 @@ class SystemRequirementsPanel(QFrame):
         self.setStyleSheet(
             "QFrame#systemRequirementsSection {"
             "background:#101820;border:1px solid #2A3640;border-radius:4px;}"
+            "QFrame#systemRequirementsSection QWidget {background:transparent;}"
         )
         root = QVBoxLayout(self)
         root.setContentsMargins(28, 20, 28, 22)
@@ -45,6 +45,9 @@ class SystemRequirementsPanel(QFrame):
             (("min", "Минимальные"), ("rec", "Рекомендуемые"))
         ):
             container = QWidget()
+            container.setObjectName(f"requirements_{suffix}")
+            container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+            container.setStyleSheet("background:transparent;border:0;")
             layout = QGridLayout(container)
             layout.setContentsMargins(0, 4, 0, 0)
             layout.setHorizontalSpacing(16)

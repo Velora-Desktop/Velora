@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -134,11 +135,91 @@ AW010_GROUPS = (
 
 CURRENT_CYCLE_GROUPS = (
     (
-        "НОВЫЙ ЦИКЛ",
+        "ЭТАЛОННАЯ КАРТОЧКА ИГРЫ",
         (
-            "<b>Открыта разработка AW0.11.</b>",
-            "Крупные изменения AW0.11 фиксируются отдельно от завершённого цикла AW0.10.",
-            "Микропатчи каталога продолжают собственную последовательную нумерацию.",
+            "<b>Завершён UX-цикл AW0.22.</b>",
+            "Doom Eternal станет эталонной карточкой для последующего масштабирования Games UI.",
+            "Работа ведётся поверх Contracts 1, Schema 1 и готового ядра AW0.2 без новой схемы данных.",
+        ),
+    ),
+    (
+        "МОЙ VELORA",
+        (
+            "<b>Зафиксирована окончательная верхняя навигация:</b> Обзор, Ассистент, Creator, Мои оценки, Избранное и Статистика.",
+            "Обзор объединён с локальным профилем; рабочие персональные инструменты собраны в Ассистенте.",
+            "Creator остаётся безопасной визуальной заглушкой без backend и экспорта.",
+        ),
+    ),
+    (
+        "ГРАНИЦЫ ЦИКЛА",
+        (
+            "<b>Journey проектируется как универсальный пользовательский путь</b> поверх существующего доменного ядра.",
+            "Массовое подключение игр, AI-рекомендации, Creator Backend, DOCX Export и новая Schema в AW0.22 не входят.",
+            "Новые элементы карточки должны выделяться в переиспользуемые компоненты, а не закрепляться за Doom.",
+        ),
+    ),
+)
+
+# AW0.2 is a foundation cycle, so its history is grouped by the completed
+# implementation blocks instead of being reduced to a single "cycle opened"
+# note.
+AW02_GROUPS = (
+    (
+        "КОНТРАКТЫ И БЕЗОПАСНОСТЬ",
+        (
+            "<b>Внедрено независимое ядро Contracts 1</b>: типизированные ID, value objects, enums и domain errors.",
+            "Добавлены canonical JSON, SHA-256, валидаторы, единая политика путей и SQLite.",
+            "Заложены snapshots и recovery journals для безопасного восстановления после сбоев.",
+        ),
+    ),
+    (
+        "ХРАНЕНИЕ И ВОССТАНОВЛЕНИЕ",
+        (
+            "<b>Созданы Schema 1 для catalog.db и user.db</b> с системными метаданными и проверкой поколения ядра.",
+            "Реализован одноразовый переход AW0.2 с внешним reset_state.json, quarantine и идемпотентным продолжением.",
+            "Добавлены явные Unit of Work, транзакционные границы и типизированные repositories без скрытых commit.",
+        ),
+    ),
+    (
+        "ИГРОВОЕ ЯДРО",
+        (
+            "<b>Реализован полный вертикальный сценарий игры</b>: библиотека, прохождение, время, checkpoint, впечатления и оценки.",
+            "История оценок сохраняется; актуальная оценка корректно заменяет предыдущую без удаления истории.",
+            "Journey хранит неизменяемую последовательность событий и записывается атомарно вместе с проекциями.",
+        ),
+    ),
+    (
+        "READ-SIDE И СТРОКИ КАТАЛОГА",
+        (
+            "<b>Добавлен типизированный Games read-side</b> с фильтрацией, устойчивой сортировкой и пагинацией.",
+            "Действия строки вычисляются из доменного состояния; loading, empty, error и result представлены отдельными состояниями.",
+            "Doom Eternal подключён к Schema 1 через application facade без прямого SQL и repository-зависимостей в UI.",
+        ),
+    ),
+    (
+        "НАДЁЖНОСТЬ ДАННЫХ",
+        (
+            "<b>Projection и Journey защищены общей user.db-транзакцией</b>; rollback не оставляет частично записанных данных.",
+            "События application layer публикуются только после успешного commit и не выходят наружу при ошибке.",
+            "Состояние сохраняется после перезапуска storage layer и повторно читается через типизированные модели.",
+        ),
+    ),
+    (
+        "ТЕКУЩИЙ UI-ПАТЧ",
+        (
+            "<b>Статус игры подключён к AW0.2 services</b> и сохраняется в Schema 1.",
+            "Официальные и личные теги разделены; личные теги сохраняются в user.db.",
+            "Клик по тегу открывает строгий теговый запрос в глобальном поиске; заголовок строки снова показывает только название.",
+        ),
+    ),
+    (
+        "МОЙ VELORA",
+        (
+            "<b>«Обзор» объединён с локальным профилем</b>: аватар, имя, описание и редактирование доступны на главной странице.",
+            "Добавлена единая вкладка «Ассистент» с помощником выбора, умными списками, целями, тегами и аналитикой вкуса.",
+            "Краткая статистика, активные цели, рекомендация, недавняя активность и избранное собраны на «Обзоре».",
+            "Добавлен прототип Creator; сборка сценариев и экспорт пока отключены.",
+            "Удалены отдельные вкладки «Планы и обзоры», «Умная библиотека», «Профиль» и дублирующие кнопки навигации.",
         ),
     ),
 )
@@ -246,6 +327,10 @@ def catalog_changelog_html() -> str:
 
 def _scrollable(widget: QWidget) -> QScrollArea:
     scroll = QScrollArea()
+    widget.setMinimumWidth(0)
+    widget.setSizePolicy(
+        QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
+    )
     scroll.setWidgetResizable(True)
     scroll.setFrameShape(QFrame.Shape.NoFrame)
     scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -308,9 +393,9 @@ class ChangelogDialog(QDialog):
         root.addWidget(title)
 
         cycle = QLabel(
-            "<b>AW0.11 — НОВЫЙ ЦИКЛ РАЗРАБОТКИ</b><br>"
-            "<span style='color:#91A1B2'>Цикл открыт после завершения AW0.10. "
-            "Новые изменения будут фиксироваться здесь отдельно от микропатчей каталога.</span>"
+            "<b>AW0.22 — ЗАВЕРШЁННЫЙ UX-ЦИКЛ</b><br>"
+            "<span style='color:#91A1B2'>Цикл эталонной карточки Doom Eternal "
+            "открыт поверх стабильного ядра AW0.2, Schema 1 и Catalog 0.21.</span>"
         )
         cycle.setTextFormat(Qt.TextFormat.RichText)
         cycle.setWordWrap(True)
@@ -326,7 +411,7 @@ class ChangelogDialog(QDialog):
         major_widget = QWidget()
         major_layout = QVBoxLayout(major_widget)
         major_layout.setContentsMargins(0, 0, 4, 0)
-        current_title = QLabel("КРУПНЫЕ ИЗМЕНЕНИЯ AW0.11")
+        current_title = QLabel("ИЗМЕНЕНИЯ AW0.22")
         current_title.setStyleSheet("font-size:12pt;font-weight:800;color:#F0F1F4;")
         major_layout.addWidget(current_title)
         current_grid = QGridLayout()
@@ -334,6 +419,16 @@ class ChangelogDialog(QDialog):
         for index, (heading, entries) in enumerate(CURRENT_CYCLE_GROUPS):
             current_grid.addWidget(_major_card(heading, entries), index // 2, index % 2)
         major_layout.addLayout(current_grid)
+
+        aw02_title = QLabel("КРУПНЫЕ ИЗМЕНЕНИЯ AW0.2")
+        aw02_title.setStyleSheet("font-size:12pt;font-weight:800;color:#F0F1F4;")
+        major_layout.addSpacing(8)
+        major_layout.addWidget(aw02_title)
+        aw02_grid = QGridLayout()
+        aw02_grid.setSpacing(10)
+        for index, (heading, entries) in enumerate(AW02_GROUPS):
+            aw02_grid.addWidget(_major_card(heading, entries), index // 2, index % 2)
+        major_layout.addLayout(aw02_grid)
 
         aw010_title = QLabel("КРУПНЫЕ ИЗМЕНЕНИЯ AW0.10")
         aw010_title.setStyleSheet("font-size:12pt;font-weight:800;color:#F0F1F4;")

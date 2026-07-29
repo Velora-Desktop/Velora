@@ -1,26 +1,79 @@
-from PySide6.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout
+"""Editor for personal tags only."""
+
+from __future__ import annotations
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QVBoxLayout, QWidget,
+)
+
+from app.application.tag_service import normalize_tag
 
 
 class TagEditorDialog(QDialog):
-    def __init__(self, repository, catalog_id: str, parent=None) -> None:
-        super().__init__(parent); self.repository=repository; self.catalog_id=catalog_id; self.setWindowTitle("Теги объекта"); self.setMinimumWidth(420)
-        root=QVBoxLayout(self); self.checks=[]; self._fill(root)
-        row=QHBoxLayout(); self.name=QLineEdit(); self.name.setPlaceholderText("Новый тег"); row.addWidget(self.name,1); add=QPushButton("ДОБАВИТЬ"); add.clicked.connect(self._add); row.addWidget(add); root.addLayout(row)
-        buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel); buttons.accepted.connect(self._save); buttons.rejected.connect(self.reject); root.addWidget(buttons)
+    def __init__(self, tags: list[str], parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Мои теги")
+        self.setMinimumWidth(480)
+        self._tags = list(tags)
+        root = QVBoxLayout(self)
+        title = QLabel("МОИ ТЕГИ")
+        title.setStyleSheet("font-size:16pt;font-weight:700;")
+        root.addWidget(title)
+        add_row = QHBoxLayout()
+        self.name = QLineEdit()
+        self.name.setPlaceholderText("Новый тег")
+        self.name.returnPressed.connect(self._add)
+        add_row.addWidget(self.name, 1)
+        add = QPushButton("ДОБАВИТЬ")
+        add.clicked.connect(self._add)
+        add_row.addWidget(add)
+        root.addLayout(add_row)
+        self.list = QVBoxLayout()
+        root.addLayout(self.list)
+        root.addStretch()
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText("СОХРАНИТЬ")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("ОТМЕНА")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+        self._render()
 
-    def _fill(self, root):
-        assigned=set(self.repository.tag_ids_for(self.catalog_id))
-        for tag_id,name,color,count in self.repository.tags():
-            check=QCheckBox(f"#{name}  ·  {count}"); check.setChecked(tag_id in assigned); check.setProperty("tagId",tag_id); root.addWidget(check); self.checks.append(check)
+    def tags(self) -> list[str]:
+        return list(self._tags)
 
-    def _add(self):
-        name=self.name.text().strip()
-        if not name:return
-        tag_id=self.repository.add_tag(name); check=QCheckBox(f"#{name}"); check.setChecked(True); check.setProperty("tagId",tag_id); self.layout().insertWidget(max(0,self.layout().count()-2),check); self.checks.append(check); self.name.clear()
+    def _add(self) -> None:
+        value = normalize_tag(self.name.text())
+        if not value or value.casefold() in {tag.casefold() for tag in self._tags}:
+            return
+        self._tags.append(value)
+        self.name.clear()
+        self._render()
 
-    def _save(self):
-        assigned=set(self.repository.tag_ids_for(self.catalog_id))
-        for check in self.checks:
-            tag_id=int(check.property("tagId")); wanted=check.isChecked()
-            if wanted != (tag_id in assigned):self.repository.assign_tag(self.catalog_id,tag_id,wanted)
-        self.accept()
+    def _render(self) -> None:
+        while self.list.count():
+            item = self.list.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        for tag in self._tags:
+            row = QWidget()
+            layout = QHBoxLayout(row)
+            layout.setContentsMargins(0, 2, 0, 2)
+            label = QLabel(f"#{tag}")
+            layout.addWidget(label, 1)
+            remove = QPushButton("УДАЛИТЬ")
+            remove.setCursor(Qt.CursorShape.PointingHandCursor)
+            remove.clicked.connect(
+                lambda checked=False, value=tag: self._remove(value)
+            )
+            layout.addWidget(remove)
+            self.list.addWidget(row)
+
+    def _remove(self, value: str) -> None:
+        self._tags = [tag for tag in self._tags if tag != value]
+        self._render()

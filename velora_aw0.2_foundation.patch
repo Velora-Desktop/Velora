@@ -1,0 +1,1908 @@
+diff --git a/app/core/paths.py b/app/core/paths.py
+index c777d18..4a7e7ac 100644
+--- a/app/core/paths.py
++++ b/app/core/paths.py
+@@ -1,24 +1,140 @@
+ from __future__ import annotations
+ 
+ import os
++from dataclasses import dataclass
+ from pathlib import Path
+ 
+ 
+ PROJECT_ROOT = Path(__file__).resolve().parents[2]
+-APP_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "Velora"
+-BACKUPS_DIR = APP_DATA_DIR / "backups"
+-LOGS_DIR = APP_DATA_DIR / "logs"
+-USER_IMAGES_DIR = APP_DATA_DIR / "images"
++
++
++@dataclass(frozen=True, slots=True)
++class AppPaths:
++    """Single source of runtime paths for source-run Core Generation 1."""
++
++    root: Path
++    project_root: Path = PROJECT_ROOT
++
++    @classmethod
++    def source_run(
++        cls,
++        *,
++        root: Path | None = None,
++        project_root: Path = PROJECT_ROOT,
++    ) -> "AppPaths":
++        default_root = (
++            Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
++            / "Velora"
++        )
++        return cls(Path(root or default_root).expanduser().resolve(), project_root.resolve())
++
++    @property
++    def data(self) -> Path:
++        return self.root / "data"
++
++    @property
++    def profile(self) -> Path:
++        return self.root / "profile"
++
++    @property
++    def catalog_db(self) -> Path:
++        return self.data / "catalog.db"
++
++    @property
++    def user_db(self) -> Path:
++        return self.data / "user.db"
++
++    @property
++    def catalog_media(self) -> Path:
++        return self.root / "media" / "catalog"
++
++    @property
++    def user_media(self) -> Path:
++        return self.root / "media" / "user"
++
++    @property
++    def cache(self) -> Path:
++        return self.root / "cache"
++
++    @property
++    def backups(self) -> Path:
++        return self.root / "backups"
++
++    @property
++    def snapshots(self) -> Path:
++        return self.backups / "snapshots"
++
++    @property
++    def exports(self) -> Path:
++        return self.root / "exports"
++
++    @property
++    def logs(self) -> Path:
++        return self.root / "logs"
++
++    @property
++    def runtime(self) -> Path:
++        return self.root / "runtime"
++
++    @property
++    def staging(self) -> Path:
++        return self.runtime / "staging"
++
++    @property
++    def legacy(self) -> Path:
++        return self.root / "legacy"
++
++    @property
++    def patch_recovery_journal(self) -> Path:
++        return self.runtime / "patch_recovery_state.json"
++
++    @property
++    def migration_recovery_journal(self) -> Path:
++        return self.runtime / "migration_recovery_state.json"
++
++    @property
++    def restore_recovery_journal(self) -> Path:
++        return self.runtime / "restore_state.json"
++
++    @property
++    def reset_recovery_journal(self) -> Path:
++        return self.profile / "reset_state.json"
++
++    def ensure_runtime_directories(self) -> None:
++        for directory in (
++            self.data,
++            self.profile,
++            self.catalog_media,
++            self.user_media,
++            self.cache,
++            self.backups,
++            self.snapshots,
++            self.exports,
++            self.logs,
++            self.runtime,
++            self.staging,
++            self.legacy,
++        ):
++            directory.mkdir(parents=True, exist_ok=True)
++
++    def resolve_resource(self, value: str | Path) -> Path:
++        path = Path(value).expanduser()
++        if path.is_absolute():
++            return path
++        return self.project_root / path
++
++
++DEFAULT_PATHS = AppPaths.source_run()
++APP_DATA_DIR = DEFAULT_PATHS.root
++BACKUPS_DIR = DEFAULT_PATHS.backups
++LOGS_DIR = DEFAULT_PATHS.logs
++USER_IMAGES_DIR = DEFAULT_PATHS.user_media
+ 
+ 
+ def ensure_runtime_directories() -> None:
+-    for directory in (APP_DATA_DIR, BACKUPS_DIR, LOGS_DIR, USER_IMAGES_DIR):
+-        directory.mkdir(parents=True, exist_ok=True)
++    DEFAULT_PATHS.ensure_runtime_directories()
+ 
+ 
+ def resolve_resource_path(value: str | Path) -> Path:
+     """Resolve catalog resource paths independently from the launch directory."""
+-    path = Path(value).expanduser()
+-    if path.is_absolute():
+-        return path
+-    return PROJECT_ROOT / path
++    return DEFAULT_PATHS.resolve_resource(value)
+diff --git a/app/storage/__init__.py b/app/storage/__init__.py
+new file mode 100644
+index 0000000..66535f0
+--- /dev/null
++++ b/app/storage/__init__.py
+@@ -0,0 +1,14 @@
++"""UI-independent storage safety foundation."""
++
++from .recovery import AtomicJsonJournal
++from .snapshots import SnapshotCreator, SnapshotInfo, SnapshotVerifier
++from .sqlite_policy import SQLitePolicy, SQLiteSession
++
++__all__ = [
++    "AtomicJsonJournal",
++    "SQLitePolicy",
++    "SQLiteSession",
++    "SnapshotCreator",
++    "SnapshotInfo",
++    "SnapshotVerifier",
++]
+diff --git a/app/storage/recovery.py b/app/storage/recovery.py
+new file mode 100644
+index 0000000..1662267
+--- /dev/null
++++ b/app/storage/recovery.py
+@@ -0,0 +1,60 @@
++"""Durable external JSON journals used by later recovery engines."""
++
++from __future__ import annotations
++
++import json
++import os
++from pathlib import Path
++from typing import Any
++
++from velora_contracts.canonical_json import canonical_json_bytes
++from velora_contracts.errors import IntegrityError, RecoverableStorageError
++
++
++class AtomicJsonJournal:
++    def __init__(self, path: Path) -> None:
++        self.path = Path(path)
++
++    def write(self, payload: dict[str, Any]) -> None:
++        self.path.parent.mkdir(parents=True, exist_ok=True)
++        temporary = self.path.with_name(self.path.name + ".tmp")
++        try:
++            with temporary.open("wb") as stream:
++                stream.write(canonical_json_bytes(payload))
++                stream.flush()
++                os.fsync(stream.fileno())
++            os.replace(temporary, self.path)
++            self._fsync_parent()
++        except OSError as exc:
++            raise RecoverableStorageError(
++                f"Could not persist recovery journal: {self.path}"
++            ) from exc
++
++    def read(self) -> dict[str, Any] | None:
++        if not self.path.exists():
++            return None
++        try:
++            value = json.loads(self.path.read_text(encoding="utf-8"))
++        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
++            raise IntegrityError(f"Recovery journal is unreadable: {self.path}") from exc
++        if not isinstance(value, dict):
++            raise IntegrityError("Recovery journal root must be an object")
++        return value
++
++    def clear(self) -> None:
++        try:
++            self.path.unlink(missing_ok=True)
++            self._fsync_parent()
++        except OSError as exc:
++            raise RecoverableStorageError(
++                f"Could not clear recovery journal: {self.path}"
++            ) from exc
++
++    def _fsync_parent(self) -> None:
++        if os.name == "nt":
++            return
++        descriptor = os.open(self.path.parent, os.O_RDONLY)
++        try:
++            os.fsync(descriptor)
++        finally:
++            os.close(descriptor)
+diff --git a/app/storage/snapshots.py b/app/storage/snapshots.py
+new file mode 100644
+index 0000000..04193f9
+--- /dev/null
++++ b/app/storage/snapshots.py
+@@ -0,0 +1,205 @@
++"""Verified snapshot primitives usable before reset and migration engines."""
++
++from __future__ import annotations
++
++import os
++import shutil
++import sqlite3
++from dataclasses import dataclass
++from datetime import datetime, timezone
++from pathlib import Path
++from uuid import uuid4
++
++from velora_contracts.canonical_json import (
++    canonical_json_bytes,
++    sha256_bytes,
++    sha256_file,
++)
++from velora_contracts.enums import SnapshotType
++from velora_contracts.errors import BackupError, IntegrityError
++from velora_contracts.ids import OperationId, SnapshotId
++from velora_contracts.validators import validate_relative_path
++
++
++def _utc_now() -> str:
++    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
++
++
++@dataclass(frozen=True, slots=True)
++class SnapshotInfo:
++    snapshot_id: str
++    snapshot_type: SnapshotType
++    path: Path
++    manifest_path: Path
++    database_checksum: str
++    created_at: str
++    source_schema_version: int
++    core_generation: int
++    parent_operation_id: str
++
++
++class SnapshotVerifier:
++    def verify(self, snapshot_path: Path) -> SnapshotInfo:
++        import json
++
++        root = Path(snapshot_path)
++        manifest_path = root / "manifest.json"
++        try:
++            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
++        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
++            raise IntegrityError("Snapshot manifest is missing or unreadable") from exc
++        required = {
++            "snapshot_id",
++            "snapshot_type",
++            "created_at",
++            "database_file",
++            "database_checksum_sha256",
++            "source_schema_version",
++            "core_generation",
++            "parent_operation_id",
++            "media_entries",
++            "aggregate_sha256",
++        }
++        if not isinstance(manifest, dict) or set(manifest) != required:
++            raise IntegrityError("Snapshot manifest contains missing or unknown fields")
++        try:
++            SnapshotId(str(manifest["snapshot_id"]))
++            SnapshotType(manifest["snapshot_type"])
++            OperationId(str(manifest["parent_operation_id"]))
++        except Exception as exc:
++            raise IntegrityError("Snapshot manifest contains invalid identifiers") from exc
++        if (
++            manifest["database_file"] != "database.db"
++            or not isinstance(manifest["source_schema_version"], int)
++            or manifest["source_schema_version"] < 0
++            or not isinstance(manifest["core_generation"], int)
++            or manifest["core_generation"] < 0
++        ):
++            raise IntegrityError("Snapshot manifest contains invalid source metadata")
++        database = root / manifest["database_file"]
++        if not database.is_file() or sha256_file(database) != manifest["database_checksum_sha256"]:
++            raise IntegrityError("Snapshot database checksum mismatch")
++        try:
++            connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True)
++            try:
++                integrity = [row[0] for row in connection.execute("PRAGMA integrity_check")]
++                foreign_keys = list(connection.execute("PRAGMA foreign_key_check"))
++            finally:
++                connection.close()
++        except sqlite3.Error as exc:
++            raise IntegrityError("Snapshot database cannot be verified") from exc
++        if integrity != ["ok"] or foreign_keys:
++            raise IntegrityError("Snapshot database failed SQLite verification")
++        entries = manifest["media_entries"]
++        if not isinstance(entries, list):
++            raise IntegrityError("Snapshot media_entries must be an array")
++        for entry in entries:
++            relative = entry.get("relative_path")
++            try:
++                safe_relative = validate_relative_path(relative)
++            except Exception as exc:
++                raise IntegrityError("Snapshot media path is unsafe") from exc
++            path = root / safe_relative
++            if (
++                not isinstance(entry, dict)
++                or set(entry) != {"relative_path", "sha256", "byte_length"}
++                or not path.is_file()
++                or path.stat().st_size != entry["byte_length"]
++                or sha256_file(path) != entry["sha256"]
++            ):
++                raise IntegrityError("Snapshot media verification failed")
++        aggregate_source = {
++            key: value for key, value in manifest.items() if key != "aggregate_sha256"
++        }
++        if sha256_bytes(canonical_json_bytes(aggregate_source)) != manifest["aggregate_sha256"]:
++            raise IntegrityError("Snapshot aggregate checksum mismatch")
++        return SnapshotInfo(
++            snapshot_id=manifest["snapshot_id"],
++            snapshot_type=SnapshotType(manifest["snapshot_type"]),
++            path=root,
++            manifest_path=manifest_path,
++            database_checksum=manifest["database_checksum_sha256"],
++            created_at=manifest["created_at"],
++            source_schema_version=manifest["source_schema_version"],
++            core_generation=manifest["core_generation"],
++            parent_operation_id=manifest["parent_operation_id"],
++        )
++
++
++class SnapshotCreator:
++    def __init__(self, verifier: SnapshotVerifier | None = None) -> None:
++        self.verifier = verifier or SnapshotVerifier()
++
++    def create(
++        self,
++        database_path: Path,
++        destination_root: Path,
++        *,
++        snapshot_type: SnapshotType,
++        source_schema_version: int,
++        core_generation: int,
++        parent_operation_id: OperationId | str,
++        media_path: Path | None = None,
++    ) -> SnapshotInfo:
++        source_db = Path(database_path)
++        if not source_db.is_file():
++            raise BackupError(f"Snapshot source database does not exist: {source_db}")
++        snapshot_id = str(uuid4())
++        operation_id = OperationId(str(parent_operation_id))
++        if source_schema_version < 0 or core_generation < 0:
++            raise BackupError("Snapshot schema/core generation cannot be negative")
++        destination_root = Path(destination_root)
++        destination_root.mkdir(parents=True, exist_ok=True)
++        final = destination_root / snapshot_id
++        temporary = destination_root / f".{snapshot_id}.tmp"
++        created_at = _utc_now()
++        try:
++            temporary.mkdir()
++            copied_db = temporary / "database.db"
++            source = sqlite3.connect(f"file:{source_db.resolve().as_posix()}?mode=ro", uri=True)
++            target = sqlite3.connect(copied_db)
++            try:
++                source.backup(target)
++            finally:
++                target.close()
++                source.close()
++            media_entries: list[dict[str, object]] = []
++            if media_path and Path(media_path).exists():
++                media_root = Path(media_path)
++                for item in sorted(path for path in media_root.rglob("*") if path.is_file()):
++                    relative = Path("media") / item.relative_to(media_root)
++                    target_path = temporary / relative
++                    target_path.parent.mkdir(parents=True, exist_ok=True)
++                    shutil.copy2(item, target_path)
++                    media_entries.append(
++                        {
++                            "relative_path": relative.as_posix(),
++                            "sha256": sha256_file(target_path),
++                            "byte_length": target_path.stat().st_size,
++                        }
++                    )
++            manifest = {
++                "snapshot_id": snapshot_id,
++                "snapshot_type": SnapshotType(snapshot_type).value,
++                "created_at": created_at,
++                "database_file": "database.db",
++                "database_checksum_sha256": sha256_file(copied_db),
++                "source_schema_version": source_schema_version,
++                "core_generation": core_generation,
++                "parent_operation_id": str(operation_id),
++                "media_entries": media_entries,
++            }
++            manifest["aggregate_sha256"] = sha256_bytes(canonical_json_bytes(manifest))
++            manifest_path = temporary / "manifest.json"
++            with manifest_path.open("wb") as stream:
++                stream.write(canonical_json_bytes(manifest))
++                stream.flush()
++                os.fsync(stream.fileno())
++            self.verifier.verify(temporary)
++            os.replace(temporary, final)
++            return self.verifier.verify(final)
++        except Exception as exc:
++            shutil.rmtree(temporary, ignore_errors=True)
++            if isinstance(exc, (BackupError, IntegrityError)):
++                raise
++            raise BackupError("Snapshot creation failed; source was left untouched") from exc
+diff --git a/app/storage/sqlite_policy.py b/app/storage/sqlite_policy.py
+new file mode 100644
+index 0000000..5c61572
+--- /dev/null
++++ b/app/storage/sqlite_policy.py
+@@ -0,0 +1,76 @@
++"""SQLite connection and explicit transaction ownership policy."""
++
++from __future__ import annotations
++
++import sqlite3
++from contextlib import AbstractContextManager
++from dataclasses import dataclass
++from pathlib import Path
++from types import TracebackType
++from typing import Self
++
++from velora_contracts.errors import RecoverableStorageError
++
++
++@dataclass(frozen=True, slots=True)
++class SQLitePolicy:
++    busy_timeout_ms: int = 5000
++
++    def connect(self, database: Path, *, read_only: bool = False) -> sqlite3.Connection:
++        path = Path(database).expanduser().resolve()
++        if not read_only:
++            path.parent.mkdir(parents=True, exist_ok=True)
++        target = f"file:{path.as_posix()}?mode=ro" if read_only else str(path)
++        try:
++            connection = sqlite3.connect(
++                target,
++                uri=read_only,
++                isolation_level=None,
++                timeout=self.busy_timeout_ms / 1000,
++            )
++            connection.row_factory = sqlite3.Row
++            connection.execute("PRAGMA foreign_keys = ON")
++            connection.execute(f"PRAGMA busy_timeout = {int(self.busy_timeout_ms)}")
++            if connection.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
++                connection.close()
++                raise RecoverableStorageError("SQLite foreign keys could not be enabled")
++            return connection
++        except sqlite3.Error as exc:
++            raise RecoverableStorageError(
++                f"Could not open SQLite database: {path}", details={"path": str(path)}
++            ) from exc
++
++    def session(self, database: Path, *, immediate: bool = True) -> "SQLiteSession":
++        return SQLiteSession(self, Path(database), immediate=immediate)
++
++
++class SQLiteSession(AbstractContextManager[sqlite3.Connection]):
++    """A service-owned transaction. Repositories receive its connection."""
++
++    def __init__(self, policy: SQLitePolicy, database: Path, *, immediate: bool = True) -> None:
++        self.policy = policy
++        self.database = database
++        self.immediate = immediate
++        self.connection: sqlite3.Connection | None = None
++
++    def __enter__(self) -> sqlite3.Connection:
++        self.connection = self.policy.connect(self.database)
++        self.connection.execute("BEGIN IMMEDIATE" if self.immediate else "BEGIN")
++        return self.connection
++
++    def __exit__(
++        self,
++        exc_type: type[BaseException] | None,
++        exc: BaseException | None,
++        traceback: TracebackType | None,
++    ) -> bool:
++        assert self.connection is not None
++        try:
++            if exc_type is None:
++                self.connection.commit()
++            else:
++                self.connection.rollback()
++        finally:
++            self.connection.close()
++            self.connection = None
++        return False
+diff --git a/docs/implementation/AW0.2_FOUNDATION_PATCH_REPORT.md b/docs/implementation/AW0.2_FOUNDATION_PATCH_REPORT.md
+new file mode 100644
+index 0000000..a1fb53a
+--- /dev/null
++++ b/docs/implementation/AW0.2_FOUNDATION_PATCH_REPORT.md
+@@ -0,0 +1,110 @@
++# AW0.2 Foundation Patch Report
++
++Implementation status: **complete** for Block 1.
++
++## Files added
++
++### Contracts 1
++
++- `velora_contracts/__init__.py` — stable public exports.
++- `velora_contracts/ids.py` — opaque canonical lowercase UUID types.
++- `velora_contracts/enums.py` — closed content-neutral enums.
++- `velora_contracts/errors.py` — frozen domain error categories.
++- `velora_contracts/value_objects.py` — `CatalogItemRef` and unresolved
++  official reference.
++- `velora_contracts/events.py` — closed AW0.2 post-commit notification
++  payloads and round-trip serialization.
++- `velora_contracts/canonical_json.py` — Canonical JSON Serializer v1 and
++  SHA-256 helpers.
++- `velora_contracts/validators.py` — Patch Format 1 manifest, checksum,
++  media-manifest, operation and path validators.
++
++### Safety storage foundation
++
++- `app/storage/sqlite_policy.py` — foreign keys, busy timeout and explicit
++  service-owned transaction context.
++- `app/storage/recovery.py` — atomically persisted external JSON journals.
++- `app/storage/snapshots.py` — SQLite Online Backup API snapshot creation,
++  canonical manifest, media checksums and verification.
++- `app/storage/__init__.py` — package exports.
++
++### Tests
++
++- `tests/test_aw02_contracts.py`
++- `tests/test_aw02_patch_validation.py`
++- `tests/test_aw02_storage_foundation.py`
++
++### Implementation documentation
++
++- `docs/implementation/AW0.2_SOURCE_AUDIT.md`
++- `docs/implementation/AW0.2_FOUNDATION_PATCH_REPORT.md`
++- `docs/implementation/AW0.2_NEXT_BLOCK.md`
++
++## Files changed
++
++- `app/core/paths.py` — converted to a backwards-compatible facade over
++  content-neutral `AppPaths`; existing constants and resource resolution
++  remain available to AW0.1 UI code.
++
++## Old code reused
++
++- The existing source-run project root and `%LOCALAPPDATA%\Velora` convention.
++- Existing `app.core.paths` import surface.
++- Python 3.12 standard-library SQLite, hashing and JSON facilities.
++- Existing unittest discovery and AW0.1 regression suite.
++
++## Old code quarantined
++
++Nothing was deleted or moved. The experimental migration runner, Qt-bound
++backup service, repositories and UI model remain operational for AW0.1 but
++are not imported by the AW0.2 safety foundation.
++
++## Contract mapping
++
++- Core Design §§3, 12: typed IDs, references and shared errors.
++- Public API Events v1.1: closed event names and common payload.
++- Patch Operations v1.1 §§1–8: canonical JSON, hashes, safe package paths,
++  manifests and operation envelopes.
++- Patch/Migration/Reset/Backup Recovery v1.1: external atomic journal
++  primitive.
++- Backup Protocol v1.1: SQLite Online Backup copy, source schema/core
++  metadata, parent operation ID, media checksums and verification.
++- Core Design §13: one `AppPaths` component.
++- Implementation Plan Block 1: explicit SQLite transaction ownership and
++  no UI imports.
++- Product Evolution Contract: all foundation modules remain independent of
++  Games and future content modules.
++
++## Verification
++
++Commands:
++
++```text
++python -m unittest tests.test_aw02_contracts tests.test_aw02_patch_validation tests.test_aw02_storage_foundation -v
++python -m compileall -q app velora_contracts tests
++python -m unittest discover -s tests -v
++```
++
++Results:
++
++- Block 1 tests: 14 passed.
++- Full regression suite: 67 passed.
++- Compile check: passed.
++- Published Patch Hash Fixture v1: exact match.
++- PySide/UI import boundary: passed.
++
++## Deviations
++
++None. No Games UI, Schema 1 creator, repository/service migration, reset
++execution, migration engine, patch apply engine, Studio UI, executable or
++installer was implemented.
++
++## Deferred work
++
++Blocks 2–10 remain as listed in `IMPLEMENTATION_PLAN_v3.0.md`. The immediate
++next step is documented in `AW0.2_NEXT_BLOCK.md`.
++
++## Exit decision
++
++Block 1 exit criteria are satisfied. Block 2 may begin on explicit user
++instruction.
+diff --git a/docs/implementation/AW0.2_NEXT_BLOCK.md b/docs/implementation/AW0.2_NEXT_BLOCK.md
+new file mode 100644
+index 0000000..e52abf8
+--- /dev/null
++++ b/docs/implementation/AW0.2_NEXT_BLOCK.md
+@@ -0,0 +1,28 @@
++# AW0.2 Next Block
++
++Next authorized work is **Block 2 — Schema creation and reset boundary**.
++
++Required implementation:
++
++1. Schema 1 creators for `catalog.db` and `user.db`.
++2. All frozen constraints, partial indexes, external-content FTS document
++   tables and system metadata.
++3. Detection of legacy experimental profiles without opening them as Schema 1.
++4. One-time AW0.2 reset state machine using:
++   - verified `SnapshotCreator`;
++   - `profile/reset_state.json`;
++   - generation-specific paths;
++   - idempotent postcondition checks from Reset Protocol v1.1.
++5. Integrity and foreign-key verification before activation.
++
++Required exit tests:
++
++- clean Schema 1 creation;
++- complete indexes and constraints;
++- `integrity_check` and `foreign_key_check`;
++- legacy data archived only after a verified snapshot;
++- interruption at every reset state;
++- repeated launch never resets a completed Core Generation 1 profile.
++
++Do not begin repositories, application services or Games UI until the
++corresponding implementation-plan gates are satisfied.
+diff --git a/docs/implementation/AW0.2_SOURCE_AUDIT.md b/docs/implementation/AW0.2_SOURCE_AUDIT.md
+new file mode 100644
+index 0000000..497db11
+--- /dev/null
++++ b/docs/implementation/AW0.2_SOURCE_AUDIT.md
+@@ -0,0 +1,87 @@
++# AW0.2 Source Audit
++
++Status: completed for Gate 1 and limited to the Block 1 implementation surface.
++
++## Current source map
++
++- `main.py`, `app/ui`, `app/styles`, `assets`: working AW0.1 presentation layer.
++- `app/models`: prototype UI-facing records.
++- `app/data`: existing catalog and user repositories.
++- `app/database`: experimental migration runner and SQL migrations.
++- `app/services`: existing application/UI coordination services.
++- `app/core`: paths, constants, icon registry and display helpers.
++- `tests`: unittest-based regression suite.
++- `C:\Velora studio\studio\database`, `studio/services`, `studio/ui`: separate Studio layers.
++
++## Reusable modules
++
++- `app/core/paths.py`: retained as the compatibility import surface and extended
++  through `AppPaths`.
++- Existing SQLite repositories and migration scripts remain available for the
++  later file-by-file Block 2/3 migration; they are not reused as Contracts 1
++  foundations because their schema and transaction model are experimental.
++- Existing `unittest` infrastructure is reused.
++- Existing UI, theme, navigation, icon and visual assets remain untouched.
++
++## Prototype code to quarantine or replace later
++
++- `app/models/game.py` is a presentation-era aggregate and is not a shared
++  contract. Games ViewModels may adapt it after Blocks 1–4.
++- `app/database/migration_runner.py` predates Migration Protocol v1.1. It must
++  not execute Schema 1 migrations until replaced/adapted in Block 2.
++- `app/services/data_backup_service.py` is Qt-coupled and implements the
++  experimental backup format. It remains available to AW0.1 but is not the
++  Backup Protocol v1.1 foundation.
++- Existing repositories open/own connections inconsistently. They remain
++  untouched until the typed repository/session work in Block 3.
++
++No files were deleted.
++
++## Direct frozen-contract violations identified
++
++1. The previous path module exposed only a small set of directories and had no
++   profile, staging, snapshot or recovery-journal paths.
++2. There was no UI-independent Contracts 1 package.
++3. There was no common SQLite policy enforcing foreign keys, busy timeout and
++   explicit service-owned transaction boundaries.
++4. Existing backup code depends on PySide6 and cannot be used before first-run
++   UI/reset.
++5. Patch JSON/checksum validation and atomic external recovery journals were
++   absent.
++
++These violations are addressed additively by the Block 1 patch. Existing AW0.1
++runtime behavior is not redirected to unfinished AW0.2 engines.
++
++## File-by-file migration plan
++
++- `velora_contracts/*`: stable content-neutral contracts shared later with
++  Studio.
++- `app/core/paths.py`: compatibility facade over the new `AppPaths`.
++- `app/storage/sqlite_policy.py`: base for typed `UserDbSession` and
++  `CatalogDbSession` in Block 3.
++- `app/storage/snapshots.py`: verified primitive used by reset and migration
++  implementations in Block 2.
++- `app/storage/recovery.py`: durable journal primitive used by later reset,
++  migration, patch and restore state machines.
++- `app/database/*`: replace/adapt only in Block 2 after Schema 1 creators exist.
++- `app/data/*`: migrate to typed repositories in Block 3.
++- `app/services/*`: migrate lifecycle/playthrough/rating/Journey orchestration
++  in Block 4.
++- `app/ui/*`: keep unchanged until the Block 6 Games render gate.
++
++## Tests
++
++Existing tests cover AW0.1 UI/catalog behavior. Block 1 adds:
++
++- contract and event serialization round trips;
++- typed ID and closed-event rejection;
++- canonical JSON and published SHA-256 fixture;
++- package path, checksum, manifest, media and operation validation;
++- `AppPaths`;
++- SQLite foreign-key/busy-timeout/rollback policy;
++- atomic JSON recovery journal;
++- snapshot creation, verification and source preservation after failure;
++- import-boundary guard against PySide/UI dependencies.
++
++Later blocks must add Schema 1 creation/reset interruption tests, typed
++repository tests and the first atomic playthrough/projection/Journey test.
+diff --git a/tests/test_aw02_contracts.py b/tests/test_aw02_contracts.py
+new file mode 100644
+index 0000000..830b846
+--- /dev/null
++++ b/tests/test_aw02_contracts.py
+@@ -0,0 +1,58 @@
++from __future__ import annotations
++
++import unittest
++
++from velora_contracts.canonical_json import canonical_json_bytes
++from velora_contracts.enums import SourceType
++from velora_contracts.errors import ValidationError
++from velora_contracts.events import DomainEvent
++from velora_contracts.ids import CatalogId, EventId, OperationId
++from velora_contracts.value_objects import CatalogItemRef
++
++
++CATALOG_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
++EVENT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
++OPERATION_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
++
++
++class ContractTests(unittest.TestCase):
++    def test_catalog_ref_round_trip(self) -> None:
++        original = CatalogItemRef(SourceType.OFFICIAL, CATALOG_ID)
++        self.assertEqual(CatalogItemRef.from_dict(original.to_dict()), original)
++
++    def test_event_round_trip(self) -> None:
++        original = DomainEvent(
++            event_name="LibraryItemAdded.v1",
++            event_id=EventId(EVENT_ID),
++            operation_id=OperationId(OPERATION_ID),
++            occurred_at="2026-07-28T00:00:00Z",
++            subject_ref=CatalogItemRef(SourceType.OFFICIAL, CATALOG_ID),
++            changed_fields=("membership_state",),
++            data={"membership_state": "active"},
++        )
++        self.assertEqual(DomainEvent.from_dict(original.to_dict()), original)
++
++    def test_invalid_identifier_and_event_are_rejected(self) -> None:
++        with self.assertRaises(ValidationError):
++            CatalogId("NOT-A-UUID")
++        with self.assertRaises(ValidationError):
++            CatalogId(CATALOG_ID.upper())
++        with self.assertRaises(ValidationError):
++            DomainEvent(
++                event_name="InventedEvent.v1",
++                event_id=EventId(EVENT_ID),
++                operation_id=OperationId(OPERATION_ID),
++                occurred_at="2026-07-28T00:00:00Z",
++            )
++
++    def test_canonical_json_normalizes_strings_and_rejects_floats(self) -> None:
++        self.assertEqual(
++            canonical_json_bytes({"z": "e\u0301", "a": [True, None, 3]}),
++            '{"a":[true,null,3],"z":"é"}'.encode(),
++        )
++        with self.assertRaises(ValidationError):
++            canonical_json_bytes({"rating": 8.5})
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_aw02_patch_validation.py b/tests/test_aw02_patch_validation.py
+new file mode 100644
+index 0000000..660d767
+--- /dev/null
++++ b/tests/test_aw02_patch_validation.py
+@@ -0,0 +1,112 @@
++from __future__ import annotations
++
++import unittest
++
++from velora_contracts.canonical_json import (
++    canonical_json_bytes,
++    manifest_content_sha256,
++    sha256_bytes,
++)
++from velora_contracts.errors import ValidationError
++from velora_contracts.validators import (
++    validate_checksums,
++    validate_media_manifest,
++    validate_operation,
++    validate_patch_manifest,
++    validate_relative_path,
++)
++
++
++class PatchValidationTests(unittest.TestCase):
++    def setUp(self) -> None:
++        self.checksums = {
++            "database/operations.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
++            "media_manifest.json": "5fccd4efbc76cd26c259df9c1a64e6396dd22de351bfbac0a41a9f702b610007",
++        }
++        self.manifest = {
++            "allow_missing_deletes": False,
++            "contracts_version": 1,
++            "created_at": "2026-07-28T00:00:00Z",
++            "dependencies": [],
++            "from_catalog_version": "0.21",
++            "manifest_version": 1,
++            "minimum_app_version": "AW0.2",
++            "operation_count": 0,
++            "operation_file": "database/operations.jsonl",
++            "patch_format_version": 1,
++            "patch_id": "00000000-0000-4000-8000-000000000001",
++            "to_catalog_version": "0.22",
++        }
++        self.manifest["content_sha256"] = manifest_content_sha256(
++            self.checksums, self.manifest
++        )
++
++    def test_published_hash_fixture(self) -> None:
++        self.assertEqual(
++            canonical_json_bytes(
++                {"entries": [], "media_manifest_version": 1}
++            ).decode(),
++            '{"entries":[],"media_manifest_version":1}',
++        )
++        self.assertEqual(
++            self.manifest["content_sha256"],
++            "7cf6f51a40096984edf27f67ae82a54eda34dec4c9b9452e6817aa117c99008a",
++        )
++        validate_checksums(self.checksums)
++        validate_patch_manifest(self.manifest, self.checksums)
++
++    def test_path_traversal_and_casefold_duplicates_are_rejected(self) -> None:
++        for value in ("../user.db", "/absolute", "media\\cover.webp", "a//b"):
++            with self.subTest(value=value), self.assertRaises(ValidationError):
++                validate_relative_path(value)
++        with self.assertRaises(ValidationError):
++            validate_checksums(
++                {
++                    "A/file": "0" * 64,
++                    "a/FILE": "1" * 64,
++                }
++            )
++
++    def test_media_manifest_contract(self) -> None:
++        valid = {
++            "media_manifest_version": 1,
++            "entries": [
++                {
++                    "relative_path": "media/covers/a.webp",
++                    "sha256": "0" * 64,
++                    "byte_length": 10,
++                    "mime_type": "image/webp",
++                    "width": 100,
++                    "height": 150,
++                }
++            ],
++        }
++        validate_media_manifest(valid)
++        valid["entries"][0]["relative_path"] = "../escape.webp"
++        with self.assertRaises(ValidationError):
++            validate_media_manifest(valid)
++
++    def test_operation_hash_and_unknown_fields(self) -> None:
++        envelope = {
++            "op_id": "11111111-1111-4111-8111-111111111111",
++            "op_type": "item.upsert",
++            "entity_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
++            "payload": {
++                "canonical_title": "Example",
++                "lifecycle_state": "active",
++                "media_type": "game",
++                "sort_title": "example",
++            },
++        }
++        operation = {
++            **envelope,
++            "content_sha256": sha256_bytes(canonical_json_bytes(envelope)),
++        }
++        validate_operation(operation, inserting=True)
++        operation["payload"]["invented"] = True
++        with self.assertRaises(ValidationError):
++            validate_operation(operation, inserting=True)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_aw02_storage_foundation.py b/tests/test_aw02_storage_foundation.py
+new file mode 100644
+index 0000000..bb1bd27
+--- /dev/null
++++ b/tests/test_aw02_storage_foundation.py
+@@ -0,0 +1,133 @@
++from __future__ import annotations
++
++import json
++import sqlite3
++import tempfile
++import unittest
++from contextlib import closing
++from pathlib import Path
++from unittest.mock import patch
++
++from app.core.paths import AppPaths
++from app.storage.recovery import AtomicJsonJournal
++from app.storage.snapshots import SnapshotCreator, SnapshotVerifier
++from app.storage.sqlite_policy import SQLitePolicy
++from velora_contracts.enums import SnapshotType
++from velora_contracts.errors import BackupError
++
++
++class StorageFoundationTests(unittest.TestCase):
++    def test_app_paths_are_rooted_and_complete(self) -> None:
++        with tempfile.TemporaryDirectory() as temporary:
++            paths = AppPaths.source_run(root=Path(temporary) / "profile")
++            paths.ensure_runtime_directories()
++            self.assertEqual(paths.catalog_db, paths.root / "data" / "catalog.db")
++            self.assertEqual(
++                paths.patch_recovery_journal,
++                paths.root / "runtime" / "patch_recovery_state.json",
++            )
++            self.assertTrue(paths.user_media.is_dir())
++            self.assertTrue(paths.snapshots.is_dir())
++
++    def test_sqlite_policy_enables_foreign_keys_and_rolls_back(self) -> None:
++        with tempfile.TemporaryDirectory() as temporary:
++            database = Path(temporary) / "test.db"
++            policy = SQLitePolicy(busy_timeout_ms=3210)
++            connection = policy.connect(database)
++            try:
++                self.assertEqual(connection.execute("PRAGMA foreign_keys").fetchone()[0], 1)
++                self.assertEqual(connection.execute("PRAGMA busy_timeout").fetchone()[0], 3210)
++                connection.execute("CREATE TABLE values_table(value TEXT)")
++            finally:
++                connection.close()
++            with self.assertRaises(RuntimeError):
++                with policy.session(database) as session:
++                    session.execute("INSERT INTO values_table VALUES ('not committed')")
++                    raise RuntimeError("simulate failure")
++            check = policy.connect(database, read_only=True)
++            try:
++                self.assertEqual(check.execute("SELECT COUNT(*) FROM values_table").fetchone()[0], 0)
++            finally:
++                check.close()
++
++    def test_atomic_recovery_journal_round_trip(self) -> None:
++        with tempfile.TemporaryDirectory() as temporary:
++            journal = AtomicJsonJournal(Path(temporary) / "runtime" / "state.json")
++            payload = {"protocol_version": 1, "state": "verified"}
++            journal.write(payload)
++            self.assertEqual(journal.read(), payload)
++            journal.clear()
++            self.assertIsNone(journal.read())
++
++    def test_snapshot_copy_and_verification(self) -> None:
++        with tempfile.TemporaryDirectory() as temporary:
++            root = Path(temporary)
++            database = root / "user.db"
++            with closing(sqlite3.connect(database)) as connection:
++                connection.execute("CREATE TABLE sample(id INTEGER PRIMARY KEY, value TEXT)")
++                connection.execute("INSERT INTO sample(value) VALUES ('preserved')")
++                connection.commit()
++            media = root / "media"
++            media.mkdir()
++            (media / "note.txt").write_text("media", encoding="utf-8")
++            info = SnapshotCreator().create(
++                database,
++                root / "snapshots",
++                snapshot_type=SnapshotType.PRE_MIGRATION,
++                source_schema_version=1,
++                core_generation=1,
++                parent_operation_id="11111111-1111-4111-8111-111111111111",
++                media_path=media,
++            )
++            verified = SnapshotVerifier().verify(info.path)
++            self.assertEqual(verified.snapshot_id, info.snapshot_id)
++            with closing(sqlite3.connect(info.path / "database.db")) as connection:
++                self.assertEqual(
++                    connection.execute("SELECT value FROM sample").fetchone()[0],
++                    "preserved",
++                )
++
++    def test_snapshot_failure_preserves_original(self) -> None:
++        with tempfile.TemporaryDirectory() as temporary:
++            root = Path(temporary)
++            database = root / "user.db"
++            with closing(sqlite3.connect(database)) as connection:
++                connection.execute("CREATE TABLE sample(value TEXT)")
++                connection.execute("INSERT INTO sample VALUES ('original')")
++                connection.commit()
++            with patch.object(
++                SnapshotVerifier, "verify", side_effect=RuntimeError("simulated verifier failure")
++            ):
++                with self.assertRaises(BackupError):
++                    SnapshotCreator().create(
++                        database,
++                        root / "snapshots",
++                        snapshot_type=SnapshotType.LEGACY_RESET,
++                        source_schema_version=0,
++                        core_generation=0,
++                        parent_operation_id="22222222-2222-4222-8222-222222222222",
++                    )
++            with closing(sqlite3.connect(database)) as connection:
++                self.assertEqual(
++                    connection.execute("SELECT value FROM sample").fetchone()[0],
++                    "original",
++                )
++            self.assertFalse(list((root / "snapshots").glob(".*.tmp")))
++
++
++class ImportBoundaryTests(unittest.TestCase):
++    def test_foundation_has_no_qt_or_ui_imports(self) -> None:
++        project = Path(__file__).resolve().parents[1]
++        roots = [project / "velora_contracts", project / "app" / "storage"]
++        forbidden = ("PySide", "app.ui", "studio.ui")
++        offenders: list[str] = []
++        for root in roots:
++            for path in root.rglob("*.py"):
++                text = path.read_text(encoding="utf-8")
++                if any(name in text for name in forbidden):
++                    offenders.append(str(path.relative_to(project)))
++        self.assertEqual(offenders, [])
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/velora_contracts/__init__.py b/velora_contracts/__init__.py
+new file mode 100644
+index 0000000..9d6bce8
+--- /dev/null
++++ b/velora_contracts/__init__.py
+@@ -0,0 +1,52 @@
++"""Shared, UI-independent contracts for Velora Core Generation 1."""
++
++from .errors import (
++    BackupError,
++    CompatibilityError,
++    ConflictError,
++    DomainError,
++    FatalStorageError,
++    IntegrityError,
++    MigrationError,
++    NotFoundError,
++    PatchError,
++    RecoverableStorageError,
++    ValidationError,
++)
++from .events import DomainEvent
++from .ids import (
++    AchievementId,
++    CatalogId,
++    EventId,
++    OperationId,
++    PlaythroughId,
++    RatingId,
++    SnapshotId,
++    UserItemId,
++)
++from .value_objects import CatalogItemRef, UnresolvedOfficialRef
++
++__all__ = [
++    "AchievementId",
++    "BackupError",
++    "CatalogId",
++    "CatalogItemRef",
++    "CompatibilityError",
++    "ConflictError",
++    "DomainError",
++    "DomainEvent",
++    "EventId",
++    "FatalStorageError",
++    "IntegrityError",
++    "MigrationError",
++    "NotFoundError",
++    "OperationId",
++    "PatchError",
++    "PlaythroughId",
++    "RatingId",
++    "RecoverableStorageError",
++    "SnapshotId",
++    "UnresolvedOfficialRef",
++    "UserItemId",
++    "ValidationError",
++]
+diff --git a/velora_contracts/canonical_json.py b/velora_contracts/canonical_json.py
+new file mode 100644
+index 0000000..9d03a0a
+--- /dev/null
++++ b/velora_contracts/canonical_json.py
+@@ -0,0 +1,77 @@
++"""Canonical JSON Serializer v1 and SHA-256 helpers."""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import math
++import unicodedata
++from collections.abc import Mapping, Sequence
++from pathlib import Path
++from typing import Any
++
++from .errors import ValidationError
++
++
++def _normalize(value: Any) -> Any:
++    if value is None or isinstance(value, bool) or isinstance(value, int):
++        return value
++    if isinstance(value, float):
++        if not math.isfinite(value):
++            raise ValidationError("NaN and Infinity are forbidden")
++        raise ValidationError("Non-integer numbers are forbidden in canonical JSON")
++    if isinstance(value, str):
++        return unicodedata.normalize("NFC", value)
++    if isinstance(value, Mapping):
++        normalized: dict[str, Any] = {}
++        for key, item in value.items():
++            if not isinstance(key, str):
++                raise ValidationError("Canonical JSON object keys must be strings")
++            normalized_key = unicodedata.normalize("NFC", key)
++            if normalized_key in normalized:
++                raise ValidationError("Duplicate object key after NFC normalization")
++            normalized[normalized_key] = _normalize(item)
++        return normalized
++    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
++        return [_normalize(item) for item in value]
++    raise ValidationError(f"Unsupported canonical JSON value: {type(value).__name__}")
++
++
++def canonical_json_bytes(value: Any) -> bytes:
++    normalized = _normalize(value)
++    return json.dumps(
++        normalized,
++        ensure_ascii=False,
++        allow_nan=False,
++        separators=(",", ":"),
++        sort_keys=True,
++    ).encode("utf-8")
++
++
++def canonical_json_text(value: Any) -> str:
++    return canonical_json_bytes(value).decode("utf-8")
++
++
++def sha256_bytes(value: bytes) -> str:
++    return hashlib.sha256(value).hexdigest()
++
++
++def sha256_file(path: Path, *, chunk_size: int = 1024 * 1024) -> str:
++    digest = hashlib.sha256()
++    with Path(path).open("rb") as stream:
++        for chunk in iter(lambda: stream.read(chunk_size), b""):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def manifest_content_sha256(checksums: Mapping[str, str], manifest: Mapping[str, Any]) -> str:
++    without_hash = dict(manifest)
++    without_hash.pop("content_sha256", None)
++    payload = bytearray()
++    for path in sorted(checksums):
++        payload.extend(path.encode("utf-8"))
++        payload.append(0)
++        payload.extend(checksums[path].lower().encode("ascii"))
++        payload.append(10)
++    payload.extend(canonical_json_bytes(without_hash))
++    return sha256_bytes(bytes(payload))
+diff --git a/velora_contracts/enums.py b/velora_contracts/enums.py
+new file mode 100644
+index 0000000..75e066a
+--- /dev/null
++++ b/velora_contracts/enums.py
+@@ -0,0 +1,64 @@
++"""Closed enums used by Contracts 1."""
++
++from __future__ import annotations
++
++from enum import StrEnum
++
++
++class SourceType(StrEnum):
++    OFFICIAL = "official"
++    USER = "user"
++
++
++class MediaType(StrEnum):
++    GAME = "game"
++    FILM = "film"
++    SERIES = "series"
++    PROGRAM = "program"
++
++
++class CatalogLifecycleState(StrEnum):
++    ACTIVE = "active"
++    RETIRED = "retired"
++    WITHDRAWN = "withdrawn"
++
++
++class LibraryMembershipState(StrEnum):
++    ACTIVE = "active"
++    ARCHIVED = "archived"
++
++
++class RatingType(StrEnum):
++    CHECKPOINT = "checkpoint"
++    FINAL = "final"
++
++
++class CheckpointType(StrEnum):
++    START = "start"
++    MIDDLE = "middle"
++    END = "end"
++
++
++class RelationType(StrEnum):
++    SEQUEL = "sequel"
++    PREQUEL = "prequel"
++    SPIN_OFF = "spin_off"
++    REMAKE = "remake"
++    REMASTER = "remaster"
++    EXPANSION = "expansion"
++    SAME_SERIES = "same_series"
++    ALTERNATE_VERSION = "alternate_version"
++    SPIRITUAL_SUCCESSOR = "spiritual_successor"
++
++
++class SnapshotType(StrEnum):
++    LEGACY_RESET = "legacy_reset"
++    PRE_MIGRATION = "pre_migration"
++    MANUAL = "manual"
++    PRE_RESTORE = "pre_restore"
++
++
++class UnresolvedReason(StrEnum):
++    MISSING = "missing"
++    WITHDRAWN = "withdrawn"
++    INCOMPATIBLE_CATALOG = "incompatible_catalog"
+diff --git a/velora_contracts/errors.py b/velora_contracts/errors.py
+new file mode 100644
+index 0000000..215b8b6
+--- /dev/null
++++ b/velora_contracts/errors.py
+@@ -0,0 +1,56 @@
++"""Frozen domain error categories from Core Design v1.1."""
++
++from __future__ import annotations
++
++from typing import Any
++
++
++class DomainError(Exception):
++    """Base typed error safe to cross application-service boundaries."""
++
++    code = "domain_error"
++
++    def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
++        super().__init__(message)
++        self.message = message
++        self.details = details or {}
++
++
++class ValidationError(DomainError):
++    code = "validation_error"
++
++
++class NotFoundError(DomainError):
++    code = "not_found"
++
++
++class ConflictError(DomainError):
++    code = "conflict"
++
++
++class CompatibilityError(DomainError):
++    code = "compatibility_error"
++
++
++class IntegrityError(DomainError):
++    code = "integrity_error"
++
++
++class MigrationError(DomainError):
++    code = "migration_error"
++
++
++class PatchError(DomainError):
++    code = "patch_error"
++
++
++class BackupError(DomainError):
++    code = "backup_error"
++
++
++class RecoverableStorageError(DomainError):
++    code = "recoverable_storage_error"
++
++
++class FatalStorageError(DomainError):
++    code = "fatal_storage_error"
+diff --git a/velora_contracts/events.py b/velora_contracts/events.py
+new file mode 100644
+index 0000000..22fd243
+--- /dev/null
++++ b/velora_contracts/events.py
+@@ -0,0 +1,100 @@
++"""Versioned post-commit notification payloads."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++from datetime import datetime, timezone
++from typing import Any
++
++from .errors import ValidationError
++from .ids import EventId, OperationId
++from .value_objects import CatalogItemRef
++
++
++EVENT_NAMES = frozenset(
++    {
++        "LibraryItemAdded.v1",
++        "LibraryItemArchived.v1",
++        "LibraryItemRestored.v1",
++        "PlaythroughStarted.v1",
++        "PlaythroughStatusChanged.v1",
++        "PlaytimeAdded.v1",
++        "ProgressChanged.v1",
++        "ImpressionAdded.v1",
++        "ImpressionEdited.v1",
++        "CheckpointSaved.v1",
++        "FinalRatingSaved.v1",
++        "ItemLinked.v1",
++        "ItemUnlinked.v1",
++        "AchievementUnlocked.v1",
++        "PatchApplied.v1",
++        "BackupCreated.v1",
++        "RestoreCompleted.v1",
++    }
++)
++
++
++def utc_now_text() -> str:
++    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
++
++
++@dataclass(frozen=True, slots=True)
++class DomainEvent:
++    event_name: str
++    event_id: EventId
++    operation_id: OperationId
++    occurred_at: str
++    subject_ref: CatalogItemRef | None = None
++    playthrough_id: str | None = None
++    changed_fields: tuple[str, ...] = ()
++    data: dict[str, Any] = field(default_factory=dict)
++    event_version: int = 1
++
++    def __post_init__(self) -> None:
++        if self.event_name not in EVENT_NAMES:
++            raise ValidationError(f"Unknown Contracts 1 event: {self.event_name}")
++        if self.event_version != 1 or not self.event_name.endswith(".v1"):
++            raise ValidationError("Event name/version mismatch")
++        if not self.occurred_at:
++            raise ValidationError("occurred_at is required")
++
++    def to_dict(self) -> dict[str, Any]:
++        return {
++            "event_name": self.event_name,
++            "event_version": self.event_version,
++            "event_id": str(self.event_id),
++            "operation_id": str(self.operation_id),
++            "occurred_at": self.occurred_at,
++            "subject_ref": self.subject_ref.to_dict() if self.subject_ref else None,
++            "playthrough_id": self.playthrough_id,
++            "changed_fields": list(self.changed_fields),
++            "data": self.data,
++        }
++
++    @classmethod
++    def from_dict(cls, value: dict[str, Any]) -> "DomainEvent":
++        expected = {
++            "event_name",
++            "event_version",
++            "event_id",
++            "operation_id",
++            "occurred_at",
++            "subject_ref",
++            "playthrough_id",
++            "changed_fields",
++            "data",
++        }
++        if set(value) != expected:
++            raise ValidationError("DomainEvent contains missing or unknown fields")
++        ref = value["subject_ref"]
++        return cls(
++            event_name=str(value["event_name"]),
++            event_version=int(value["event_version"]),
++            event_id=EventId(str(value["event_id"])),
++            operation_id=OperationId(str(value["operation_id"])),
++            occurred_at=str(value["occurred_at"]),
++            subject_ref=CatalogItemRef.from_dict(ref) if ref is not None else None,
++            playthrough_id=value["playthrough_id"],
++            changed_fields=tuple(str(item) for item in value["changed_fields"]),
++            data=dict(value["data"]),
++        )
+diff --git a/velora_contracts/ids.py b/velora_contracts/ids.py
+new file mode 100644
+index 0000000..ac7e5e4
+--- /dev/null
++++ b/velora_contracts/ids.py
+@@ -0,0 +1,64 @@
++"""Opaque lowercase UUID identifiers."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++from typing import Self
++from uuid import UUID, uuid4
++
++from .errors import ValidationError
++
++
++@dataclass(frozen=True, slots=True)
++class TypedId:
++    value: str
++
++    def __post_init__(self) -> None:
++        try:
++            parsed = UUID(self.value)
++        except (AttributeError, TypeError, ValueError) as exc:
++            raise ValidationError(f"Invalid {type(self).__name__}: expected UUID") from exc
++        canonical = str(parsed)
++        if self.value != canonical:
++            raise ValidationError(
++                f"Invalid {type(self).__name__}: UUID must use lowercase canonical form"
++            )
++
++    @classmethod
++    def new(cls) -> Self:
++        return cls(str(uuid4()))
++
++    def __str__(self) -> str:
++        return self.value
++
++
++class CatalogId(TypedId):
++    pass
++
++
++class UserItemId(TypedId):
++    pass
++
++
++class OperationId(TypedId):
++    pass
++
++
++class EventId(TypedId):
++    pass
++
++
++class PlaythroughId(TypedId):
++    pass
++
++
++class RatingId(TypedId):
++    pass
++
++
++class AchievementId(TypedId):
++    pass
++
++
++class SnapshotId(TypedId):
++    pass
+diff --git a/velora_contracts/validators.py b/velora_contracts/validators.py
+new file mode 100644
+index 0000000..5b4c8c9
+--- /dev/null
++++ b/velora_contracts/validators.py
+@@ -0,0 +1,302 @@
++"""Pure validators for Patch Format 1 packages."""
++
++from __future__ import annotations
++
++import re
++import unicodedata
++from collections.abc import Iterable, Mapping
++from typing import Any
++from uuid import UUID
++
++from .canonical_json import canonical_json_bytes, manifest_content_sha256, sha256_bytes
++from .errors import ValidationError
++
++SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
++VERSION_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)*$")
++
++MANIFEST_FIELDS = {
++    "manifest_version",
++    "patch_format_version",
++    "patch_id",
++    "from_catalog_version",
++    "to_catalog_version",
++    "contracts_version",
++    "minimum_app_version",
++    "created_at",
++    "operation_file",
++    "operation_count",
++    "allow_missing_deletes",
++    "dependencies",
++    "content_sha256",
++}
++MEDIA_ENTRY_FIELDS = {
++    "relative_path",
++    "sha256",
++    "byte_length",
++    "mime_type",
++    "width",
++    "height",
++}
++OPERATION_REQUIRED_FIELDS = {
++    "op_id",
++    "op_type",
++    "entity_id",
++    "payload",
++    "content_sha256",
++}
++OPERATION_OPTIONAL_FIELDS = {"expected_revision"}
++
++OPERATION_CONTRACTS: dict[str, tuple[set[str], set[str]]] = {
++    "item.upsert": (
++        {"media_type", "canonical_title", "sort_title", "lifecycle_state"},
++        {"release_year", "short_description", "description"},
++    ),
++    "item.retire": ({"lifecycle_state", "reason"}, set()),
++    "title.upsert": (
++        {"catalog_id", "title", "title_type", "is_searchable"},
++        {"language_code", "region_code"},
++    ),
++    "title.delete": (set(), set()),
++    "company.upsert": ({"canonical_name", "display_name", "is_active"}, set()),
++    "company_link.upsert": ({"catalog_id", "company_id", "role_id"}, {"release_id"}),
++    "company_link.delete": (set(), set()),
++    "release.upsert": (
++        {"catalog_id", "release_precision", "is_primary"},
++        {"platform_id", "region_code", "release_date", "edition_name"},
++    ),
++    "release.delete": (set(), set()),
++    "edition.upsert": (
++        {"catalog_id", "canonical_name", "display_name", "edition_type", "is_primary"},
++        {"release_id", "description"},
++    ),
++    "edition.delete": (set(), set()),
++    "addon.upsert": (
++        {"parent_catalog_id", "canonical_name", "display_name", "addon_type"},
++        {"addon_catalog_id", "release_date", "description"},
++    ),
++    "addon.delete": (set(), set()),
++    "genre.upsert": ({"canonical_name", "display_name", "is_active"}, set()),
++    "tag.upsert": ({"canonical_name", "display_name", "is_active"}, set()),
++    "genre_link.set": ({"genre_ids"}, set()),
++    "tag_link.set": ({"tag_ids"}, set()),
++    "relation.upsert": (
++        {"source_catalog_id", "target_catalog_id", "relation_type"},
++        {"series_order_milli", "story_order_milli", "note"},
++    ),
++    "relation.delete": (set(), set()),
++    "redirect.upsert": ({"target_catalog_id", "reason"}, set()),
++    "rating_observation.upsert": (
++        {
++            "catalog_id",
++            "rating_kind",
++            "source_name",
++            "raw_value_milli",
++            "raw_scale_max_milli",
++            "normalized_value_tenths",
++            "observed_at",
++            "is_current",
++        },
++        {"vote_count", "source_url"},
++    ),
++    "duration.upsert": (
++        set(),
++        {
++            "main_story_minutes",
++            "main_extra_minutes",
++            "completionist_minutes",
++            "source_name",
++            "observed_at",
++        },
++    ),
++    "image.upsert": (
++        {
++            "catalog_id",
++            "image_role",
++            "variant",
++            "relative_path",
++            "width",
++            "height",
++            "format",
++            "checksum_sha256",
++            "is_primary",
++        },
++        set(),
++    ),
++    "image.delete": ({"remove_media_if_unreferenced"}, set()),
++}
++
++EMPTY_DELETE_OPERATIONS = frozenset(
++    name for name in OPERATION_CONTRACTS if name.endswith(".delete") and name != "image.delete"
++)
++SET_OPERATIONS = frozenset({"genre_link.set", "tag_link.set"})
++
++
++def _uuid(value: Any, field: str) -> None:
++    try:
++        parsed = UUID(str(value))
++    except (TypeError, ValueError, AttributeError) as exc:
++        raise ValidationError(f"{field} must be a canonical UUID") from exc
++    if str(parsed) != value:
++        raise ValidationError(f"{field} must be a lowercase canonical UUID")
++
++
++def validate_relative_path(value: Any, *, media_only: bool = False) -> str:
++    if not isinstance(value, str) or not value:
++        raise ValidationError("Path must be a non-empty string")
++    if value != unicodedata.normalize("NFC", value):
++        raise ValidationError("Path must be NFC-normalized")
++    if "\\" in value or value.startswith("/") or "\x00" in value:
++        raise ValidationError(f"Unsafe package path: {value!r}")
++    parts = value.split("/")
++    if any(part in {"", ".", ".."} for part in parts):
++        raise ValidationError(f"Unsafe package path: {value!r}")
++    if media_only and (not parts or parts[0] != "media"):
++        raise ValidationError("Media path must be inside media/")
++    return value
++
++
++def validate_unique_paths(paths: Iterable[str]) -> None:
++    folded: set[str] = set()
++    for path in paths:
++        safe = validate_relative_path(path)
++        key = safe.casefold()
++        if key in folded:
++            raise ValidationError(f"Duplicate package path after case-folding: {safe}")
++        folded.add(key)
++
++
++def validate_checksums(value: Any) -> dict[str, str]:
++    if not isinstance(value, dict):
++        raise ValidationError("checksums.json must be an object")
++    validate_unique_paths(value.keys())
++    result: dict[str, str] = {}
++    for path, digest in value.items():
++        if path in {"manifest.json", "checksums.json"}:
++            raise ValidationError(f"{path} must not be listed in checksums.json")
++        if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
++            raise ValidationError(f"Invalid SHA-256 for {path}")
++        result[path] = digest
++    return result
++
++
++def validate_patch_manifest(value: Any, checksums: Mapping[str, str] | None = None) -> dict[str, Any]:
++    if not isinstance(value, dict) or set(value) != MANIFEST_FIELDS:
++        raise ValidationError("Patch manifest contains missing or unknown fields")
++    if value["manifest_version"] != 1 or value["patch_format_version"] != 1:
++        raise ValidationError("Unsupported patch manifest/format version")
++    if value["contracts_version"] != 1:
++        raise ValidationError("Unsupported contracts version")
++    _uuid(value["patch_id"], "patch_id")
++    if not VERSION_RE.fullmatch(str(value["from_catalog_version"])):
++        raise ValidationError("Invalid from_catalog_version")
++    if not VERSION_RE.fullmatch(str(value["to_catalog_version"])):
++        raise ValidationError("Invalid to_catalog_version")
++    if value["minimum_app_version"] != "AW0.2":
++        raise ValidationError("Patch requires an unsupported application baseline")
++    if value["operation_file"] != "database/operations.jsonl":
++        raise ValidationError("Unsupported operation_file")
++    if not isinstance(value["operation_count"], int) or value["operation_count"] < 0:
++        raise ValidationError("operation_count must be a non-negative integer")
++    if not isinstance(value["allow_missing_deletes"], bool):
++        raise ValidationError("allow_missing_deletes must be boolean")
++    if not isinstance(value["dependencies"], list) or len(set(value["dependencies"])) != len(value["dependencies"]):
++        raise ValidationError("dependencies must be a unique array")
++    if not isinstance(value["content_sha256"], str) or not SHA256_RE.fullmatch(value["content_sha256"]):
++        raise ValidationError("Invalid manifest content_sha256")
++    if checksums is not None:
++        expected = manifest_content_sha256(checksums, value)
++        if value["content_sha256"] != expected:
++            raise ValidationError("Manifest content_sha256 mismatch")
++    canonical_json_bytes(value)
++    return dict(value)
++
++
++def validate_media_manifest(value: Any) -> dict[str, Any]:
++    if not isinstance(value, dict) or set(value) != {"media_manifest_version", "entries"}:
++        raise ValidationError("Media manifest contains missing or unknown fields")
++    if value["media_manifest_version"] != 1 or not isinstance(value["entries"], list):
++        raise ValidationError("Unsupported media manifest")
++    paths: list[str] = []
++    previous = ""
++    for entry in value["entries"]:
++        if not isinstance(entry, dict) or set(entry) != MEDIA_ENTRY_FIELDS:
++            raise ValidationError("Media entry contains missing or unknown fields")
++        path = validate_relative_path(entry["relative_path"], media_only=True)
++        if previous and path <= previous:
++            raise ValidationError("Media entries must be sorted by relative_path")
++        previous = path
++        paths.append(path)
++        if not isinstance(entry["sha256"], str) or not SHA256_RE.fullmatch(entry["sha256"]):
++            raise ValidationError(f"Invalid media SHA-256: {path}")
++        if not isinstance(entry["byte_length"], int) or entry["byte_length"] < 0:
++            raise ValidationError(f"Invalid media byte_length: {path}")
++        mime = entry["mime_type"]
++        if not isinstance(mime, str) or "/" not in mime:
++            raise ValidationError(f"Invalid media MIME type: {path}")
++        is_image = mime.startswith("image/")
++        dimensions = (entry["width"], entry["height"])
++        if is_image and (
++            not all(isinstance(item, int) and item > 0 for item in dimensions)
++        ):
++            raise ValidationError(f"Image dimensions are required: {path}")
++        if not is_image and any(item is not None for item in dimensions):
++            raise ValidationError(f"Dimensions are forbidden for non-image media: {path}")
++    validate_unique_paths(paths)
++    canonical_json_bytes(value)
++    return dict(value)
++
++
++def validate_operation(value: Any, *, inserting: bool | None = None) -> dict[str, Any]:
++    if (
++        not isinstance(value, dict)
++        or not OPERATION_REQUIRED_FIELDS.issubset(value)
++        or set(value) - OPERATION_REQUIRED_FIELDS - OPERATION_OPTIONAL_FIELDS
++    ):
++        raise ValidationError("Operation contains missing or unknown fields")
++    _uuid(value["op_id"], "op_id")
++    op_type = value["op_type"]
++    if op_type not in OPERATION_CONTRACTS:
++        raise ValidationError(f"Unknown operation: {op_type}")
++    if not isinstance(value["entity_id"], str) or not value["entity_id"]:
++        raise ValidationError("entity_id is required")
++    revision = value.get("expected_revision")
++    if revision is not None and (not isinstance(revision, int) or revision < 1):
++        raise ValidationError("expected_revision must be a positive integer or null")
++    if op_type in SET_OPERATIONS and revision is not None:
++        raise ValidationError("Set replacement expected_revision must be null")
++    if inserting is True and revision is not None:
++        raise ValidationError("Guaranteed inserts must omit expected_revision as null")
++    if inserting is False and op_type not in SET_OPERATIONS and revision is None:
++        raise ValidationError("Update/delete requires expected_revision")
++    payload = value["payload"]
++    if not isinstance(payload, dict):
++        raise ValidationError("Operation payload must be an object")
++    required, optional = OPERATION_CONTRACTS[op_type]
++    unknown = set(payload) - required - optional
++    if unknown:
++        raise ValidationError(f"Unknown payload fields for {op_type}: {sorted(unknown)}")
++    if inserting is True and not required.issubset(payload):
++        raise ValidationError(f"Missing insert fields for {op_type}: {sorted(required - set(payload))}")
++    if op_type in EMPTY_DELETE_OPERATIONS and payload:
++        raise ValidationError(f"{op_type} payload must be empty")
++    if op_type == "duration.upsert" and not any(
++        name in payload
++        for name in ("main_story_minutes", "main_extra_minutes", "completionist_minutes")
++    ):
++        raise ValidationError("duration.upsert requires at least one duration")
++    if op_type in SET_OPERATIONS:
++        key = "genre_ids" if op_type.startswith("genre") else "tag_ids"
++        maximum = 64 if key == "genre_ids" else 256
++        ids = payload.get(key)
++        if not isinstance(ids, list) or len(ids) > maximum or len(set(ids)) != len(ids):
++            raise ValidationError(f"{key} must be a unique array with at most {maximum} IDs")
++        for item in ids:
++            _uuid(item, key)
++    digest = value["content_sha256"]
++    if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
++        raise ValidationError("Invalid operation content_sha256")
++    envelope = dict(value)
++    envelope.pop("content_sha256")
++    if sha256_bytes(canonical_json_bytes(envelope)) != digest:
++        raise ValidationError("Operation content_sha256 mismatch")
++    return dict(value)
+diff --git a/velora_contracts/value_objects.py b/velora_contracts/value_objects.py
+new file mode 100644
+index 0000000..3a759a5
+--- /dev/null
++++ b/velora_contracts/value_objects.py
+@@ -0,0 +1,47 @@
++"""Content-neutral value objects shared by Velora and Studio."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++from typing import Any
++
++from .enums import SourceType, UnresolvedReason
++from .errors import ValidationError
++from .ids import CatalogId, UserItemId
++
++
++@dataclass(frozen=True, slots=True)
++class CatalogItemRef:
++    source_type: SourceType
++    item_id: str
++
++    def __post_init__(self) -> None:
++        source = SourceType(self.source_type)
++        object.__setattr__(self, "source_type", source)
++        if source is SourceType.OFFICIAL:
++            CatalogId(self.item_id)
++        else:
++            UserItemId(self.item_id)
++
++    def to_dict(self) -> dict[str, str]:
++        return {"source_type": self.source_type.value, "item_id": self.item_id}
++
++    @classmethod
++    def from_dict(cls, value: dict[str, Any]) -> "CatalogItemRef":
++        if set(value) != {"source_type", "item_id"}:
++            raise ValidationError("CatalogItemRef contains missing or unknown fields")
++        try:
++            return cls(SourceType(value["source_type"]), str(value["item_id"]))
++        except (TypeError, ValueError) as exc:
++            raise ValidationError("Invalid CatalogItemRef") from exc
++
++
++@dataclass(frozen=True, slots=True)
++class UnresolvedOfficialRef:
++    catalog_id: str
++    reason: UnresolvedReason
++    last_known_title: str | None = None
++
++    def __post_init__(self) -> None:
++        CatalogId(self.catalog_id)
++        object.__setattr__(self, "reason", UnresolvedReason(self.reason))

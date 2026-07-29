@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QVBoxLayout
 
 from app.core.icon_registry import IconRegistry
+from app.core.constants import APP_VERSION
 
 
 class AboutDialog(QDialog):
@@ -21,5 +22,5 @@ class AboutDialog(QDialog):
         attribution = QLabel('Uicons от <a href="https://www.flaticon.com/uicons">Flaticon</a>')
         attribution.setOpenExternalLinks(True); attribution.setTextInteractionFlags(attribution.textInteractionFlags())
         root.addWidget(attribution)
-        credits = QLabel("Автор: Станислав Смирнов\nРазработчик: Станислав Смирнов\nВерсия: AW0.11 — Alpha Windows (новый цикл)\nКаталог: AW0.0101")
+        credits = QLabel(f"Автор: Станислав Смирнов\nРазработчик: Станислав Смирнов\nВерсия: {APP_VERSION} — Alpha Windows\nМикропатч каталога: AW0.221\nСхема профиля: 1")
         credits.setStyleSheet("color:#C9A7FF;font-weight:500;"); root.addWidget(credits)

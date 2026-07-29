@@ -2,7 +2,7 @@ from datetime import datetime
 
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from app.core.constants import ACCENT, SUCCESS, WARNING
 from app.core.paths import resolve_resource_path
@@ -14,6 +14,17 @@ from app.ui.widgets.critic_sources import apply_source_logo, source_brand_color,
 from app.core.display_text import compact_entities
 from app.ui.game_detail.system_requirements_panel import SystemRequirementsPanel
 from app.ui.game_detail.chronology_panel import ChronologyPanel
+from app.application.tag_service import TagService
+from app.core.runtime import startup_storage
+from app.ui.game_detail.tag_presenter import TagPresenter
+
+
+DOOM_ETERNAL_REFERENCE_DESCRIPTION = (
+    "DOOM Eternal — прямое продолжение DOOM (2016), в котором Палача Рока "
+    "ждёт новое противостояние силам Ада. Игрок сочетает мощное оружие, "
+    "мобильную боевую систему и способности, путешествуя по измерениям и "
+    "уничтожая новых и знакомых демонов."
+)
 
 
 class GameDetailPage(QScrollArea):
@@ -21,12 +32,19 @@ class GameDetailPage(QScrollArea):
     rate_requested = Signal(object)
     status_changed = Signal(object, str)
     catalog_item_requested = Signal(str)
+    aw02_changed = Signal()
+    tag_filter_requested = Signal(str)
 
     def __init__(self, repository=None, parent=None) -> None:
         super().__init__(parent)
         self.repository = repository
         self.game: GameData | None = None
         self._status_menu_media_type = ""
+        storage = startup_storage()
+        self.tag_presenter = (
+            TagPresenter(TagService(storage.catalog_db, storage.user_db))
+            if storage else None
+        )
         self.setWidgetResizable(True)
         self.setObjectName("gameDetailPage")
         content = QWidget(); self.root = QVBoxLayout(content)
@@ -47,19 +65,11 @@ class GameDetailPage(QScrollArea):
         self.rate_button = QPushButton("ОЦЕНИТЬ ИГРУ"); self.rate_button.setStyleSheet("background:#6E1BC4; border:1px solid #A54BFF; font-weight:600;")
         self.rate_button.setIcon(IconRegistry.icon("edit", category="ui")); self.rate_button.setIconSize(QSize(17, 17))
         self.rate_button.clicked.connect(lambda: self.game is not None and self.rate_requested.emit(self.game))
-        self.status_badge = QPushButton(); self.status_badge.setMinimumSize(170, 38)
+        from app.ui.catalog.status_menu import StatusButton
+        self.status_badge = StatusButton(self._change_status); self.status_badge.setMinimumSize(170, 38)
         self.status_badge.setIcon(IconRegistry.icon("history_recent", variant="dark", category="ui")); self.status_badge.setIconSize(QSize(16, 16))
-        from app.ui.catalog.status_menu import build_status_menu
-        self.status_badge.setMenu(build_status_menu(self.status_badge, self._change_status))
-        self.tags_button=QPushButton("ТЕГИ"); self.tags_button.clicked.connect(self._edit_tags)
-        personal_actions.addWidget(self.rate_button); personal_actions.addWidget(self.status_badge); personal_actions.addWidget(self.tags_button); personal_actions.addStretch(); info.addLayout(personal_actions)
+        personal_actions.addWidget(self.rate_button); personal_actions.addWidget(self.status_badge); personal_actions.addStretch(); info.addLayout(personal_actions)
         self.route = QLabel(); self.route.setStyleSheet(f"color:{ACCENT}; font-size:11pt;"); info.addWidget(self.route)
-        self.tags_widget = QWidget()
-        self.tags_grid = QGridLayout(self.tags_widget)
-        self.tags_grid.setContentsMargins(0, 0, 0, 0)
-        self.tags_grid.setHorizontalSpacing(7)
-        self.tags_grid.setVerticalSpacing(6)
-        info.addWidget(self.tags_widget)
         self.metadata = QGridLayout(); self.metadata.setHorizontalSpacing(34); self.metadata.setVerticalSpacing(12)
         self.meta_values = {}
         self.meta_captions = {}
@@ -91,16 +101,45 @@ class GameDetailPage(QScrollArea):
         self.description.setStyleSheet("font-size:11pt; line-height:1.4; color:#CAD1D7;"); info.addWidget(self.description, 1)
         hero.addLayout(info, 1); self.root.addLayout(hero)
 
+        self.tags_widget = QFrame()
+        self.tags_widget.setObjectName("tagGroups")
+        self.tags_widget.setStyleSheet(
+            "QFrame#tagGroups{background:#081118;border:1px solid #26343E;"
+            "border-radius:7px;}"
+        )
+        tags_root = QVBoxLayout(self.tags_widget)
+        tags_root.setContentsMargins(14, 12, 14, 12)
+        self.official_tags_title = QLabel("ОФИЦИАЛЬНЫЕ ТЕГИ")
+        self.official_tags_title.setObjectName("caption")
+        tags_root.addWidget(self.official_tags_title)
+        self.official_tags_grid = QGridLayout()
+        tags_root.addLayout(self.official_tags_grid)
+        personal_heading = QHBoxLayout()
+        personal_title = QLabel("МОИ ТЕГИ")
+        personal_title.setObjectName("caption")
+        personal_heading.addWidget(personal_title)
+        personal_heading.addStretch()
+        self.tags_button = QPushButton("ДОБАВИТЬ ТЕГ")
+        self.tags_button.clicked.connect(self._edit_tags)
+        personal_heading.addWidget(self.tags_button)
+        tags_root.addLayout(personal_heading)
+        self.personal_tags_grid = QGridLayout()
+        tags_root.addLayout(self.personal_tags_grid)
+        self.root.addWidget(self.tags_widget)
+
+        from app.ui.game_detail.doom_aw02_panel import DoomAw02Panel
+        self.aw02_panel = DoomAw02Panel()
+        self.aw02_panel.changed.connect(self.aw02_changed.emit)
+        self.root.addWidget(self.aw02_panel)
+
         self.official_title = QLabel("ОФИЦИАЛЬНЫЕ СВЕДЕНИЯ")
         self.official_title.setStyleSheet("font-size:15pt; font-weight:600;")
         self.root.addWidget(self.official_title)
         self.official_details = QGridLayout(); self.official_details.setSpacing(12)
         self.root.addLayout(self.official_details)
         self.requirements_panel = SystemRequirementsPanel()
-        self.root.addWidget(self.requirements_panel)
         self.chronology_panel = ChronologyPanel()
         self.chronology_panel.catalog_item_requested.connect(self.catalog_item_requested.emit)
-        self.root.addWidget(self.chronology_panel)
 
         ratings_title = QLabel("ОЦЕНКИ И ИСТОЧНИКИ"); ratings_title.setStyleSheet("font-size:15pt; font-weight:600;"); self.root.addWidget(ratings_title)
         ratings = QHBoxLayout(); ratings.setSpacing(12)
@@ -119,13 +158,20 @@ class GameDetailPage(QScrollArea):
         self.criteria = self._panel("КРИТЕРИИ МОЕЙ ОЦЕНКИ"); self.criteria_text = QLabel(); self.criteria_text.setWordWrap(True); self.criteria.layout().addWidget(self.criteria_text); lower.addWidget(self.criteria, 1)
         self.activity = self._panel("ИСТОРИЯ ИЗМЕНЕНИЙ"); self.activity_text = QLabel(); self.activity_text.setWordWrap(True); self.activity.layout().addWidget(self.activity_text); lower.addWidget(self.activity, 1)
         self.root.addLayout(lower)
+        self.root.addWidget(self.requirements_panel)
+        self.root.addWidget(self.chronology_panel)
         self.root.addStretch(); self.setWidget(content)
 
     def _edit_tags(self) -> None:
-        if not self.game or not self.repository:return
+        if not self.game or self.tag_presenter is None:
+            return
         from app.ui.dialogs.tag_editor_dialog import TagEditorDialog
-        if TagEditorDialog(self.repository,self.game.catalog_id,self).exec():
-            names={tag_id:name for tag_id,name,color,count in self.repository.tags()}; self.game.tags=[names[tag_id] for tag_id in self.repository.tag_ids_for(self.game.catalog_id) if tag_id in names]
+        dialog = TagEditorDialog(list(self.game.tags), self)
+        if dialog.exec():
+            state = self.tag_presenter.save_personal(
+                self._contracts_catalog_id(self.game), dialog.tags()
+            )
+            self.game.tags = list(state.personal)
             self._render_tags(self.game)
 
     @staticmethod
@@ -146,7 +192,11 @@ class GameDetailPage(QScrollArea):
     @staticmethod
     def _panel(title: str) -> QFrame:
         panel = QFrame(); panel.setObjectName("officialInfoCard"); panel.setStyleSheet("QFrame#officialInfoCard { background:#081118; border:1px solid #26343E; border-radius:8px; }")
-        layout = QVBoxLayout(panel); heading_row = QHBoxLayout(); heading_row.setContentsMargins(0, 0, 0, 0)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(8)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        heading_row = QHBoxLayout(); heading_row.setContentsMargins(0, 0, 0, 0)
         icon_map = {
             "БЮДЖЕТ": ("film_budget", "media", "dark"), "СТРАНА": ("globe", "ui", "dark"),
             "ЯЗЫКИ ИНТЕРФЕЙСА": ("globe", "ui", "dark"), "НАГРАДЫ": ("trophy", "achievements", "dark"),
@@ -162,16 +212,14 @@ class GameDetailPage(QScrollArea):
         heading = QLabel(title); heading.setObjectName("caption"); heading_row.addWidget(heading); heading_row.addStretch(); layout.addLayout(heading_row); return panel
 
     def set_game(self, game: GameData) -> None:
-        from app.ui.catalog.status_menu import build_status_menu
         if self._status_menu_media_type != game.media_type:
-            previous_menu = self.status_badge.menu()
-            self.status_badge.setMenu(
-                build_status_menu(self.status_badge, self._change_status, game.media_type)
-            )
+            self.status_badge.set_media_type(game.media_type)
             self._status_menu_media_type = game.media_type
-            if previous_menu is not None:
-                previous_menu.deleteLater()
         self.game = game; self.title.setText(game.title); self.route.setText(f"{game.category}  •  {game.subgroup or 'Без подгруппы'}"); self._render_tags(game)
+        is_aw02_doom = game.catalog_id == "g-shooter-fps-002"
+        self.aw02_panel.setVisible(is_aw02_doom)
+        if is_aw02_doom:
+            self.aw02_panel.refresh()
         self.breadcrumb.setText(f"{game.media_type.upper()}  /  {game.category.upper()}  /  {(game.subgroup or 'КАРТОЧКА').upper()}")
         developer_text, developer_tooltip = compact_entities(game.developer)
         publisher_text, publisher_tooltip = compact_entities(game.publisher)
@@ -186,15 +234,22 @@ class GameDetailPage(QScrollArea):
         for key, value in values.items(): self.meta_values[key].setText(value or "—")
         self.meta_values["Разработчик"].setToolTip(developer_tooltip)
         self.meta_values["Издатель"].setToolTip(publisher_tooltip)
-        self.description.setText(game.description or "Описание для этого объекта пока не добавлено в Velora Studio.")
+        description = (
+            DOOM_ETERNAL_REFERENCE_DESCRIPTION
+            if is_aw02_doom
+            else game.description
+        )
+        self.description.setText(
+            description
+            or "Описание для этого объекта пока не добавлено в Velora Studio."
+        )
         self._fill_official_details(game)
         self.chronology_panel.set_chronology(
             game.franchise_name, game.chronology, game.catalog_id
         )
         self.general_value.setText(self._score(game.general_score)); self.personal_value.setText(self._score(game.personal_score))
         self.rate_button.setText("ИЗМЕНИТЬ ОЦЕНКУ" if game.personal_score != "—" else "ОЦЕНИТЬ")
-        self.status_badge.setText(game.status)
-        self._style_status(game.status)
+        self.status_badge.set_status(game.status)
         sources = source_slots(
             game.media_type,
             game.critic_scores,
@@ -227,6 +282,10 @@ class GameDetailPage(QScrollArea):
         self.activity_text.setText("\n".join(reversed(game.history[-5:])) or "Изменений пока нет")
         self.favorite.setText("★ В ИЗБРАННОМ" if game.favorite else "☆ В ИЗБРАННОЕ")
         self._set_cover(game.cover_path)
+
+    def refresh_aw02(self) -> None:
+        if self.game is not None and self.game.catalog_id == "g-shooter-fps-002":
+            self.aw02_panel.refresh()
 
     def _fill_official_details(self, game: GameData) -> None:
         while self.official_details.count():
@@ -269,6 +328,9 @@ class GameDetailPage(QScrollArea):
             panel=self._panel(title)
             value=QLabel(text); value.setWordWrap(True); value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             value.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            value.setSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum
+            )
             value.setStyleSheet("color:#CAD1D7; border:0; line-height:1.35;")
             if title == "DLC":
                 viewport = QWidget()
@@ -292,28 +354,55 @@ class GameDetailPage(QScrollArea):
         for column in range(3): self.official_details.setColumnStretch(column,1)
 
     def _render_tags(self, game: GameData) -> None:
-        while self.tags_grid.count():
-            item = self.tags_grid.takeAt(0)
+        official = list(game.system_tags)
+        personal = list(game.tags)
+        if self.tag_presenter is not None:
+            try:
+                stored = self.tag_presenter.load(self._contracts_catalog_id(game))
+                official = list(stored.official) or official
+                personal = list(stored.personal)
+                game.tags = personal
+            except Exception:
+                pass
+        self._fill_tag_grid(self.official_tags_grid, official, False)
+        self._fill_tag_grid(self.personal_tags_grid, personal, True)
+        self.official_tags_title.setVisible(bool(official))
+        self.tags_button.setText("ИЗМЕНИТЬ ТЕГИ" if personal else "ДОБАВИТЬ ТЕГ")
+
+    def _fill_tag_grid(
+        self, layout: QGridLayout, tags: list[str], personal: bool,
+    ) -> None:
+        while layout.count():
+            item = layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        combined = [(tag, False) for tag in game.system_tags]
-        combined.extend((tag, True) for tag in game.tags if tag not in game.system_tags)
-        self.tags_button.setText(f"ТЕГИ · {len(combined)}" if combined else "ТЕГИ")
-        for index, (tag, personal) in enumerate(combined):
-            chip = QLabel(f"# {tag}")
-            chip.setToolTip("Личный тег" if personal else "Тег официального каталога")
-            if personal:
-                chip.setStyleSheet(
-                    "color:#E5CAFF;background:#26133D;border:1px solid #8B2CF5;"
-                    "border-radius:4px;padding:4px 9px;font-weight:600;"
-                )
-            else:
-                chip.setStyleSheet(
-                    "color:#C7D0D8;background:#101A22;border:1px solid #34434E;"
-                    "border-radius:4px;padding:4px 9px;"
-                )
-            self.tags_grid.addWidget(chip, index // 6, index % 6)
-        self.tags_widget.setVisible(bool(combined))
+        for index, tag in enumerate(tags):
+            chip = QPushButton(f"#{tag}")
+            chip.setCheckable(True)
+            chip.setCursor(Qt.CursorShape.PointingHandCursor)
+            chip.setToolTip(
+                "Личный тег" if personal else "Тег официального каталога"
+            )
+            chip.setStyleSheet(
+                "QPushButton{color:#D3D9DF;background:#0A1118;"
+                "border:1px solid #34434E;border-radius:5px;padding:5px 10px;}"
+                f"QPushButton:hover{{border-color:{ACCENT};color:white;}}"
+                f"QPushButton:checked{{border-color:{ACCENT};color:#E7CEFF;"
+                "background:#1A0E29;}}"
+            )
+            chip.clicked.connect(
+                lambda checked=False, value=tag:
+                self.tag_filter_requested.emit(value)
+            )
+            layout.addWidget(chip, index // 8, index % 8)
+        layout.setColumnStretch(8, 1)
+
+    @staticmethod
+    def _contracts_catalog_id(game: GameData) -> str:
+        if game.catalog_id == "g-shooter-fps-002":
+            from app.application.doom_vertical_slice import DOOM_ETERNAL_ID
+            return DOOM_ETERNAL_ID
+        return game.catalog_id
 
     @staticmethod
     def _format_budget(amount: float | None, currency: str) -> str:
@@ -354,9 +443,7 @@ class GameDetailPage(QScrollArea):
         self.status_changed.emit(self.game, status)
 
     def _style_status(self, status: str) -> None:
-        from app.ui.catalog.status_menu import status_visual
-        color, border, background = status_visual(status)
-        self.status_badge.setStyleSheet(f"color:{color}; border:1px solid {border}; background:{background}; border-radius:6px; font-weight:600; padding:6px 24px 6px 10px;")
+        self.status_badge.set_status(status)
 
     @staticmethod
     def _score(value: str) -> str:

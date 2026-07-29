@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from PySide6.QtCore import QEvent, QSize, Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFrame,
@@ -22,6 +22,7 @@ from app.ui.widgets.platform_icons import PlatformIconRow
 from app.core.display_text import compact_entities
 from app.ui.widgets.age_rating import AgeRatingValue
 from app.ui.widgets.critic_sources import CriticSourceStrip
+from app.ui.widgets.clickable_label import ClickableLabel
 from app.ui.catalog.status_menu import build_status_menu
 from app.ui.quick_view.rating_dialog import request_rating
 from app.ui.quick_view.playtime_dialog import request_total_playtime
@@ -75,12 +76,11 @@ class QuickView(QFrame):
         info.setSpacing(7)
         title_row = QHBoxLayout()
         title_row.setSpacing(8)
-        self.title_button = QPushButton()
-        self.title_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.title_button = ClickableLabel()
         self.title_button.setStyleSheet(
-            f"QPushButton {{ font-family:'Segoe UI'; font-size:16pt; font-weight:600; "
-            "text-align:left; padding:0; border:0; background:transparent; }}"
-            f"QPushButton:hover {{ color:{ACCENT}; }}"
+            f"QLabel {{ font-family:'Segoe UI'; font-size:16pt; font-weight:600; "
+            "text-align:left; padding:0; border:0; background:transparent; }"
+            f"QLabel:hover, QLabel:focus {{ color:{ACCENT}; }}"
         )
         self.title_button.clicked.connect(self._request_detail)
         title_row.addWidget(self.title_button)
@@ -132,12 +132,9 @@ class QuickView(QFrame):
         actions.setFixedSize(145, 36)
         actions.setStyleSheet("border:1px solid #2A3540; background:#0B131A; text-align:left;")
         actions_menu = QMenu(actions)
-        for action_text in ("Открыть страницу", "Скрыть у меня"):
+        for action_text in ("Скрыть у меня",):
             action = actions_menu.addAction(action_text)
-            if action_text == "Открыть страницу":
-                action.triggered.connect(self._request_detail)
-            else:
-                action.triggered.connect(self._request_hide)
+            action.triggered.connect(self._request_hide)
         actions.setMenu(actions_menu)
         cover_column.addWidget(actions)
         root.addLayout(info, 3)
@@ -182,12 +179,8 @@ class QuickView(QFrame):
         self.personal_score.setStyleSheet(f"font-size:25pt; font-weight:600; color:{DANGER};")
         personal_top.addWidget(self.personal_score)
         personal_top.addStretch()
-        self.status = QPushButton()
-        self.status.setStyleSheet(
-            f"color:{WARNING}; border:1px solid #775000; border-radius:5px; "
-            "background:#251A07; font-weight:600;"
-        )
-        self.status.setMenu(build_status_menu(self.status, self._change_status))
+        from app.ui.catalog.status_menu import StatusButton
+        self.status = StatusButton(self._change_status)
         personal_top.addWidget(self.status)
         personal.addLayout(personal_top)
         self.personal_stars = QLabel("☆☆☆☆☆")
@@ -221,7 +214,18 @@ class QuickView(QFrame):
         self.time_button = QPushButton("ИЗМЕНИТЬ ОБЩЕЕ ВРЕМЯ")
         self.time_button.setObjectName("timeAction")
         self.time_button.setIcon(IconRegistry.icon("clock", variant="dark", category="ui")); self.time_button.setIconSize(QSize(16, 16))
-        self.time_button.setStyleSheet("border:1px solid #2A3540; background:#0B131A; text-align:left;")
+        self.time_button.setStyleSheet(
+            "QPushButton#timeAction {"
+            "border:1px solid #2A3540; background:#0B131A; color:#F1F2F4;"
+            "text-align:left;"
+            "}"
+            f"QPushButton#timeAction:hover {{"
+            f"border-color:{ACCENT}; background:#160B24; color:{ACCENT};"
+            "}"
+            f"QPushButton#timeAction:focus {{"
+            f"border-color:{ACCENT}; color:{ACCENT};"
+            "}"
+        )
         self.time_button.clicked.connect(self._open_media_progress_dialog)
         timeline_column.addWidget(self.time_button)
         history_title = QLabel("ПОСЛЕДНИЕ ИЗМЕНЕНИЯ")
@@ -253,31 +257,6 @@ class QuickView(QFrame):
         close_column.addWidget(close, 0, Qt.AlignmentFlag.AlignTop)
         close_column.addStretch()
         root.addLayout(close_column)
-        self._enable_detail_click_targets()
-
-    def _enable_detail_click_targets(self) -> None:
-        """Make passive Quick View surfaces open the canonical detail page."""
-        targets = self.findChildren(QLabel)
-        targets.extend(
-            frame
-            for frame in self.findChildren(QFrame)
-            if frame.objectName() in {"ratingCard"}
-        )
-        for target in targets:
-            target.setProperty("quickDetailTarget", True)
-            target.setCursor(Qt.CursorShape.PointingHandCursor)
-            target.setToolTip("Открыть полную страницу")
-            target.installEventFilter(self)
-
-    def eventFilter(self, watched, event) -> bool:
-        if (
-            watched.property("quickDetailTarget")
-            and event.type() == QEvent.Type.MouseButtonRelease
-            and event.button() == Qt.MouseButton.LeftButton
-        ):
-            self._request_detail()
-            return True
-        return super().eventFilter(watched, event)
 
     @staticmethod
     def _meta_value() -> QLabel:
@@ -331,13 +310,8 @@ class QuickView(QFrame):
 
     def set_game(self, game: GameData) -> None:
         if self._status_menu_media_type != game.media_type:
-            previous_menu = self.status.menu()
-            self.status.setMenu(
-                build_status_menu(self.status, self._change_status, game.media_type)
-            )
+            self.status.set_media_type(game.media_type)
             self._status_menu_media_type = game.media_type
-            if previous_menu is not None:
-                previous_menu.deleteLater()
         self.current_game = game
         labels = {
             "Игры": ("Жанр:","Год выхода:","Разработчик:","Платформа:","Издатель:","Кол-во игроков:","Возраст:",""),
@@ -372,7 +346,7 @@ class QuickView(QFrame):
         self.personal_stars.setStyleSheet(
             f"font-family:'Segoe UI Symbol'; font-size:19pt; color:{personal_color};"
         )
-        self.status.setText(game.status)
+        self.status.set_status(game.status)
         self._configure_media_progress(game)
         self.favorite_button.setText("★" if game.favorite else "☆")
         self._update_status_style(game.status)
@@ -394,8 +368,7 @@ class QuickView(QFrame):
 
     def set_external_status(self, game: GameData, status: str) -> None:
         if self.current_game is game:
-            self.status.setText(status)
-            self._update_status_style(status)
+            self.status.set_status(status)
             self._refresh_history()
 
     def _change_status(self, status: str) -> None:
@@ -404,18 +377,12 @@ class QuickView(QFrame):
         self.current_game.status = status
         timestamp = datetime.now().strftime("%d.%m.%Y %H:%M")
         self.current_game.history.append(f"{timestamp} — статус: {status}")
-        self.status.setText(status)
-        self._update_status_style(status)
+        self.status.set_status(status)
         self._refresh_history()
         self.status_changed.emit(self.current_game, status)
 
     def _update_status_style(self, status: str) -> None:
-        from app.ui.catalog.status_menu import status_visual
-        color, border, background = status_visual(status)
-        self.status.setStyleSheet(
-            f"color:{color}; border:1px solid {border}; border-radius:5px; "
-            f"background:{background}; font-weight:600;"
-        )
+        self.status.set_status(status)
 
     def _open_rating_dialog(self) -> None:
         if self.current_game is None:

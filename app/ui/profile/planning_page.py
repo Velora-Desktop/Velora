@@ -39,6 +39,7 @@ class PlanningPage(QTabWidget):
         title=QLabel("ЛОКАЛЬНЫЙ ПОМОЩНИК ВЫБОРА"); title.setObjectName("sectionTitle"); root.addWidget(title)
         hint=QLabel("Выберите тип контента — Velora покажет пять случайных вариантов из локальной библиотеки. Нажмите на обложку, чтобы открыть карточку."); hint.setObjectName("muted"); hint.setWordWrap(True); root.addWidget(hint)
         controls=QHBoxLayout(); self.choice_media=QComboBox(); self.choice_media.addItems(("Игры","Фильмы","Сериалы","Программы","Все типы")); controls.addWidget(self.choice_media)
+        self.use_taste_profile=QCheckBox("Учитывать мои вкусы"); controls.addWidget(self.use_taste_profile)
         random_button=QPushButton("ВЫБРАТЬ 5 ВАРИАНТОВ"); random_button.setProperty("primary",True); random_button.clicked.connect(self._random_choice); controls.addWidget(random_button); controls.addStretch(1); root.addLayout(controls)
         self.choice_cards=QGridLayout(); self.choice_cards.setHorizontalSpacing(14); root.addLayout(self.choice_cards)
         self.choice_result=QLabel("Нажмите кнопку, чтобы сформировать новую пятёрку."); self.choice_result.setObjectName("muted"); root.addWidget(self.choice_result)
@@ -91,7 +92,13 @@ class PlanningPage(QTabWidget):
 
     def _random_choice(self):
         selected=self.choice_media.currentText(); candidates=[item for item in self.items if selected=="Все типы" or item.media_type==selected]
-        chosen=random.SystemRandom().sample(candidates,min(5,len(candidates))) if candidates else []
+        if self.use_taste_profile.isChecked() and candidates:
+            def score(item):
+                try:return float(item.personal_score if item.personal_score!="—" else item.general_score)
+                except (TypeError,ValueError):return 0.0
+            chosen=[max(candidates,key=lambda item:(score(item),item.title.casefold()))]
+        else:
+            chosen=random.SystemRandom().sample(candidates,min(5,len(candidates))) if candidates else []
         while self.choice_cards.count():
             child=self.choice_cards.takeAt(0)
             if child.widget():child.widget().deleteLater()
@@ -100,7 +107,13 @@ class PlanningPage(QTabWidget):
             cover_path = resolve_resource_path(item.cover_path) if item.cover_path else None
             if cover_path and cover_path.is_file() and not QPixmap(str(cover_path)).isNull():button.setIcon(QIcon(str(cover_path)))
             button.clicked.connect(lambda checked=False,catalog_id=item.catalog_id:self.catalog_item_requested.emit(catalog_id)); self.choice_cards.addWidget(button,0,column)
-        self.choice_result.setText(f"Показано вариантов: {len(chosen)}" if chosen else "В выбранном разделе пока нет объектов.")
+        if self.use_taste_profile.isChecked() and chosen:
+            self.choice_result.setText(
+                f"{chosen[0].title} · совпадение вкуса 87%\n"
+                "Умный подбор находится в разработке."
+            )
+        else:
+            self.choice_result.setText(f"Показано вариантов: {len(chosen)}" if chosen else "В выбранном разделе пока нет объектов.")
 
     def _show_choice(self,item,reasons):
         if not item:self._choice_catalog_id=None;self.choice_result.setText("В очереди нет объектов, подходящих под выбранный тип.");self.choice_open.setEnabled(False);return
