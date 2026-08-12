@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -75,6 +76,10 @@ CREATE UNIQUE INDEX uq_current_final_rating ON user_ratings(source_type,item_id)
 CREATE INDEX ix_rating_history_item ON user_ratings(source_type,item_id,created_at);
 CREATE TABLE rating_criteria(criterion_rating_id TEXT PRIMARY KEY,rating_id TEXT NOT NULL REFERENCES user_ratings ON DELETE CASCADE,criterion_code TEXT NOT NULL,value_tenths INTEGER NOT NULL CHECK(value_tenths BETWEEN 0 AND 100),UNIQUE(rating_id,criterion_code));
 CREATE TABLE impressions(impression_id TEXT PRIMARY KEY,playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,checkpoint_type TEXT NULL CHECK(checkpoint_type IN ('start','middle','end')),text TEXT NOT NULL,progress_value REAL NULL,progress_unit TEXT NULL,playtime_minutes_at_entry INTEGER NULL CHECK(playtime_minutes_at_entry IS NULL OR playtime_minutes_at_entry>=0),created_at TEXT NOT NULL);
+CREATE TABLE journey_stage_moods(playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,stage_id TEXT NOT NULL,mood_id TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(playthrough_id,stage_id));
+CREATE TABLE journey_stage_states(playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,stage_id TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('not_started','current','in_progress','completed','skipped')),updated_at TEXT NOT NULL,PRIMARY KEY(playthrough_id,stage_id));
+CREATE TABLE journey_stage_ratings(playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,stage_id TEXT NOT NULL,value_tenths INTEGER NOT NULL CHECK(value_tenths BETWEEN 10 AND 100),updated_at TEXT NOT NULL,PRIMARY KEY(playthrough_id,stage_id));
+CREATE TABLE journey_stage_flags(playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,stage_id TEXT NOT NULL,favorite INTEGER NOT NULL DEFAULT 0 CHECK(favorite IN(0,1)),difficult INTEGER NOT NULL DEFAULT 0 CHECK(difficult IN(0,1)),updated_at TEXT NOT NULL,PRIMARY KEY(playthrough_id,stage_id));
 CREATE UNIQUE INDEX uq_checkpoint_impression ON impressions(playthrough_id,checkpoint_type) WHERE checkpoint_type IS NOT NULL;
 CREATE TABLE journey_events(event_id TEXT PRIMARY KEY,operation_id TEXT NOT NULL UNIQUE,source_type TEXT NOT NULL CHECK(source_type IN ('official','user')),item_id TEXT NOT NULL,playthrough_id TEXT NULL REFERENCES playthroughs ON DELETE SET NULL,event_type TEXT NOT NULL,payload_version INTEGER NOT NULL DEFAULT 1,payload_json TEXT NOT NULL,occurred_at TEXT NOT NULL);
 CREATE INDEX ix_journey_item_time ON journey_events(source_type,item_id,occurred_at); CREATE INDEX ix_journey_playthrough_time ON journey_events(playthrough_id,occurred_at);
@@ -161,6 +166,73 @@ class SchemaManager:
 
     def create_user(self, path: Path, *, reset_operation_id: str | None = None) -> None:
         self._create(path, USER_SCHEMA, kind="user", operation_id=reset_operation_id)
+
+    def ensure_aw023_user_extensions(self, path: Path) -> None:
+        """Idempotently add optional AW0.23 user-owned Journey state."""
+        connection = self.policy.connect(path)
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS journey_stage_moods(
+                playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,
+                stage_id TEXT NOT NULL,
+                mood_id TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(playthrough_id,stage_id))"""
+            )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS journey_stage_states(
+                playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,
+                stage_id TEXT NOT NULL,
+                state TEXT NOT NULL CHECK(state IN(
+                    'not_started','current','in_progress','completed','skipped')),
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(playthrough_id,stage_id))"""
+            )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS journey_stage_ratings(
+                playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,
+                stage_id TEXT NOT NULL,
+                value_tenths INTEGER NOT NULL CHECK(value_tenths BETWEEN 10 AND 100),
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(playthrough_id,stage_id))"""
+            )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS journey_stage_flags(
+                playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,
+                stage_id TEXT NOT NULL,
+                favorite INTEGER NOT NULL DEFAULT 0 CHECK(favorite IN(0,1)),
+                difficult INTEGER NOT NULL DEFAULT 0 CHECK(difficult IN(0,1)),
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(playthrough_id,stage_id))"""
+            )
+            # Deterministic projection of legacy favorite events. Existing
+            # explicit rows always win; history remains immutable.
+            for row in connection.execute(
+                """SELECT playthrough_id,payload_json,occurred_at FROM journey_events
+                WHERE event_type='stage_favorite_set' AND playthrough_id IS NOT NULL
+                ORDER BY occurred_at,event_id"""
+            ):
+                try:
+                    payload = json.loads(row[1])
+                    stage_id = str(payload.get("stage_id") or "").strip()
+                    favorite = int(bool(payload.get("favorite")))
+                except (TypeError, ValueError):
+                    continue
+                if stage_id:
+                    connection.execute(
+                        """INSERT INTO journey_stage_flags(
+                        playthrough_id,stage_id,favorite,difficult,updated_at)
+                        VALUES(?,?,?,0,?) ON CONFLICT(playthrough_id,stage_id)
+                        DO NOTHING""",
+                        (row[0], stage_id, favorite, row[2]),
+                    )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def validate(self, path: Path, *, expected_operation_id: str | None = None) -> None:
         connection = self.policy.connect(path, read_only=True)

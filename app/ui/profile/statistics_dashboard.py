@@ -9,6 +9,7 @@ from app.core.icon_registry import IconRegistry
 from app.ui.widgets.platform_icons import platform_icon
 from app.core.platforms import platform_sort_key
 from app.ui.profile.statistics_widgets import RankedBarList
+from app.styles.theme import SURFACE_PANEL
 
 
 ACCENT = "#8B2CF5"
@@ -30,7 +31,7 @@ class DonutChart(QWidget):
 
 class StatCard(QFrame):
     def __init__(self,title,color,icon_id):
-        super().__init__(); self.setObjectName("statCard"); self.setMinimumHeight(104); self.setStyleSheet("QFrame#statCard{background:#161629;border:1px solid #303149;border-radius:8px;}")
+        super().__init__(); self.setObjectName("statCard"); self.setMinimumHeight(104); self.setStyleSheet(f"QFrame#statCard{{background:{SURFACE_PANEL};border:1px solid #293743;border-radius:8px;}}")
         layout=QVBoxLayout(self); top=QHBoxLayout(); icon=QLabel(); icon.setFixedSize(30,30); icon.setPixmap(IconRegistry.pixmap(icon_id,26,variant="dark")); top.addWidget(icon)
         self.value=QLabel("0"); self.value.setStyleSheet(f"font-size:27pt;font-weight:750;color:{color};border:0;background:transparent;"); top.addWidget(self.value); top.addStretch(); layout.addLayout(top)
         self.label=QLabel(title); self.label.setStyleSheet("font-size:10.5pt;color:#D5D6E0;border:0;background:transparent;"); layout.addWidget(self.label)
@@ -38,8 +39,11 @@ class StatCard(QFrame):
 
 class StatisticsDashboard(QScrollArea):
     def __init__(self,parent=None):
-        super().__init__(parent); self.setWidgetResizable(True); self.setFrameShape(QFrame.Shape.NoFrame)
-        content=QWidget(); content.setMinimumWidth(1100); content.setMaximumWidth(1800); content.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred); self.root=QVBoxLayout(content); self.root.setContentsMargins(8,12,8,24); self.root.setSpacing(16)
+        super().__init__(parent); self.setObjectName("statisticsDashboard"); self.setWidgetResizable(True); self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setStyleSheet(f"QScrollArea#statisticsDashboard{{background:{SURFACE_PANEL};border:0;}}")
+        self.viewport().setStyleSheet(f"background:{SURFACE_PANEL};border:0;")
+        content=QWidget(); content.setObjectName("statisticsContent"); content.setStyleSheet(f"QWidget#statisticsContent{{background:{SURFACE_PANEL};}}")
+        content.setMinimumWidth(1100); content.setMaximumWidth(1800); content.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred); self.root=QVBoxLayout(content); self.root.setContentsMargins(8,12,8,24); self.root.setSpacing(16)
         self._all_items=[]
         heading=QHBoxLayout(); box=QVBoxLayout(); title=QLabel("Статистика"); title.setStyleSheet("font-size:23pt;font-weight:700;"); box.addWidget(title); sub=QLabel("Ваши достижения и аналитика по официальным разделам каталога"); sub.setObjectName("muted"); box.addWidget(sub); heading.addLayout(box); heading.addStretch()
         self.media_filter=QComboBox(); self.media_filter.addItems(("Все разделы", "Игры", "Фильмы", "Сериалы", "Программы")); self.media_filter.setMinimumWidth(210); self.media_filter.currentTextChanged.connect(self._refresh_selected); heading.addWidget(self.media_filter); self.root.addLayout(heading)
@@ -72,7 +76,7 @@ class StatisticsDashboard(QScrollArea):
 
     @staticmethod
     def _panel(title):
-        panel=QFrame(); panel.setObjectName("statisticsPanel"); panel.setStyleSheet("QFrame#statisticsPanel{background:#111222;border:1px solid #292A43;border-radius:8px;}"); layout=QVBoxLayout(panel); layout.setContentsMargins(18,16,18,16); heading=QLabel(title); heading.setStyleSheet("font-size:10.5pt;font-weight:650;color:#E9E9F0;border:0;background:transparent;"); layout.addWidget(heading); return panel
+        panel=QFrame(); panel.setObjectName("statisticsPanel"); panel.setStyleSheet(f"QFrame#statisticsPanel{{background:{SURFACE_PANEL};border:1px solid #293743;border-radius:8px;}}"); layout=QVBoxLayout(panel); layout.setContentsMargins(18,16,18,16); heading=QLabel(title); heading.setStyleSheet("font-size:10.5pt;font-weight:650;color:#E9E9F0;border:0;background:transparent;"); layout.addWidget(heading); return panel
     def _text_panel(self,title): panel=self._panel(title); text=QLabel(); text.setWordWrap(True); text.setAlignment(Qt.AlignmentFlag.AlignTop); text.setMinimumHeight(190); text.setStyleSheet("font-size:10.5pt;color:#BFC1D0;border:0;padding:12px;"); panel.layout().addWidget(text); panel.value_label=text; return panel
     def _ranked_panel(self,title):
         panel=self._panel(title); values=RankedBarList(); panel.layout().addWidget(values); panel.values=values; return panel
@@ -227,12 +231,19 @@ class StatisticsDashboard(QScrollArea):
         return "<br>".join(f'<img src="{icon(name)}" width="17" height="17">&nbsp; {name} — {value}' for name,value in ordered)
 
     @staticmethod
-    def _platform_icon_spec(name: str) -> tuple[str, str | None]:
+    def _platform_icon_spec(name: str) -> tuple[str, str | None] | tuple[str, str | None, str]:
         streaming_services = {
-            "NETFLIX", "КИНОПОИСК", "ИВИ", "OKKO", "AMEDIATEKA",
-            "PREMIER", "START", "WINK", "APPLE TV+", "HBO MAX",
+            "NETFLIX": ("service.netflix", "service", "original"),
+            "КИНОПОИСК": ("service.kinopoisk", "service", "dark"),
+            "AMEDIATEKA": ("service.amediateka", "service", "original"),
+            "PREMIER": ("service.premier", "service", "original"),
         }
-        if name.strip().upper() in streaming_services:
+        service = streaming_services.get(name.strip().upper())
+        if service:
+            return service
+        if name.strip().upper() in {
+            "ИВИ", "OKKO", "START", "WINK", "APPLE TV+", "HBO MAX",
+        }:
             return "movie", "media_types"
         icon_id, _tooltip = platform_icon(name)
         return icon_id, "platforms"

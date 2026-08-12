@@ -1,0 +1,383 @@
+{
+  "pack": "Velora Asset Pack",
+  "version": "1.0",
+  "assets": [
+    {
+      "id": "genre.rpg",
+      "file": "genres/action.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/001-icon-934376.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "action"
+    },
+    {
+      "id": "metadata.external_link",
+      "file": "metadata/external_link.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/002-icon-1286969.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "external_link"
+    },
+    {
+      "id": "metadata.system",
+      "file": "metadata/system.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/003-icon-4651324.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "system"
+    },
+    {
+      "id": "metadata.engine",
+      "file": "metadata/engine.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/004-engineering.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "engine"
+    },
+    {
+      "id": "metadata.dlc",
+      "file": "metadata/dlc.svg",
+      "type": "svg",
+      "source_original": "originals/icons8-dlc-64.png",
+      "source_previous": "originals/mycollection/005-dlc.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "dlc"
+    },
+    {
+      "id": "metadata.release",
+      "file": "metadata/release.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/006-calendar.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "release"
+    },
+    {
+      "id": "metadata.game_support",
+      "file": "metadata/game_support.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/007-game-support.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "game_support"
+    },
+    {
+      "id": "metadata.players",
+      "file": "metadata/players.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/008-people.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "players"
+    },
+    {
+      "id": "genre.action",
+      "file": "genres/fighting.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/009-fist.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "fighting"
+    },
+    {
+      "id": "genre.racing",
+      "file": "genres/racing.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/010-finish-flag.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "racing"
+    },
+    {
+      "id": "genre.strategy",
+      "file": "genres/strategy.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/011-strategy.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "strategy"
+    },
+    {
+      "id": "genre.adventure",
+      "file": "genres/adventure.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/012-adventure-game.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "adventure"
+    },
+    {
+      "id": "metadata.graphics",
+      "file": "metadata/graphics.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/013-web-design.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "graphics"
+    },
+    {
+      "id": "genre.comedy",
+      "file": "genres/comedy.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/014-theater-masks.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "comedy"
+    },
+    {
+      "id": "genre.drama",
+      "file": "genres/drama.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/015-shakespeare.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "drama"
+    },
+    {
+      "id": "genre.fantasy",
+      "file": "genres/fantasy.svg",
+      "type": "svg",
+      "source_original": "originals/mycollection/016-spell-book.png",
+      "vectorized": true,
+      "tintable": true,
+      "animated": false,
+      "usage": "fantasy"
+    },
+    {
+      "id": "service.boosty.dark",
+      "file": "brand/velora_mark_dark.svg",
+      "type": "svg",
+      "vectorized": false,
+      "tintable": false,
+      "animated": false
+    },
+    {
+      "id": "service.boosty.light",
+      "file": "brand/velora_mark_light.svg",
+      "type": "svg",
+      "vectorized": false,
+      "tintable": false,
+      "animated": false
+    },
+    {
+      "id": "service.boosty.color",
+      "file": "brand/velora_mark_color.svg",
+      "type": "svg",
+      "vectorized": false,
+      "tintable": false,
+      "animated": false
+    },
+    {
+      "id": "service.netflix",
+      "file": "services/netflix_smooth_60fps.gif",
+      "source_original": "originals/netflix_forward_speed.gif",
+      "type": "gif",
+      "tintable": false,
+      "animated": true,
+      "trigger": "hover"
+    },
+    {
+      "id": "service.netflix.idle",
+      "file": "services/netflix_idle.svg",
+      "type": "svg",
+      "tintable": false,
+      "animated": false
+    },
+    {
+      "id": "service.amediateka",
+      "file": "services/amediateka.png",
+      "type": "png",
+      "tintable": false,
+      "animated": false
+    },
+    {
+      "id": "service.kinopoisk",
+      "file": "services/kinopoisk.svg",
+      "dark_theme_path": "services/kinopoisk_dark.svg",
+      "type": "svg",
+      "tintable": false,
+      "animated": false
+    },
+    {
+      "id": "service.premier",
+      "file": "services/premier.svg",
+      "type": "svg",
+      "tintable": false,
+      "animated": false
+    },
+    {
+      "id": "animated.budget",
+      "file": "animated/budget.gif",
+      "type": "gif",
+      "tintable": false,
+      "animated": true,
+      "trigger": "hover"
+    },
+    {
+      "id": "animated.search",
+      "file": "animated/search.gif",
+      "type": "gif",
+      "source_original": "originals/icons8-search-100.gif",
+      "tintable": false,
+      "animated": true,
+      "trigger": "hover"
+    },
+    {
+      "id": "animated.settings",
+      "file": "animated/settings.gif",
+      "type": "gif",
+      "source_original": "originals/icons8-settings-100.gif",
+      "tintable": false,
+      "animated": true,
+      "trigger": "hover"
+    },
+    {
+      "id": "animated.navigation_arrow_right",
+      "file": "animated/navigation_arrow_right.gif",
+      "type": "gif",
+      "source_original": "originals/icons8-arrow-100.gif",
+      "tintable": false,
+      "animated": true,
+      "trigger": "hover"
+    },
+    {
+      "id": "animated.navigation_arrow_left",
+      "file": "animated/navigation_arrow_left.gif",
+      "type": "gif",
+      "source_original": "originals/icons8-arrow-100.gif",
+      "tintable": false,
+      "animated": true,
+      "trigger": "hover",
+      "derived": "horizontal mirror"
+    },
+    {
+      "id": "animated.user_avatar",
+      "file": "animated/user_avatar.gif",
+      "type": "gif",
+      "source_original": "originals/icons8-user-avatar-100.gif",
+      "tintable": false,
+      "animated": true,
+      "trigger": "always"
+    },
+    {
+      "id": "animated.language_flag",
+      "file": "animated/language_flag.png",
+      "type": "apng",
+      "source_original": "originals/icons8-flag-2-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "always",
+      "derived": "dark-theme color adaptation"
+    },
+    {
+      "id": "animated.genre_comedy",
+      "file": "animated/genre_comedy.png",
+      "type": "apng",
+      "source_original": "originals/icons8-laugh-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "hover",
+      "derived": "dark-theme color adaptation"
+    },
+    {
+      "id": "animated.developer",
+      "file": "animated/developer.png",
+      "type": "apng",
+      "source_original": "originals/icons8-developer-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "always",
+      "derived": "dark-theme color adaptation"
+    },
+    {
+      "id": "animated.plus",
+      "file": "animated/plus.png",
+      "type": "apng",
+      "source_original": "originals/icons8-plus-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "hover",
+      "derived": "dark-theme color adaptation"
+    },
+    {
+      "id": "animated.cinema",
+      "file": "animated/cinema.png",
+      "type": "apng",
+      "source_original": "originals/icons8-cinema-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "always",
+      "derived": "dark-theme color adaptation"
+    },
+    {
+      "id": "animated.info",
+      "file": "animated/info.png",
+      "type": "apng",
+      "source_original": "originals/icons8-info-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "always",
+      "derived": "dark-theme color adaptation"
+    },
+    {
+      "id": "animated.genre_animation",
+      "file": "animated/genre_animation.png",
+      "type": "apng",
+      "source_original": "originals/icons8-illustrator-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "hover",
+      "derived": "dark-theme color adaptation"
+    },
+    {
+      "id": "animated.exit",
+      "file": "animated/exit.png",
+      "type": "apng",
+      "source_original": "originals/icons8-exit-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "always",
+      "derived": "dark-theme color adaptation"
+    },
+    {
+      "id": "animated.platform",
+      "file": "animated/platform.png",
+      "type": "apng",
+      "source_original": "originals/icons8-platform-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "always",
+      "derived": "dark-theme color adaptation"
+    },
+    {
+      "id": "animated.ticket",
+      "file": "animated/ticket.png",
+      "type": "apng",
+      "source_original": "originals/icons8-ticket-100.apng.png",
+      "tintable": false,
+      "animated": true,
+      "trigger": "always",
+      "derived": "dark-theme color adaptation"
+    }
+  ]
+}

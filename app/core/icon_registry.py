@@ -20,6 +20,7 @@ class IconRegistry:
 
     _entries: dict[str, list[dict]] | None = None
     _standard_ids = {"back", "forward", "add", "delete", "refresh", "save"}
+    _warned: set[str] = set()
 
     @classmethod
     def _load(cls) -> dict[str, list[dict]]:
@@ -29,12 +30,20 @@ class IconRegistry:
         for manifest, prefix in (
             (ICON_ROOT / "manifest.json", ""),
             (ICON_ROOT / "manifest_v2.json", "v2"),
+            (ICON_ROOT / "asset_pack_1" / "manifest.json", "asset_pack_1"),
+            (ICON_ROOT / "company" / "company_logos_manifest.json", "company"),
         ):
             try:
                 data = json.loads(manifest.read_text(encoding="utf-8"))
-                for raw_entry in data.get("icons", []):
+                for raw_entry in data.get("icons", data.get("assets", [])):
                     entry = dict(raw_entry)
-                    entry["category"] = entry.get("category") or entry.get("group") or "ui"
+                    entry["path"] = entry.get("path") or entry.get("file", "")
+                    entry["format"] = entry.get("format") or entry.get("type", "")
+                    semantic_id = entry.get("id", "")
+                    entry["category"] = (
+                        entry.get("category") or entry.get("group")
+                        or semantic_id.partition(".")[0] or "ui"
+                    )
                     entry["root_prefix"] = prefix
                     cls._entries.setdefault(entry["id"], []).append(entry)
             except FileNotFoundError:
@@ -59,13 +68,13 @@ class IconRegistry:
             legacy = cls._legacy_path(icon_id, category)
             if legacy or icon_id in cls._standard_ids:
                 return legacy
-            LOGGER.warning("Unknown icon id: %s (%s/%s)", icon_id, category, variant)
+            cls._warn_once(f"unknown:{icon_id}:{category}:{variant}", "Unknown icon id: %s (%s/%s)", icon_id, category, variant)
             return None
         relative = cls._normalized_relative(entry, variant)
         path = ICON_ROOT / relative
         if path.is_file():
             return path
-        LOGGER.warning("Missing icon file: %s", path)
+        cls._warn_once(f"missing:{path}", "Missing icon file: %s", path)
         return cls._legacy_path(icon_id, category)
 
     @staticmethod
@@ -78,12 +87,20 @@ class IconRegistry:
             return next((item for item in entries if item.get("format") == "svg"), next((item for item in entries if item.get("format") == "png"), None))
         if variant == "color":
             return next((item for item in entries if item.get("format") == "png"), None)
+        if variant == "original":
+            return entries[0]
         return next((item for item in entries if item.get("format") == "svg"), entries[0])
 
     @staticmethod
     def _normalized_relative(entry: dict, variant: str) -> Path:
         prefix = Path(entry.get("root_prefix", ""))
         source = entry.get("path", "")
+        if entry.get("root_prefix") == "asset_pack_1":
+            if variant == "dark" and entry.get("dark_theme_path"):
+                source = entry["dark_theme_path"]
+            return prefix / source
+        if entry.get("root_prefix") == "company":
+            return prefix / source
         if entry.get("root_prefix"):
             return prefix / Path(source).relative_to("svg")
         if entry.get("format") == "png":
@@ -94,6 +111,13 @@ class IconRegistry:
                 style = "color"
             return prefix / Path(entry["category"]) / style / Path(source).name
         return prefix / Path(entry["category"]) / Path(source).name
+
+    @classmethod
+    def _warn_once(cls, key: str, message: str, *args) -> None:
+        if key in cls._warned:
+            return
+        cls._warned.add(key)
+        LOGGER.warning(message, *args)
 
     @classmethod
     def _legacy_path(cls, icon_id: str, category: str | None) -> Path | None:
@@ -108,7 +132,7 @@ class IconRegistry:
     def icon(cls, icon_id: str, variant: str = "auto", category: str | None = None) -> QIcon:
         path = cls.path(icon_id, variant=variant, category=category)
         if path:
-            if variant == "color":
+            if variant in {"color", "original"}:
                 return QIcon(str(path))
             return QIcon(cls._monochrome_pixmap(path, QSize(64, 64)))
         fallbacks = {
@@ -136,7 +160,7 @@ class IconRegistry:
         path = cls.path(icon_id, variant=variant, category=category)
         if not path:
             return QPixmap()
-        if variant == "color":
+        if variant in {"color", "original"}:
             source = QPixmap(str(path))
             return source.scaled(target, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
         return cls._monochrome_pixmap(path, target)

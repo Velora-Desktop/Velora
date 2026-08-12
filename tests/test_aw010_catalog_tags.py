@@ -17,7 +17,7 @@ class Aw010CatalogTagTests(unittest.TestCase):
             ).fetchall()
         finally:
             connection.close()
-        self.assertEqual(100, len(rows))
+        self.assertEqual(101, len(rows))
         for catalog_id, title, raw_tags in rows:
             tags = json.loads(raw_tags)
             self.assertGreaterEqual(len(tags), 3, f"{catalog_id}: {title}")

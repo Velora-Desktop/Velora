@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from app.core.constants import ACCENT
+from app.ui.velora_ui.components import AnimatedSearchLineEdit
 
 
 def _normalize_tag(value: str) -> str:
@@ -20,7 +21,7 @@ class SearchPage(QWidget):
         root = QVBoxLayout(self); root.setContentsMargins(34, 24, 34, 28); root.setSpacing(14)
         title = QLabel("ГЛОБАЛЬНЫЙ ПОИСК"); title.setStyleSheet("font-family:Georgia;font-size:25pt;"); root.addWidget(title)
         subtitle = QLabel("Ищите игры, фильмы, сериалы и программы во всём официальном каталоге Velora."); subtitle.setObjectName("muted"); root.addWidget(subtitle)
-        self.search = QLineEdit(); self.search.setPlaceholderText("Введите название, категорию, автора или платформу…"); self.search.setMinimumHeight(52)
+        self.search = AnimatedSearchLineEdit(icon_size=22); self.search.setPlaceholderText("Введите название, категорию, автора или платформу…"); self.search.setMinimumHeight(52)
         self.search.setStyleSheet(f"QLineEdit{{font-size:13pt;padding:10px 16px;border:1px solid {ACCENT};border-radius:8px;background:#081119;}}")
         self.search.textChanged.connect(self._rebuild); root.addWidget(self.search)
         self.count = QLabel(); self.count.setObjectName("muted"); root.addWidget(self.count)

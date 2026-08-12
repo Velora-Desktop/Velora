@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         configure_logging()
-        self.setWindowTitle(f"Velora {APP_VERSION} · микропатч AW0.221")
+        self.setWindowTitle(f"Velora {APP_VERSION}")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet(application_stylesheet())
         self.settings = QSettings("Velora", "Velora")
@@ -82,6 +82,9 @@ class MainWindow(QMainWindow):
         self.game_detail.hide()
         self.profile_page = ProfilePage(self.user_repository)
         self.profile_page.catalog_item_requested.connect(self.open_catalog_item)
+        self.profile_page.journey_item_requested.connect(
+            self.open_catalog_item_journey
+        )
         self.profile_page.hide()
         self.search_page = SearchPage()
         self.search_page.set_items(self.catalog.items)
@@ -272,6 +275,16 @@ class MainWindow(QMainWindow):
         if game is None:
             return
         self._on_detail_requested(game)
+
+    def open_catalog_item_journey(self, catalog_id: str) -> None:
+        """Open the canonical game card directly on its existing Journey tab."""
+        self.open_catalog_item(catalog_id)
+        if (
+            self.game_detail.game is not None
+            and self.game_detail.game.catalog_id == catalog_id
+            and self.game_detail.content_tabs.isTabEnabled(1)
+        ):
+            self.game_detail.content_tabs.setCurrentIndex(1)
 
     def _catalog_row(self, catalog_id: str):
         """Resolve an official catalog object by its stable database ID."""
@@ -536,9 +549,9 @@ class MainWindow(QMainWindow):
         self._update_history_buttons()
 
     def _update_history_buttons(self) -> None:
-        self.top_bar.back_button.setEnabled(self.navigation_index > 0)
-        self.top_bar.forward_button.setEnabled(
-            0 <= self.navigation_index < len(self.navigation_history) - 1
+        self.top_bar.set_history_availability(
+            self.navigation_index > 0,
+            0 <= self.navigation_index < len(self.navigation_history) - 1,
         )
 
     def _open_settings(self) -> None:

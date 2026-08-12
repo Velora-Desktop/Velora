@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QPushButton,
     QScrollArea,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -19,6 +20,7 @@ from app.core.paths import resolve_resource_path
 from app.models.game import GameData
 from app.core.icon_registry import IconRegistry
 from app.ui.widgets.platform_icons import PlatformIconRow
+from app.ui.widgets.company_logo_row import CompanyLogoRow
 from app.core.display_text import compact_entities
 from app.ui.widgets.age_rating import AgeRatingValue
 from app.ui.widgets.critic_sources import CriticSourceStrip
@@ -28,6 +30,10 @@ from app.ui.quick_view.rating_dialog import request_rating
 from app.ui.quick_view.playtime_dialog import request_total_playtime
 from app.ui.quick_view.series_progress_dialog import request_series_progress
 from app.ui.quick_view.watch_count_dialog import request_watch_count
+from app.ui.rating_palette import rating_color
+from app.ui.velora_ui.components import HoverAnimatedIcon
+from app.ui.velora_ui.icons import IconProvider
+from app.ui.velora_ui.motion import animate_icon_pulse, apply_favorite_icon
 
 
 class QuickView(QFrame):
@@ -84,13 +90,15 @@ class QuickView(QFrame):
         )
         self.title_button.clicked.connect(self._request_detail)
         title_row.addWidget(self.title_button)
-        self.favorite_button = QPushButton("☆")
+        self.favorite_button = QPushButton()
         self.favorite_button.setToolTip("Добавить в избранное")
         self.favorite_button.setFixedSize(34, 34)
         self.favorite_button.setStyleSheet(
-            "QPushButton { font-family:'Segoe UI Symbol'; font-size:16pt; padding:0; border:0; background:transparent; }"
-            f"QPushButton:hover {{ color:{ACCENT}; }}"
+            "QPushButton { padding:0; border:0; background:transparent; }"
         )
+        self.favorite_button.setIconSize(QSize(20, 20))
+        self._favorite_animation = None
+        apply_favorite_icon(self.favorite_button, False, size=20)
         self.favorite_button.clicked.connect(self._toggle_favorite)
         title_row.addWidget(self.favorite_button)
         title_row.addStretch()
@@ -101,9 +109,9 @@ class QuickView(QFrame):
         meta.setVerticalSpacing(5)
         self.genre = self._meta_value()
         self.year = self._meta_value()
-        self.developer = self._meta_value()
+        self.developer = CompanyLogoRow(max_visible=1)
         self.platform = PlatformIconRow(colored=False)
-        self.publisher = self._meta_value()
+        self.publisher = CompanyLogoRow(max_visible=1)
         self.mode = self._meta_value()
         self.age = AgeRatingValue()
         empty_value = self._meta_value()
@@ -264,8 +272,7 @@ class QuickView(QFrame):
         label.setStyleSheet("font-weight:500; color:#E7E9EC;")
         return label
 
-    @staticmethod
-    def _meta_pair(title: str, value: QLabel):
+    def _meta_pair(self, title: str, value: QLabel):
         layout = QVBoxLayout()
         layout.setSpacing(1)
         caption = QLabel(title)
@@ -274,13 +281,52 @@ class QuickView(QFrame):
         icon_map = {
             "Жанр:": ("globe", "ui"), "Год выхода:": ("clock", "ui"),
             "Разработчик:": ("code_display", "ui"), "Платформа:": ("gaming_pc", "platforms"),
-            "Издатель:": ("announcement", "marketing"), "Кол-во игроков:": ("play", "ui"),
+            "Издатель:": ("metadata.game_support", "metadata"), "Кол-во игроков:": ("play", "ui"),
         }
         if title in icon_map:
-            icon_id, category = icon_map[title]
-            icon = QLabel(); icon.setFixedSize(16, 16)
-            variant = "svg" if icon_id == "code_display" else "dark"
-            icon.setPixmap(IconRegistry.pixmap(icon_id, 14, variant=variant, category=category))
+            if title == "Разработчик:":
+                icon = HoverAnimatedIcon(
+                    "animated.developer", 16, frame_interval_ms=41,
+                    autoplay=True, mouse_transparent=True,
+                )
+                icon.setObjectName("quickViewAnimatedDeveloperIcon")
+            elif title == "Издатель:":
+                icon = QStackedWidget()
+                icon.setFixedSize(16, 16)
+                publisher_icon = QLabel()
+                publisher_icon.setFixedSize(16, 16)
+                publisher_icon.setPixmap(IconProvider.pixmap(
+                    "metadata.game_support", 14, "#C8D0D8"
+                ))
+                cinema_icon = HoverAnimatedIcon(
+                    "animated.cinema", 16, frame_interval_ms=41,
+                    autoplay=True, mouse_transparent=True,
+                )
+                cinema_icon.setObjectName("quickViewAnimatedStudioIcon")
+                icon.addWidget(publisher_icon)
+                icon.addWidget(cinema_icon)
+                self.studio_icon_stack = icon
+            elif title == "Платформа:":
+                icon = QStackedWidget()
+                icon.setFixedSize(16, 16)
+                platform_icon = HoverAnimatedIcon(
+                    "animated.platform", 16, frame_interval_ms=41,
+                    autoplay=True, mouse_transparent=True,
+                )
+                platform_icon.setObjectName("quickViewAnimatedPlatformIcon")
+                ticket_icon = HoverAnimatedIcon(
+                    "animated.ticket", 16, frame_interval_ms=41,
+                    autoplay=True, mouse_transparent=True,
+                )
+                ticket_icon.setObjectName("quickViewAnimatedWatchIcon")
+                icon.addWidget(platform_icon)
+                icon.addWidget(ticket_icon)
+                self.platform_icon_stack = icon
+            else:
+                icon_id, category = icon_map[title]
+                icon = QLabel(); icon.setFixedSize(16, 16)
+                variant = "svg" if icon_id == "code_display" else "dark"
+                icon.setPixmap(IconRegistry.pixmap(icon_id, 14, variant=variant, category=category))
             caption_row.addWidget(icon)
         caption_row.addWidget(caption); caption_row.addStretch(1)
         layout.addLayout(caption_row)
@@ -320,16 +366,22 @@ class QuickView(QFrame):
             "Программы": ("Категория:","Год выхода:","Разработчик:","Платформа:","Издатель:","Тип:","Возраст:",""),
         }.get(game.media_type, ("Категория:","Год:","Создатель:","Платформа:","Издатель:","Формат:","Возраст:",""))
         for caption, text in zip(self.meta_captions, labels): caption.setText(text)
+        self.studio_icon_stack.setCurrentIndex(
+            1 if game.media_type in ("Фильмы", "Сериалы") else 0
+        )
+        self.platform_icon_stack.setCurrentIndex(
+            1 if game.media_type in ("Фильмы", "Сериалы") else 0
+        )
         self.title_button.setText(game.title)
         self._set_cover(game.cover_path)
         self.genre.setText(" · ".join(part for part in (game.category, game.subgroup) if part))
         self.year.setText(game.year)
         developer_text, developer_tooltip = compact_entities(game.developer)
-        self.developer.setText(developer_text)
+        self.developer.setText(game.developer)
         self.developer.setToolTip(developer_tooltip)
         self.platform.setText(game.platform)
         publisher_text, publisher_tooltip = compact_entities(game.publisher)
-        self.publisher.setText(publisher_text)
+        self.publisher.setText(game.publisher)
         self.publisher.setToolTip(publisher_tooltip)
         self.mode.setText(game.mode)
         self.age.setText(game.age_rating)
@@ -348,7 +400,7 @@ class QuickView(QFrame):
         )
         self.status.set_status(game.status)
         self._configure_media_progress(game)
-        self.favorite_button.setText("★" if game.favorite else "☆")
+        apply_favorite_icon(self.favorite_button, game.favorite, size=20)
         self._update_status_style(game.status)
         self._refresh_history()
         self.show()
@@ -541,12 +593,15 @@ class QuickView(QFrame):
             return
         selected = not self.current_game.favorite
         self.current_game.favorite = selected
-        self.favorite_button.setText("★" if selected else "☆")
         self.favorite_button.setToolTip("Убрать из избранного" if selected else "Добавить в избранное")
-        self.favorite_button.setStyleSheet(
-            f"QPushButton {{ font-family:'Segoe UI Symbol'; font-size:16pt; padding:0; border:0; "
-            f"background:transparent; color:{ACCENT if selected else '#F1F2F4'}; }}"
-            f"QPushButton:hover {{ color:{ACCENT}; }}"
+        if self._favorite_animation is not None:
+            self._favorite_animation.stop()
+        self._favorite_animation = animate_icon_pulse(
+            self.favorite_button,
+            adding=selected,
+            state_change=lambda: apply_favorite_icon(
+                self.favorite_button, selected, size=20,
+            ),
         )
         self.favorite_changed.emit(self.current_game, selected)
 
@@ -575,15 +630,7 @@ class QuickView(QFrame):
 
     @staticmethod
     def _score_color(value: str) -> str:
-        try:
-            score = float(value)
-        except ValueError:
-            return "#8A929A"
-        if score >= 8:
-            return SUCCESS
-        if score >= 5:
-            return WARNING
-        return DANGER
+        return rating_color(value)
 
     def _close(self) -> None:
         self.hide()

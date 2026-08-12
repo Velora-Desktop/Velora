@@ -21,6 +21,7 @@ class JourneyTemplate:
     creator_source_rules: tuple[str, ...]
     presentation_options: tuple[str, ...] = ()
     stage_titles: tuple[str, ...] = ()
+    stage_ids: tuple[str, ...] = ()
     empty_state: str = "Начните прохождение — Journey сохранит его историю."
 
 
@@ -73,14 +74,44 @@ class JourneyTemplateRegistry:
 
     def resolve(self, *, title: str = "", category: str = "", subgroup: str = "") -> JourneyTemplate:
         haystack = f"{title} {category} {subgroup}".casefold()
-        if "doom" in haystack:
-            return self.doom_eternal()
         rules = (
             ("open world", "open_world"), ("rpg", "rpg"), ("гон", "racing"),
             ("стратег", "strategy"), ("симуля", "simulator"), ("выжива", "survival"),
             ("головол", "puzzle"), ("онлайн", "live_service"),
         )
         return self.get(next((value for key, value in rules if key in haystack), "story_campaign"))
+
+    def from_payload(self, payload: dict | None) -> JourneyTemplate | None:
+        """Resolve the official Studio payload; personal history never enters it."""
+        if not isinstance(payload, dict) or payload.get("payload_version") != 1:
+            return None
+        template_id = str(payload.get("template_id") or "").strip()
+        base = self._items.get(template_id)
+        if base is None:
+            return None
+        visible_stages = tuple(
+            item for item in payload.get("stages", ())
+            if isinstance(item, dict)
+            and bool(item.get("visible", True))
+            and str(item.get("title") or "").strip()
+        )
+        stages = tuple(str(item.get("title") or "").strip() for item in visible_stages)
+        stage_ids = tuple(
+            str(item.get("stable_id") or item.get("stage_id") or f"stage-{index:02d}").strip()
+            for index, item in enumerate(visible_stages, 1)
+        )
+        return replace(
+            base,
+            display_name=str(payload.get("name") or base.display_name),
+            stage_titles=stages or base.stage_titles,
+            stage_ids=stage_ids or base.stage_ids,
+            optional_blocks=tuple(
+                str(value) for value in payload.get("optional_blocks", ())
+            ) or base.optional_blocks,
+            presentation_options=tuple(
+                str(value) for value in payload.get("quick_editor_fields", ())
+            ) or base.presentation_options,
+        )
 
     def doom_eternal(self) -> JourneyTemplate:
         return replace(

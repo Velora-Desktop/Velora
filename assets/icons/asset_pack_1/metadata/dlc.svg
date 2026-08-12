@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DLC">
+  <g fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 11h38a4 4 0 0 1 4 4v23a4 4 0 0 1-4 4h-5"/>
+    <path d="M18 42h-5a4 4 0 0 1-4-4V15a4 4 0 0 1 4-4"/>
+    <path d="M32 15v15"/>
+    <path d="m25 24 7 7 7-7"/>
+    <path d="M20 37c-5 0-8 4-9 10l-1 5c-.5 3 3 5 5 3l7-7h20l7 7c2 2 5.5 0 5-3l-1-5c-1-6-4-10-9-10"/>
+    <path d="M21 42v8M17 46h8"/>
+    <circle cx="43" cy="44" r="1.5"/>
+    <circle cx="48" cy="49" r="1.5"/>
+    <path d="M29 48c1.6 2 4.4 2 6 0"/>
+  </g>
+</svg>

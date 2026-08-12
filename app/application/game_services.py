@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
@@ -68,6 +69,13 @@ class _Service:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class PlaythroughDeleteResult:
+    deleted_playthrough_id: str
+    deleted_sequence_no: int
+    selected_playthrough_id: str | None
+
+
 class LibraryService(_Service):
     def __init__(
         self, catalog_db: Path, user_db: Path, *,
@@ -131,6 +139,7 @@ class PlaythroughService(_Service):
     def create(
         self, ref: CatalogItemRef, operation_id: OperationId | str, *,
         initial_status: str = "planned", started_at: str | None = None,
+        retire_active: bool = False,
     ) -> Playthrough:
         if initial_status not in {"planned", "playing"}:
             raise ValidationError("Initial playthrough status must be planned or playing")
@@ -148,7 +157,7 @@ class PlaythroughService(_Service):
                 raise NotFoundError("Game is not in the library")
             current = uow.playthroughs.get_current(ref.source_type, ref.item_id)
             if current is not None:
-                if current.status in {"completed", "abandoned"}:
+                if retire_active or current.status in {"completed", "abandoned"}:
                     uow.playthroughs.retire_current(ref.source_type, ref.item_id)
                 else:
                     raise ConflictError("A current playthrough already exists")
@@ -159,7 +168,12 @@ class PlaythroughService(_Service):
                 None, 0, None, None, True, None,
             )
             uow.playthroughs.add(value)
-            projected = _project(library, value, at)
+            # Starting another independent run must not erase the aggregate
+            # time already projected by earlier playthroughs.
+            projected = _project(
+                library, value, at,
+                total_playtime=library.projected_total_playtime_minutes,
+            )
             uow.library.upsert(projected)
             journey, event_id = self._journey(
                 operation_id=operation, ref=ref, event_type="playthrough_started",
@@ -175,6 +189,83 @@ class PlaythroughService(_Service):
             )
         self.dispatcher.publish(notification)
         return value
+
+    def create_next(
+        self, ref: CatalogItemRef, operation_id: OperationId | str, *,
+        started_at: str | None = None,
+    ) -> Playthrough:
+        """Create and select a new run while preserving every previous run."""
+        return self.create(
+            ref,
+            operation_id,
+            initial_status="playing",
+            started_at=started_at,
+            retire_active=True,
+        )
+
+    def delete(
+        self, playthrough_id: str, operation_id: OperationId | str, *,
+        occurred_at: str | None = None,
+    ) -> PlaythroughDeleteResult:
+        """Delete one run's personal data while retaining its sequence tombstone."""
+        _op(operation_id)  # Validate the public contract even without a Journey event.
+        at = _time(occurred_at)
+        with UserUnitOfWork(self.user_db) as uow:
+            target = uow.playthroughs.get(playthrough_id)
+            if target is None:
+                raise NotFoundError("Playthrough was not found")
+            library = uow.library.get(target.source_type, target.item_id)
+            if library is None:
+                raise NotFoundError("Library projection was not found")
+            runs = uow.playthroughs.list_for_item(target.source_type, target.item_id)
+            index = next(
+                (i for i, run in enumerate(runs)
+                 if run.playthrough_id == playthrough_id),
+                -1,
+            )
+            if index < 0:
+                raise NotFoundError("Playthrough was not found")
+            replacement = (
+                runs[index - 1] if index > 0
+                else runs[index + 1] if index + 1 < len(runs)
+                else None
+            )
+
+            # Every mutation belongs to this one user.db transaction. Schema 1
+            # keeps the playthrough tombstone so sequence numbers stay historic.
+            uow.playthroughs.delete_personal_data(playthrough_id)
+            uow.playthroughs.soft_delete(playthrough_id, at)
+            uow.playthroughs.retire_current(target.source_type, target.item_id)
+            if replacement is not None:
+                uow.playthroughs.set_current(replacement.playthrough_id)
+            uow.ratings.restore_latest_final(target.source_type, target.item_id, at)
+
+            remaining = [run for run in runs if run.playthrough_id != playthrough_id]
+            total = sum(run.playtime_minutes for run in remaining)
+            projected = LibraryState(
+                library.source_type,
+                library.item_id,
+                library.membership_state,
+                library.favorite,
+                replacement.status if replacement else None,
+                replacement.progress_value if replacement else None,
+                replacement.progress_unit if replacement else None,
+                total,
+                replacement.started_at if replacement else None,
+                (
+                    replacement.ended_at
+                    if replacement and replacement.status == "completed"
+                    else None
+                ),
+                library.archived_at,
+                at,
+            )
+            uow.library.upsert(projected)
+        return PlaythroughDeleteResult(
+            target.playthrough_id,
+            target.sequence_no,
+            replacement.playthrough_id if replacement else None,
+        )
 
     def start(
         self, ref: CatalogItemRef, operation_id: OperationId | str,
@@ -461,6 +552,279 @@ class RatingService(_Service):
 
 
 class JourneyService(_Service):
+    VISIBLE_TIMELINE_EVENT_TYPES = frozenset({
+        "note", "screenshot", "achievement", "favorite_moment",
+        "difficult_moment", "music", "rating_change", "impression", "other",
+    })
+
+    def add_timeline_event(
+        self, playthrough_id: str, event_type: str, stage_id: str,
+        operation_id: OperationId | str, *, title: str = "", body: str = "",
+        tags: tuple[str, ...] = (), media_path: str | None = None,
+        rating_before: int | None = None, rating_after: int | None = None,
+        mood_id: str | None = None,
+        occurred_at: str | None = None,
+    ) -> str:
+        if event_type not in self.VISIBLE_TIMELINE_EVENT_TYPES:
+            raise ValidationError("Unknown visible Journey event type")
+        if not stage_id.strip():
+            raise ValidationError("Visible Journey event requires stage_id")
+        operation, at = _op(operation_id), _time(occurred_at)
+        with UserUnitOfWork(self.user_db) as uow:
+            prior = uow.journey.get_by_operation(str(operation))
+            if prior is not None:
+                return prior.event_id
+            playthrough = uow.playthroughs.get(playthrough_id)
+            if playthrough is None:
+                raise NotFoundError("Playthrough was not found")
+            event, event_id = self._journey(
+                operation_id=operation,
+                ref=CatalogItemRef(playthrough.source_type, playthrough.item_id),
+                event_type=event_type, occurred_at=at,
+                playthrough_id=playthrough_id,
+                data={
+                    "stage_id": stage_id.strip(), "title": title.strip(),
+                    "body": body.strip(),
+                    "tags": list(dict.fromkeys(tag.strip().lstrip("#") for tag in tags if tag.strip())),
+                    "media_path": media_path,
+                    "rating_before": rating_before,
+                    "rating_after": rating_after,
+                    "mood_id": mood_id,
+                },
+            )
+            uow.journey.append(event)
+            return str(event_id)
+
+    def revise_timeline_event(
+        self, playthrough_id: str, target_event_id: str,
+        operation_id: OperationId | str, *, title: str, body: str,
+        tags: tuple[str, ...] = (), rating_after: int | None = None,
+        mood_id: str | None = None,
+        event_occurred_at: str | None = None,
+        occurred_at: str | None = None,
+    ) -> str:
+        return self._append_timeline_revision(
+            playthrough_id, "timeline_event_revised", target_event_id,
+            operation_id, occurred_at=occurred_at,
+            data={"title": title.strip(), "body": body.strip(),
+                  "tags": list(dict.fromkeys(tag.strip().lstrip("#") for tag in tags if tag.strip())),
+                  "rating_after": rating_after, "mood_id": mood_id,
+                  "occurred_at": event_occurred_at},
+        )
+
+    def delete_timeline_event(
+        self, playthrough_id: str, target_event_id: str,
+        operation_id: OperationId | str, *, occurred_at: str | None = None,
+    ) -> str:
+        return self._append_timeline_revision(
+            playthrough_id, "timeline_event_deleted", target_event_id,
+            operation_id, occurred_at=occurred_at, data={},
+        )
+
+    def _append_timeline_revision(
+        self, playthrough_id: str, event_type: str, target_event_id: str,
+        operation_id: OperationId | str, *, occurred_at: str | None,
+        data: dict[str, object],
+    ) -> str:
+        operation, at = _op(operation_id), _time(occurred_at)
+        with UserUnitOfWork(self.user_db) as uow:
+            prior = uow.journey.get_by_operation(str(operation))
+            if prior is not None:
+                return prior.event_id
+            playthrough = uow.playthroughs.get(playthrough_id)
+            if playthrough is None:
+                raise NotFoundError("Playthrough was not found")
+            payload = {"target_event_id": target_event_id, **data}
+            event, event_id = self._journey(
+                operation_id=operation,
+                ref=CatalogItemRef(playthrough.source_type, playthrough.item_id),
+                event_type=event_type, occurred_at=at,
+                playthrough_id=playthrough_id, data=payload,
+            )
+            uow.journey.append(event)
+            return str(event_id)
+
+    def set_stage_rating(
+        self, playthrough_id: str, stage_id: str, value_tenths: int,
+        operation_id: OperationId | str, *, occurred_at: str | None = None,
+    ) -> None:
+        operation, at = _op(operation_id), _time(occurred_at)
+        if not stage_id.strip() or not 10 <= int(value_tenths) <= 100:
+            raise ValidationError("Stage id and rating from 1.0 to 10.0 are required")
+        with UserUnitOfWork(self.user_db) as uow:
+            if uow.journey.get_by_operation(str(operation)) is not None:
+                return
+            playthrough = uow.playthroughs.get(playthrough_id)
+            if playthrough is None:
+                raise NotFoundError("Playthrough was not found")
+            old_value = uow.journey_stage_ratings.get(playthrough_id, stage_id)
+            uow.journey_stage_ratings.set(
+                playthrough_id, stage_id, int(value_tenths), at
+            )
+            event, _ = self._journey(
+                operation_id=operation,
+                ref=CatalogItemRef(playthrough.source_type, playthrough.item_id),
+                event_type="stage_rating_changed", occurred_at=at,
+                playthrough_id=playthrough_id,
+                data={"stage_id": stage_id, "old_value_tenths": old_value,
+                      "new_value_tenths": int(value_tenths)},
+            )
+            uow.journey.append(event)
+
+    def set_stage_media(
+        self, playthrough_id: str, stage_id: str, file_path: str,
+        operation_id: OperationId | str, *, occurred_at: str | None = None,
+    ) -> None:
+        """Attach local stage artwork through immutable Journey history."""
+        if not stage_id.strip() or not file_path.strip():
+            raise ValidationError("Stage id and media path are required")
+        operation, at = _op(operation_id), _time(occurred_at)
+        with UserUnitOfWork(self.user_db) as uow:
+            if uow.journey.get_by_operation(str(operation)) is not None:
+                return
+            playthrough = uow.playthroughs.get(playthrough_id)
+            if playthrough is None:
+                raise NotFoundError("Playthrough was not found")
+            event, _ = self._journey(
+                operation_id=operation,
+                ref=CatalogItemRef(playthrough.source_type, playthrough.item_id),
+                event_type="stage_media_set",
+                occurred_at=at,
+                playthrough_id=playthrough_id,
+                data={"stage_id": stage_id.strip(), "file_path": file_path.strip()},
+            )
+            uow.journey.append(event)
+
+    def set_stage_favorite(
+        self, playthrough_id: str, stage_id: str, favorite: bool,
+        operation_id: OperationId | str, *, occurred_at: str | None = None,
+    ) -> None:
+        """Persist stage preference as a non-visual technical Journey record."""
+        operation, at = _op(operation_id), _time(occurred_at)
+        with UserUnitOfWork(self.user_db) as uow:
+            if uow.journey.get_by_operation(str(operation)) is not None:
+                return
+            playthrough = uow.playthroughs.get(playthrough_id)
+            if playthrough is None:
+                raise NotFoundError("Playthrough was not found")
+            _old_favorite, difficult = uow.journey_stage_flags.get(
+                playthrough_id, stage_id
+            )
+            uow.journey_stage_flags.set(
+                playthrough_id, stage_id, favorite=bool(favorite),
+                difficult=difficult, updated_at=at,
+            )
+            event, _ = self._journey(
+                operation_id=operation,
+                ref=CatalogItemRef(playthrough.source_type, playthrough.item_id),
+                event_type="stage_favorite_set",
+                occurred_at=at,
+                playthrough_id=playthrough_id,
+                data={"stage_id": stage_id, "favorite": bool(favorite)},
+            )
+            uow.journey.append(event)
+
+    def set_stage_difficult(
+        self, playthrough_id: str, stage_id: str, difficult: bool,
+        operation_id: OperationId | str, *, occurred_at: str | None = None,
+    ) -> None:
+        operation, at = _op(operation_id), _time(occurred_at)
+        with UserUnitOfWork(self.user_db) as uow:
+            if uow.journey.get_by_operation(str(operation)) is not None:
+                return
+            playthrough = uow.playthroughs.get(playthrough_id)
+            if playthrough is None:
+                raise NotFoundError("Playthrough was not found")
+            favorite, _old_difficult = uow.journey_stage_flags.get(
+                playthrough_id, stage_id
+            )
+            uow.journey_stage_flags.set(
+                playthrough_id, stage_id, favorite=favorite,
+                difficult=bool(difficult), updated_at=at,
+            )
+            event, _ = self._journey(
+                operation_id=operation,
+                ref=CatalogItemRef(playthrough.source_type, playthrough.item_id),
+                event_type="stage_difficult_set", occurred_at=at,
+                playthrough_id=playthrough_id,
+                data={"stage_id": stage_id, "difficult": bool(difficult)},
+            )
+            uow.journey.append(event)
+
+    def set_stage_mood(
+        self, playthrough_id: str, stage_id: str, mood_id: str | None,
+        operation_id: OperationId | str, *, occurred_at: str | None = None,
+    ) -> None:
+        operation, at = _op(operation_id), _time(occurred_at)
+        with UserUnitOfWork(self.user_db) as uow:
+            if uow.journey.get_by_operation(str(operation)) is not None:
+                return
+            playthrough = uow.playthroughs.get(playthrough_id)
+            if playthrough is None:
+                raise NotFoundError("Playthrough was not found")
+            if mood_id is None:
+                uow.journey_moods.clear(playthrough_id, stage_id)
+            else:
+                uow.journey_moods.set(playthrough_id, stage_id, mood_id, at)
+            event, _ = self._journey(
+                operation_id=operation,
+                ref=CatalogItemRef(playthrough.source_type, playthrough.item_id),
+                event_type="stage_mood_changed",
+                occurred_at=at,
+                playthrough_id=playthrough_id,
+                data={"stage_id": stage_id, "mood_id": mood_id},
+            )
+            uow.journey.append(event)
+
+    def set_stage_state(
+        self, playthrough_id: str, stage_id: str, state: str,
+        operation_id: OperationId | str, *, occurred_at: str | None = None,
+        ordered_stage_ids: tuple[str, ...] = (),
+    ) -> None:
+        operation, at = _op(operation_id), _time(occurred_at)
+        with UserUnitOfWork(self.user_db) as uow:
+            if uow.journey.get_by_operation(str(operation)) is not None:
+                return
+            playthrough = uow.playthroughs.get(playthrough_id)
+            if playthrough is None:
+                raise NotFoundError("Playthrough was not found")
+            states = uow.journey_stage_states.list_for_playthrough(playthrough_id)
+            old_state = states.get(
+                stage_id,
+                "current" if (
+                    not states and ordered_stage_ids
+                    and stage_id == ordered_stage_ids[0]
+                ) else "not_started",
+            )
+            uow.journey_stage_states.set(playthrough_id, stage_id, state, at)
+            auto_advanced_to = None
+            if state == "completed" and old_state == "current" and ordered_stage_ids:
+                try:
+                    next_index = ordered_stage_ids.index(stage_id) + 1
+                except ValueError:
+                    next_index = len(ordered_stage_ids)
+                if next_index < len(ordered_stage_ids):
+                    candidate = ordered_stage_ids[next_index]
+                    if states.get(candidate, "not_started") == "not_started":
+                        uow.journey_stage_states.set(
+                            playthrough_id, candidate, "current", at
+                        )
+                        auto_advanced_to = candidate
+            event, _ = self._journey(
+                operation_id=operation,
+                ref=CatalogItemRef(playthrough.source_type, playthrough.item_id),
+                event_type="stage_state_changed",
+                occurred_at=at,
+                playthrough_id=playthrough_id,
+                data={
+                    "stage_id": stage_id,
+                    "old_state": old_state,
+                    "state": state,
+                    "auto_advanced_to": auto_advanced_to,
+                },
+            )
+            uow.journey.append(event)
+
     def list_for_game(self, ref: CatalogItemRef) -> tuple[JourneyEvent, ...]:
         with UserUnitOfWork(self.user_db, ) as uow:
             return tuple(uow.journey.list_for_item(ref.source_type, ref.item_id))

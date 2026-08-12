@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QStackedWidget, QVBoxLayout, QWidget
 from app.core.icon_registry import IconRegistry
 from app.ui.profile.profile_widgets import AvatarLabel
+from app.ui.velora_ui.icons import IconProvider
 
 
 class FirstRunDialog(QDialog):
     def __init__(self, parent=None) -> None:
-        super().__init__(parent); self.setWindowTitle("Первый запуск Velora"); self.setWindowIcon(IconRegistry.icon("info", variant="dark", category="feedback")); self.setModal(True); self.setMinimumSize(600, 470)
+        super().__init__(parent); self.setWindowTitle("Первый запуск Velora"); self.setWindowIcon(IconProvider.icon("animated.info", 20)); self.setModal(True); self.setMinimumSize(600, 470)
         self.custom_profile_created = False; self._display_name = "Velora"; self._avatar_path = ""
         root=QVBoxLayout(self); self.pages=QStackedWidget(); root.addWidget(self.pages)
         self.pages.addWidget(self._profile_page()); self.pages.addWidget(self._content_page())

@@ -63,6 +63,7 @@ def prepare_aw02_storage(paths: AppPaths | None = None) -> StartupStorage:
             raise ResetHardStop("Runtime catalog.db exists but is not Schema 1")
         schema.create_catalog(selected.catalog_db)
     _ensure_doom_catalog_item(selected.catalog_db)
+    schema.ensure_aw023_user_extensions(active_user)
     _ensure_doom_library_item(selected.catalog_db, active_user)
     schema.validate(selected.catalog_db)
     schema.validate(active_user)

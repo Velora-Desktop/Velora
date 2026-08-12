@@ -26,7 +26,7 @@ class CurrentCatalogCoverTests(unittest.TestCase):
             version = connection.execute(
                 "SELECT value FROM metadata WHERE key='catalog_version'"
             ).fetchone()[0]
-        self.assertEqual(version, "AW0.221")
+        self.assertEqual(version, "AW0.301")
         self.assertEqual(rows, self.EXPECTED)
         for relative_path in rows.values():
             path = Path(__file__).resolve().parents[1] / relative_path

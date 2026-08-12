@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 from collections import defaultdict
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QSettings, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QComboBox, QGridLayout, QHBoxLayout, QLabel, QMenu, QPushButton,
     QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
 )
 
@@ -14,6 +15,8 @@ from app.core.icon_registry import IconRegistry
 from app.core.platforms import sorted_platforms
 from app.ui.catalog.game_row import COLUMN_AREA_WIDTH, COLUMN_LABELS, COLUMN_SPACING, COLUMN_WIDTHS, GameRow
 from app.ui.catalog.single_row_integration import build_single_row_presenter
+from app.styles.theme import SURFACE_PANEL
+from app.ui.velora_ui.components import AnimatedSearchLineEdit, HoverAnimatedIcon
 
 
 class CatalogView(QWidget):
@@ -29,6 +32,24 @@ class CatalogView(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setObjectName("catalogView")
+        self.setStyleSheet(
+            f"QWidget#catalogView{{background:{SURFACE_PANEL};}}"
+            f"QScrollArea#catalogScroll{{background:{SURFACE_PANEL};border:0;}}"
+            f"QWidget#catalogContent{{background:{SURFACE_PANEL};}}"
+            "QWidget#catalogGroupHeader{background:transparent;}"
+            "QPushButton#groupToggle,QPushButton#groupTitle{background:transparent;"
+            "border:0;color:#F1F2F4;border-radius:0;padding:0;}"
+            "QPushButton#groupToggle:hover,QPushButton#groupTitle:hover{"
+            "background:transparent;border:0;color:#CFA1FF;}"
+            "QWidget#catalogColumnHeader{background:transparent;}"
+            "QPushButton#catalogColumnHeaderButton{background:transparent;border:0;"
+            "border-bottom:3px solid transparent;border-radius:0;color:#F1F2F4;}"
+            "QPushButton#catalogColumnHeaderButton:hover{background:transparent;"
+            "border-color:transparent;border-bottom-color:transparent;color:#CFA1FF;}"
+            "QPushButton#catalogColumnHeaderButton[active=\"true\"]{background:transparent;"
+            "border:0;border-bottom:3px solid #8B2CF5;color:#D4A4FF;}"
+        )
         self.items = load_catalog_items()
         self.rows: list[GameRow] = []
         self.current_media_type = "Игры"
@@ -37,10 +58,12 @@ class CatalogView(QWidget):
         self.page_size = 50
         self.current_page = 1
         self.collapsed_groups: set[str] = set()
+        self._settings = QSettings("Velora", "Velora")
+        self._hidden_groups = self._load_hidden_groups()
         self.group_rows: dict[str, list[GameRow]] = {}
         self.row_groups: dict[GameRow, str] = {}
         self.group_labels: dict[str, QWidget] = {}
-        self.group_count_labels: dict[str, QLabel] = {}
+        self.group_count_labels: dict[str, QPushButton] = {}
         self.group_sort_specs: dict[tuple[str, str, str], tuple[str, bool]] = {}
         self.group_sort_directions: dict[tuple[tuple[str, str, str], str], bool] = {}
         self.header_column_widgets: dict[QWidget, dict[str, QPushButton]] = {}
@@ -73,27 +96,36 @@ class CatalogView(QWidget):
             controls.addWidget(combo, 1, column)
             self.control_combos.append(combo)
         controls.setColumnStretch(4, 1)
-        self.search = QLineEdit()
+        self.search = AnimatedSearchLineEdit()
         self.search.setMinimumSize(220, 40)
-        self.search.addAction(
-            IconRegistry.icon("search"),
-            QLineEdit.ActionPosition.TrailingPosition,
-        )
         self.search.textChanged.connect(self._filter)
         controls.addWidget(self.search, 1, 5)
         settings = QPushButton()
         self.settings_button = settings
-        settings.setIcon(IconRegistry.icon("settings_gears", variant="dark", category="ui"))
+        settings.setObjectName("catalogSettingsButton")
+        settings_icon = HoverAnimatedIcon(
+            "animated.settings", 20, settings, mouse_transparent=True
+        )
+        settings_icon.setObjectName("catalogAnimatedSettingsIcon")
+        settings_icon.attach_hover_source(settings)
+        settings_layout = QHBoxLayout(settings)
+        settings_layout.setContentsMargins(0, 0, 0, 0)
+        settings_layout.addWidget(settings_icon, 0, Qt.AlignmentFlag.AlignCenter)
         settings.setToolTip("Настройки каталога")
         settings.setFixedSize(40, 40)
-        settings.clicked.connect(self.placeholder_requested)
+        settings.clicked.connect(self._open_catalog_settings)
         controls.addWidget(settings, 1, 6)
         root.addLayout(controls)
 
         self.scroll = QScrollArea()
+        self.scroll.setObjectName("catalogScroll")
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll.viewport().setStyleSheet(
+            f"background:{SURFACE_PANEL};border:0;"
+        )
         self.content = QWidget()
+        self.content.setObjectName("catalogContent")
         self.list_layout = QVBoxLayout(self.content)
         self.list_layout.setContentsMargins(0, 4, 0, 4)
         self.list_layout.setSpacing(0)
@@ -152,6 +184,70 @@ class CatalogView(QWidget):
             self.controls_layout.addWidget(self.search, 1, 5)
             if settings_widget:
                 self.controls_layout.addWidget(settings_widget, 1, 6)
+
+    def _load_hidden_groups(self) -> dict[str, set[str]]:
+        raw = self._settings.value("catalog/hidden_groups", "{}")
+        try:
+            values = json.loads(str(raw))
+        except (TypeError, ValueError):
+            return {}
+        if not isinstance(values, dict):
+            return {}
+        return {
+            str(key): {str(name) for name in names}
+            for key, names in values.items()
+            if isinstance(names, list)
+        }
+
+    def _visibility_key(self) -> str:
+        return f"{self.current_media_type}|{self.current_category}"
+
+    def _hidden_groups_for_current_view(self) -> set[str]:
+        return self._hidden_groups.setdefault(self._visibility_key(), set())
+
+    def _save_hidden_groups(self) -> None:
+        payload = {
+            key: sorted(names)
+            for key, names in self._hidden_groups.items()
+            if names
+        }
+        self._settings.setValue(
+            "catalog/hidden_groups",
+            json.dumps(payload, ensure_ascii=False, sort_keys=True),
+        )
+
+    def _open_catalog_settings(self) -> None:
+        menu = QMenu(self)
+        menu.setObjectName("catalogVisibilityMenu")
+        menu.addSection("ПОКАЗЫВАТЬ РАЗДЕЛЫ")
+        hidden = self._hidden_groups_for_current_view()
+        for group_name in self.group_rows:
+            action = menu.addAction(group_name.title())
+            action.setObjectName(f"catalogGroupVisibility:{group_name}")
+            action.setCheckable(True)
+            action.setChecked(group_name not in hidden)
+            action.toggled.connect(
+                lambda checked, name=group_name: self._set_group_visibility(
+                    name, checked
+                )
+            )
+        if not self.group_rows:
+            empty = menu.addAction("Нет доступных разделов")
+            empty.setEnabled(False)
+        self._catalog_settings_menu = menu
+        menu.popup(
+            self.settings_button.mapToGlobal(self.settings_button.rect().bottomRight())
+        )
+
+    def _set_group_visibility(self, group_name: str, visible: bool) -> None:
+        hidden = self._hidden_groups_for_current_view()
+        if visible:
+            hidden.discard(group_name)
+        else:
+            hidden.add(group_name)
+        self.current_page = 1
+        self._save_hidden_groups()
+        self._apply_view()
 
     def categories_for(self, media_type: str) -> dict[str, int]:
         return catalog_categories(self.items, media_type)
@@ -238,6 +334,7 @@ class CatalogView(QWidget):
         groups = media_groups(self.items, self.current_media_type, self.current_category)
         for group_name, games in groups.items():
             header = QWidget()
+            header.setObjectName("catalogGroupHeader")
             header_layout = QHBoxLayout(header)
             header_layout.setContentsMargins(8, 5, 8, 5)
             header_layout.setSpacing(COLUMN_SPACING)
@@ -247,7 +344,13 @@ class CatalogView(QWidget):
             toggle.setToolTip("Скрыть группу" if group_name not in self.collapsed_groups else "Показать группу")
             toggle.clicked.connect(lambda checked=False, name=group_name: self._toggle_group(name))
             header_layout.addWidget(toggle)
-            count = QLabel(f"{group_name.upper()} ({len(games)})")
+            count = QPushButton(f"{group_name.upper()} ({len(games)})")
+            count.setObjectName("groupTitle")
+            count.setCursor(Qt.CursorShape.PointingHandCursor)
+            count.setToolTip(toggle.toolTip())
+            count.clicked.connect(
+                lambda checked=False, name=group_name: self._toggle_group(name)
+            )
             header_layout.addWidget(count)
             header_layout.addStretch()
             header_columns, header_widgets = self._column_header_widget(group_name)
@@ -295,6 +398,7 @@ class CatalogView(QWidget):
 
     def _column_header_widget(self, group_name: str) -> tuple[QWidget, dict[str, QPushButton]]:
         container = QWidget()
+        container.setObjectName("catalogColumnHeader")
         container.setFixedWidth(COLUMN_AREA_WIDTH)
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -302,6 +406,7 @@ class CatalogView(QWidget):
         widgets: dict[str, QPushButton] = {}
         for text, key in self._column_headers():
             button = QPushButton(text)
+            button.setObjectName("catalogColumnHeaderButton")
             button.setFixedWidth(COLUMN_WIDTHS[key])
             button.setFlat(True)
             button.clicked.connect(
@@ -340,6 +445,11 @@ class CatalogView(QWidget):
             if toggle is not None:
                 collapsed = name in self.collapsed_groups
                 toggle.setText("+" if collapsed else "\u2212")
+                title = header.findChild(QPushButton, "groupTitle")
+                if title is not None:
+                    title.setToolTip(
+                        "Показать группу" if collapsed else "Скрыть группу"
+                    )
                 toggle.setToolTip("Показать группу" if collapsed else "Скрыть группу")
         self._apply_view()
 
@@ -489,7 +599,12 @@ class CatalogView(QWidget):
         return (game.title or "").casefold()
 
     def _apply_view(self) -> None:
-        matching = self._matching_rows()
+        hidden_groups = self._hidden_groups_for_current_view()
+        matching = [
+            row
+            for row in self._matching_rows()
+            if self.row_groups.get(row) not in hidden_groups
+        ]
         total = len(matching)
         pages = max(1, (total + self.page_size - 1) // self.page_size)
         self.current_page = min(self.current_page, pages)
@@ -501,7 +616,10 @@ class CatalogView(QWidget):
         for row in self.rows:
             row.setVisible(row in visible and self.row_groups[row] not in self.collapsed_groups)
         for name, header in self.group_labels.items():
-            header.setVisible(any(row in visible for row in self.group_rows[name]))
+            header.setVisible(
+                name not in hidden_groups
+                and any(row in visible for row in self.group_rows[name])
+            )
         self.range_label.setText(f"ПОКАЗАНО: {start + 1 if total else 0}–{end} ИЗ {total}")
         self.page_label.setText(f"{self.current_page} из {pages}")
         self.previous_button.setEnabled(self.current_page > 1)

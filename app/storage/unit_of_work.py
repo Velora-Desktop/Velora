@@ -7,6 +7,8 @@ from types import TracebackType
 
 from .repositories import (
     CatalogRepository, ImpressionRepository, JourneyRepository,
+    JourneyStageMoodRepository, JourneyStageStateRepository,
+    JourneyStageRatingRepository, JourneyStageFlagsRepository,
     LibraryRepository, PlaythroughRepository, RatingRepository,
     SystemStateRepository, UserItemRepository, UserTagRepository,
 )
@@ -40,6 +42,10 @@ class UserUnitOfWork:
         self.journey = JourneyRepository(db)
         self.ratings = RatingRepository(db)
         self.impressions = ImpressionRepository(db)
+        self.journey_moods = JourneyStageMoodRepository(db)
+        self.journey_stage_states = JourneyStageStateRepository(db)
+        self.journey_stage_ratings = JourneyStageRatingRepository(db)
+        self.journey_stage_flags = JourneyStageFlagsRepository(db)
         self.tags = UserTagRepository(db)
         self.system = SystemStateRepository(db)
         return self

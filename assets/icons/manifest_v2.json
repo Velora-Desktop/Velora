@@ -904,6 +904,24 @@
       "license": "Original Velora project asset"
     },
     {
+      "id": "engine",
+      "group": "details",
+      "path": "svg/details/engine.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
+      "id": "anti_cheat",
+      "group": "details",
+      "path": "svg/details/anti_cheat.svg",
+      "format": "svg",
+      "viewBox": "0 0 24 24",
+      "color": "currentColor",
+      "license": "Original Velora project asset"
+    },
+    {
       "id": "budget",
       "group": "details",
       "path": "svg/details/budget.svg",

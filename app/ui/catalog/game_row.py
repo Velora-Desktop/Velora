@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QSize, Signal
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QWidget
@@ -12,8 +12,11 @@ from app.core.icon_registry import IconRegistry
 from app.ui.widgets.platform_icons import PlatformIconRow
 from app.ui.widgets.age_rating import AgeRatingValue
 from app.ui.widgets.clickable_label import ClickableLabel
+from app.ui.widgets.company_logo_row import CompanyLogoRow
 from app.ui.catalog.status_menu import StatusButton
 from app.core.display_text import compact_entities
+from app.ui.rating_palette import rating_color
+from app.ui.velora_ui.motion import animate_icon_pulse, apply_favorite_icon
 
 
 COLUMN_WIDTHS = {
@@ -59,13 +62,15 @@ class GameRow(QFrame):
         layout.setContentsMargins(8, 4, 8, 4)
         layout.setSpacing(COLUMN_SPACING)
 
-        self.star = QPushButton("☆")
+        self.star = QPushButton()
         self.star.setFixedSize(36, 36)
         self.star.setStyleSheet(
-            "QPushButton { font-family:'Segoe UI Symbol'; font-size:15pt; color:#B8C0C8; "
-            "padding:0; margin:0; border:0; background:transparent; }"
-            "QPushButton:hover { color:white; background:#17212B; border-radius:5px; }"
+            "QPushButton { padding:0; margin:0; border:0; background:transparent; }"
+            "QPushButton:hover { background:#17212B; border-radius:5px; }"
         )
+        self.star.setIconSize(QSize(20, 20))
+        self._favorite_animation = None
+        apply_favorite_icon(self.star, self.game.favorite, size=20)
         self.star.clicked.connect(self._toggle_star)
         layout.addWidget(self.star)
         self.cover = QLabel("")
@@ -133,6 +138,14 @@ class GameRow(QFrame):
                 columns_layout.addWidget(platforms)
                 self.column_widgets["platform"] = platforms
                 continue
+            if column == 3:
+                companies = CompanyLogoRow(max_visible=1, compact=True)
+                companies.setFixedWidth(width)
+                companies.setText(text)
+                companies.setToolTip(full_tooltip)
+                columns_layout.addWidget(companies)
+                self.column_widgets["developer"] = companies
+                continue
             if column == 7:
                 age = AgeRatingValue(game.age_rating, centered=True); age.setFixedWidth(width)
                 columns_layout.addWidget(age)
@@ -159,7 +172,22 @@ class GameRow(QFrame):
             self.column_widgets[COLUMN_KEYS[column]] = label
         more = QPushButton("•••")
         self.more_button = more
-        more.setFixedWidth(COLUMN_WIDTHS["more"])
+        more.setObjectName("catalogRowMoreButton")
+        more.setFixedSize(COLUMN_WIDTHS["more"], 34)
+        more.setCursor(Qt.CursorShape.PointingHandCursor)
+        more.setStyleSheet(
+            "QPushButton#catalogRowMoreButton{background:transparent;border:0;"
+            "border-radius:0;color:#EEF1F4;font-family:'Segoe UI';"
+            "font-size:12pt;font-weight:700;padding:0;}"
+            f"QPushButton#catalogRowMoreButton:hover{{background:transparent;"
+            f"border:0;color:{ACCENT};}}"
+            f"QPushButton#catalogRowMoreButton:pressed{{background:transparent;"
+            f"color:#CFA1FF;}}"
+            "QPushButton#catalogRowMoreButton:focus{outline:none;"
+            "background:transparent;border:0;}"
+            "QPushButton#catalogRowMoreButton::menu-indicator{"
+            "image:none;width:0;height:0;}"
+        )
         menu = QMenu(more)
         favorite_action = menu.addAction("Добавить/убрать из избранного")
         favorite_action.triggered.connect(self._toggle_star)
@@ -173,25 +201,26 @@ class GameRow(QFrame):
 
     def set_aw02_actions(self, actions) -> None:
         from app.application.game_row_contracts import GameRowAction
-        labels = {
-            GameRowAction.START_PLAYTHROUGH: "Начать прохождение",
-            GameRowAction.CONTINUE_PLAYTHROUGH: "Продолжить",
-            GameRowAction.ADD_PLAYTIME: "Добавить время",
-            GameRowAction.ADD_CHECKPOINT: "Контрольная точка",
-            GameRowAction.ADD_IMPRESSION: "Впечатление",
-            GameRowAction.RATE: "Оценить",
-            GameRowAction.COMPLETE_PLAYTHROUGH: "Завершить",
+        # Journey is managed from the game page.  The compact row menu remains
+        # a card-level quick-access surface and must not duplicate that flow.
+        journey_actions = {
+            GameRowAction.START_PLAYTHROUGH,
+            GameRowAction.CONTINUE_PLAYTHROUGH,
+            GameRowAction.ADD_PLAYTIME,
+            GameRowAction.ADD_CHECKPOINT,
+            GameRowAction.ADD_IMPRESSION,
+            GameRowAction.RATE,
+            GameRowAction.COMPLETE_PLAYTHROUGH,
         }
         menu = QMenu(self.more_button)
         for action in actions:
-            if action is GameRowAction.OPEN:
+            if action is GameRowAction.OPEN or action in journey_actions:
                 continue
-            item = menu.addAction(labels.get(action, action.value))
+            item = menu.addAction(action.value)
             item.triggered.connect(
                 lambda checked=False, value=action:
                 self.aw02_action_requested.emit(self.game, value.value)
             )
-        menu.addSeparator()
         favorite = menu.addAction("Добавить/убрать из избранного")
         favorite.triggered.connect(self._toggle_star)
         hide = menu.addAction("Скрыть у меня")
@@ -239,12 +268,13 @@ class GameRow(QFrame):
 
     def _toggle_star(self) -> None:
         self.game.favorite = not self.game.favorite
-        self.star.setText("★" if self.game.favorite else "☆")
-        color = ACCENT if self.game.favorite else "#B8C0C8"
-        self.star.setStyleSheet(
-            f"QPushButton {{ font-family:'Segoe UI Symbol'; font-size:15pt; color:{color}; "
-            "padding:0; margin:0; border:0; background:transparent; }"
-            "QPushButton:hover { color:white; background:#17212B; border-radius:5px; }"
+        if self._favorite_animation is not None:
+            self._favorite_animation.stop()
+        selected = self.game.favorite
+        self._favorite_animation = animate_icon_pulse(
+            self.star,
+            adding=selected,
+            state_change=lambda: apply_favorite_icon(self.star, selected, size=20),
         )
         self.favorite_changed.emit(self.game, self.game.favorite)
 
@@ -264,19 +294,11 @@ class GameRow(QFrame):
     def sync_from_game(self) -> None:
         self.set_personal_score(self.game.personal_score)
         self.set_status(self.game.status, record_history=False)
-        self.star.setText("★" if self.game.favorite else "☆")
+        apply_favorite_icon(self.star, self.game.favorite, size=20)
 
     @staticmethod
     def _score_color(value: str) -> str:
-        try:
-            score = float(value)
-        except ValueError:
-            return "#8A929A"
-        if score >= 8:
-            return SUCCESS
-        if score >= 5:
-            return WARNING
-        return DANGER
+        return rating_color(value)
 
     @staticmethod
     def _format_score(value: str) -> str:

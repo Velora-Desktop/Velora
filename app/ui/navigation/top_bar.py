@@ -1,4 +1,4 @@
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QFrame,
@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.navigation.v_menu import VMenu
-from app.core.icon_registry import IconRegistry
+from app.ui.velora_ui.components import HoverAnimatedIcon
 
 
 class TopBar(QFrame):
@@ -31,10 +31,14 @@ class TopBar(QFrame):
         layout.setContentsMargins(14, 8, 14, 8)
         layout.setSpacing(4)
 
-        logo = QPushButton("V")
+        logo = QPushButton()
         logo.setObjectName("veloraLogo")
         logo.setFixedSize(58, 52)
-        logo.setStyleSheet("font-family: Georgia; font-size: 30pt; font-weight: 700; padding:0;")
+        logo.setText("V")
+        logo.setStyleSheet(
+            "padding:0;background:transparent;border:0;"
+            "font-family:Georgia;font-size:27pt;font-weight:700;color:#F3E8FF;"
+        )
         logo_glow = QGraphicsDropShadowEffect(logo)
         logo_glow.setBlurRadius(16)
         logo_glow.setOffset(0, 0)
@@ -45,15 +49,35 @@ class TopBar(QFrame):
         layout.addWidget(logo)
 
         history_buttons = []
-        for icon_id, tooltip in (("back", "Назад"), ("forward", "Вперёд")):
+        for direction, tooltip in (("left", "Назад"), ("right", "Вперёд")):
             button = QPushButton()
-            button.setIcon(IconRegistry.icon(icon_id))
-            button.setIconSize(QSize(18, 18))
+            button.setObjectName("navigationHistoryButton")
             button.setFixedSize(40, 40)
             button.setToolTip(tooltip)
-            button.setEnabled(False)
+            arrow_icon = HoverAnimatedIcon(
+                f"animated.navigation_arrow_{direction}",
+                18,
+                button,
+                mouse_transparent=True,
+                frame_interval_ms=40,
+            )
+            arrow_icon.setObjectName(f"animatedNavigationArrow{direction.title()}")
+            arrow_icon.attach_hover_source(button)
+            arrow_layout = QHBoxLayout(button)
+            arrow_layout.setContentsMargins(0, 0, 0, 0)
+            arrow_layout.addWidget(arrow_icon, 0, Qt.AlignmentFlag.AlignCenter)
+            # Keep the icon visually enabled at history boundaries. Disabling
+            # the parent makes Qt recolor animated child frames inconsistently.
+            # Navigation handlers already guard against out-of-range moves.
+            button.setProperty("navigationAvailable", False)
             button.setStyleSheet(
-                "font-family:'Segoe UI Symbol'; font-size:16pt; padding:0;"
+                "QPushButton#navigationHistoryButton{font-family:'Segoe UI Symbol';"
+                "font-size:16pt;padding:0;background:transparent;border:1px solid "
+                "transparent;border-radius:7px;}"
+                "QPushButton#navigationHistoryButton:hover{background:#160B24;"
+                "border-color:#673096;}"
+                "QPushButton#navigationHistoryButton:pressed{background:#24103A;"
+                "border-color:#9B3CFF;}"
             )
             layout.addWidget(button)
             history_buttons.append(button)
@@ -126,8 +150,29 @@ class TopBar(QFrame):
 
         for action in ("search", "add"):
             button = QPushButton()
-            button.setIcon(IconRegistry.icon(action))
-            button.setIconSize(QSize(19, 19))
+            if action == "search":
+                button.setObjectName("globalSearchButton")
+                search_icon = HoverAnimatedIcon(
+                    "animated.search", 24, button, mouse_transparent=True
+                )
+                search_icon.setObjectName("topBarAnimatedSearchIcon")
+                search_icon.attach_hover_source(button)
+                icon_layout = QHBoxLayout(button)
+                icon_layout.setContentsMargins(0, 0, 0, 0)
+                icon_layout.addWidget(search_icon, 0, Qt.AlignmentFlag.AlignCenter)
+            else:
+                button.setObjectName("addSectionButton")
+                plus_icon = HoverAnimatedIcon(
+                    "animated.plus", 28, button, mouse_transparent=True,
+                    frame_interval_ms=41,
+                )
+                plus_icon.setObjectName("topBarAnimatedPlusIcon")
+                plus_icon.attach_hover_source(button)
+                icon_layout = QHBoxLayout(button)
+                icon_layout.setContentsMargins(0, 0, 0, 0)
+                icon_layout.addWidget(
+                    plus_icon, 0, Qt.AlignmentFlag.AlignCenter
+                )
             button.setToolTip("Глобальный поиск" if action == "search" else "Создать раздел")
             if action == "search":
                 self.search_button = button
@@ -136,7 +181,28 @@ class TopBar(QFrame):
                 self.add_button = button
                 button.clicked.connect(self.custom_catalog_requested)
             button.setFixedSize(44, 40)
-            button.setStyleSheet("border:1px solid #27313A; border-radius:7px; background:#070B10;" if action == "add" else "")
+            button.setStyleSheet(
+                "QPushButton#globalSearchButton{padding:0;margin:0;"
+                "color:#C8D0D8;background:transparent;border:0;"
+                "border-bottom:2px solid transparent;border-radius:0;}"
+                "QPushButton#globalSearchButton:hover{color:#E7C7FF;"
+                "background:transparent;border-bottom-color:#673096;}"
+                "QPushButton#globalSearchButton[active='true']{"
+                "color:#E7C7FF;background:transparent;"
+                "border-bottom:2px solid #9B3CFF;}"
+                "QPushButton#globalSearchButton:pressed{color:white;"
+                "background:transparent;border-bottom-color:#B96CFF;}"
+                "QPushButton#addSectionButton{padding:0;"
+                "margin:0;color:#C8D0D8;background:transparent;"
+                "border:0;border-bottom:2px solid transparent;"
+                "border-radius:0;}"
+                "QPushButton#addSectionButton:hover{color:#E7C7FF;"
+                "background:transparent;border:0;"
+                "border-bottom:2px solid #673096;}"
+                "QPushButton#addSectionButton:pressed{color:white;"
+                "background:transparent;border:0;"
+                "border-bottom:2px solid #B96CFF;}"
+            )
             layout.addWidget(button)
 
         # Search and add remain attached to the section strip, while the
@@ -156,6 +222,18 @@ class TopBar(QFrame):
         self.profile_button.clicked.connect(self.profile_requested)
         layout.addWidget(self.profile_button)
         QTimer.singleShot(0, self._sync_section_strip)
+
+    def set_history_availability(self, back: bool, forward: bool) -> None:
+        """Update navigation semantics without dimming animated arrow assets."""
+        for button, available in (
+            (self.back_button, back),
+            (self.forward_button, forward),
+        ):
+            button.setProperty("navigationAvailable", bool(available))
+            button.setCursor(
+                Qt.CursorShape.PointingHandCursor
+                if available else Qt.CursorShape.ArrowCursor
+            )
 
     def set_custom_sections(self, names: list[str]) -> None:
         self._section_animation.stop()
@@ -271,15 +349,26 @@ class TopBar(QFrame):
             for button in self.custom_buttons:
                 button.setProperty("active",False); button.style().unpolish(button); button.style().polish(button)
         self.profile_button.style().unpolish(self.profile_button); self.profile_button.style().polish(self.profile_button)
+        if active:
+            self.set_search_active(False)
         self._refresh_space_glows()
 
     def set_search_active(self, active: bool) -> None:
         self.search_button.setProperty("active", active)
-        self.search_button.setStyleSheet(
-            "border-bottom:2px solid #8B2CF5; background:#120B1D;" if active else ""
-        )
+        self.search_button.style().unpolish(self.search_button)
+        self.search_button.style().polish(self.search_button)
+        if active:
+            for button in self.section_buttons + self.custom_buttons:
+                button.setProperty("active", False)
+                button.style().unpolish(button)
+                button.style().polish(button)
+            self.profile_button.setProperty("active", False)
+            self.profile_button.style().unpolish(self.profile_button)
+            self.profile_button.style().polish(self.profile_button)
+            self._refresh_space_glows()
 
     def set_active_space(self, name: str) -> None:
+        self.set_search_active(False)
         self.profile_button.setProperty("active", name == "МОЙ VELORA")
         active_button = None
         for button in self.section_buttons:

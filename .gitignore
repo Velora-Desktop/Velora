@@ -14,3 +14,9 @@ data/*.tmp
 data/backups/
 data/catalog.before_*.db
 data/user.db
+.tmp/
+.tmp_*/
+backups/
+docs/implementation/qa_*/
+*.bak
+data/aw0231_*_audit_cache.json

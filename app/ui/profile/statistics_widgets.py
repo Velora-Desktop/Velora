@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.icon_registry import IconRegistry
+from app.ui.velora_ui.components.animated_icon import HoverAnimatedIcon
 
 
 class RankedBarList(QWidget):
@@ -32,7 +33,7 @@ class RankedBarList(QWidget):
         maximum: float | None = None,
         color: str = "#8B2CF5",
         formatter: Callable[[float], str] | None = None,
-        icon_resolver: Callable[[str], tuple[str, str | None] | None] | None = None,
+        icon_resolver: Callable[[str], tuple[str, str | None] | tuple[str, str | None, str] | None] | None = None,
         empty_text: str = "Нет данных",
     ) -> None:
         self._clear()
@@ -54,13 +55,21 @@ class RankedBarList(QWidget):
             if icon_resolver:
                 icon_spec = icon_resolver(name)
                 if icon_spec:
-                    icon_id, category = icon_spec
-                    icon = QLabel()
-                    icon.setFixedSize(21, 21)
-                    icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                    icon.setPixmap(
-                        IconRegistry.pixmap(icon_id, 18, variant="dark", category=category)
-                    )
+                    icon_id, category, *variant_value = icon_spec
+                    variant = variant_value[0] if variant_value else "dark"
+                    if icon_id in {"service.netflix", "animated.budget"}:
+                        icon = HoverAnimatedIcon(
+                            icon_id,
+                            18,
+                            display_width=62 if icon_id == "service.netflix" else None,
+                        )
+                    else:
+                        icon = QLabel()
+                        icon.setFixedSize(21, 21)
+                        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        icon.setPixmap(
+                            IconRegistry.pixmap(icon_id, 18, variant=variant, category=category)
+                        )
                     layout.addWidget(icon)
             title = QLabel(name)
             title.setMinimumWidth(94)
@@ -95,4 +104,3 @@ class RankedBarList(QWidget):
             item = self._layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-

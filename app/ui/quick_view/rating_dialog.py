@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from app.core.icon_registry import IconRegistry
 from app.ui.quick_view.series_progress_dialog import request_series_progress
+from app.ui.rating_palette import rating_color
 
 
 GAME_CRITERIA = (
@@ -141,16 +142,17 @@ def request_rating(
     average_layout.addWidget(average)
     root.addWidget(average_box)
 
-    def color(score: float) -> str:
-        return "#18D647" if score >= 8 else "#FFC400" if score >= 5 else "#FF4B45"
-
     def refresh() -> None:
         for name, slider in editors.items():
             values[name].setText(f"{slider.value()}/10")
-            values[name].setStyleSheet(f"font-size:12pt;font-weight:700;color:{color(slider.value())};")
+            values[name].setStyleSheet(
+                f"font-size:12pt;font-weight:700;color:{rating_color(slider.value())};"
+            )
         score = sum(slider.value() for slider in editors.values()) / len(editors)
         average.setText(f"{score:.1f}")
-        average.setStyleSheet(f"font-size:24pt;font-weight:750;color:{color(score)};")
+        average.setStyleSheet(
+            f"font-size:24pt;font-weight:750;color:{rating_color(score)};"
+        )
 
     for slider in editors.values():
         slider.valueChanged.connect(refresh)

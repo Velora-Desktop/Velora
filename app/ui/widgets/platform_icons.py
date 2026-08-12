@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from app.core.icon_registry import IconRegistry
 from app.core.platforms import sorted_platforms
+from app.ui.velora_ui.components.animated_icon import HoverAnimatedIcon
 
 
 PLATFORM_ALIASES = {
@@ -29,6 +30,13 @@ PLATFORM_ALIASES = {
     "STEAM": ("gaming_pc", "Steam"),
     "STEAM DECK": ("gaming_pc", "Steam Deck"),
     "VR": ("vr", "VR"),
+    "NETFLIX": ("service.netflix", "Netflix"),
+    "АМЕДИАТЕКА": ("service.amediateka", "Амедиатека"),
+    "AMEDIATEKA": ("service.amediateka", "Amediateka"),
+    "КИНОПОИСК": ("service.kinopoisk", "Кинопоиск"),
+    "KINOPOISK": ("service.kinopoisk", "Кинопоиск"),
+    "ПРЕМЬЕР": ("service.premier", "Premier"),
+    "PREMIER": ("service.premier", "Premier"),
 }
 
 TECHNICAL_PLATFORM_NAMES = {
@@ -56,8 +64,24 @@ TECHNICAL_PLATFORM_NAMES = {
 
 
 def platform_tokens(value: str) -> list[str]:
-    tokens = (token.strip() for token in re.split(r"[;,/]", value or "") if token.strip())
-    return sorted_platforms(TECHNICAL_PLATFORM_NAMES.get(token, token) for token in tokens)
+    raw_tokens = [
+        token.strip() for token in re.split(r"[;,/]", value or "")
+        if token.strip()
+    ]
+    # A slash normally separates platforms, but it is part of the official
+    # Xbox generation name.  Reassemble it before sorting/tooltips so X/S
+    # never leaks into the UI as a fake standalone platform named "S".
+    merged: list[str] = []
+    for token in raw_tokens:
+        if token.upper() == "S" and merged and merged[-1].upper().startswith("XBOX SERIES X"):
+            merged[-1] = f"{merged[-1]}/S"
+        elif token.upper() == "X" and merged and merged[-1].upper().startswith("XBOX SERIES S"):
+            merged[-1] = f"{merged[-1]}/X"
+        else:
+            merged.append(token)
+    return sorted_platforms(
+        TECHNICAL_PLATFORM_NAMES.get(token, token) for token in merged
+    )
 
 
 def platform_icon(token: str) -> tuple[str, str]:
@@ -101,10 +125,34 @@ class PlatformIconRow(QWidget):
             self._layout.addStretch(1)
         for token in tokens[: self._max_icons]:
             icon_id, tooltip = platform_icon(token)
-            label = QLabel()
-            label.setFixedSize(19, 19)
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label.setPixmap(IconRegistry.pixmap(icon_id, 17, variant="color" if self._colored else "dark", category="platforms"))
+            if icon_id == "service.netflix":
+                label = HoverAnimatedIcon(icon_id, 19, display_width=64)
+                label.setObjectName("netflixServiceIcon")
+            elif icon_id.startswith("service."):
+                service_sizes = {
+                    "service.amediateka": (22, 19),
+                    "service.kinopoisk": (22, 19),
+                    "service.premier": (42, 19),
+                }
+                width, height = service_sizes.get(icon_id, (22, 19))
+                label = QLabel()
+                label.setFixedSize(width, height)
+                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                label.setObjectName(f"{icon_id.removeprefix('service.')}ServiceIcon")
+                label.setPixmap(
+                    IconRegistry.pixmap(
+                        icon_id,
+                        width,
+                        height,
+                        variant="dark" if icon_id == "service.kinopoisk" else "original",
+                        category="service",
+                    )
+                )
+            else:
+                label = QLabel()
+                label.setFixedSize(19, 19)
+                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                label.setPixmap(IconRegistry.pixmap(icon_id, 17, variant="color" if self._colored else "dark", category="platforms"))
             label.setToolTip(tooltip)
             self._layout.addWidget(label)
         if len(tokens) > self._max_icons:

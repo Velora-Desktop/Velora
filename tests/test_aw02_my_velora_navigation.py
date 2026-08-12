@@ -21,7 +21,7 @@ class MyVeloraNavigationTests(unittest.TestCase):
             page = ProfilePage(UserRepository(Path(directory) / "user.db"))
             self.assertEqual(
                 [page.tabs.tabText(index) for index in range(page.tabs.count())],
-                ["ОБЗОР", "АССИСТЕНТ", "CREATOR", "МОИ ОЦЕНКИ", "ИЗБРАННОЕ", "СТАТИСТИКА"],
+                ["ОБЗОР", "АССИСТЕНТ", "CREATOR", "JOURNEY", "МОИ ОЦЕНКИ", "ИЗБРАННОЕ", "СТАТИСТИКА"],
             )
             self.assertEqual(
                 [page.assistant.tabs.tabText(index) for index in range(page.assistant.tabs.count())],

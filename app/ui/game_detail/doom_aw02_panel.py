@@ -54,20 +54,23 @@ class DoomAw02Panel(QFrame):
         super().__init__(parent)
         self.setObjectName("doomAw02Panel")
         self.setStyleSheet(
-            "QFrame#doomAw02Panel{background:#080E14;border:0;"
-            "border-radius:9px;}"
+            "QFrame#doomAw02Panel{background:transparent;border:0;}"
         )
         self.slice: DoomVerticalSlice | None = None
         self.journey_builder = JourneyPresentationBuilder()
         self.template_registry = JourneyTemplateRegistry()
         self.creator_builder = CreatorSourceBuilder()
         self.creator_source_model = None
+        self.selected_playthrough_id: str | None = None
         storage = startup_storage()
         if storage is not None:
             self.slice = DoomVerticalSlice(storage.catalog_db, storage.user_db)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(14, 12, 14, 14)
+        # The parent tab already provides the common 12 px content inset used
+        # by both "About" and "Journey".  A second inset here made Journey
+        # start lower and exposed the panel background as a dark rectangle.
+        root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(10)
         title_row = QHBoxLayout()
         self.panel_title = QLabel("ЛИЧНЫЙ ПУТЬ")
@@ -109,6 +112,24 @@ class DoomAw02Panel(QFrame):
 
         self.journey_page = JourneyView()
         self.journey_page.quick_save_requested.connect(self._save_stage)
+        self.journey_page.new_playthrough_requested.connect(
+            self._create_playthrough
+        )
+        self.journey_page.playthrough_selection_requested.connect(
+            self._select_journey_playthrough
+        )
+        self.journey_page.playthrough_delete_requested.connect(
+            self._request_delete_playthrough
+        )
+        self.journey_page.stage_state_requested.connect(self._set_stage_state)
+        self.journey_page.stage_rating_requested.connect(self._set_stage_rating)
+        self.journey_page.entry_requested.connect(self._save_journey_entry)
+        self.journey_page.event_revision_requested.connect(self._revise_journey_entry)
+        self.journey_page.event_delete_requested.connect(self._delete_journey_entry)
+        self.journey_page.stage_favorite_requested.connect(
+            self._set_stage_favorite
+        )
+        self.journey_page.stage_media_requested.connect(self._set_stage_media)
         root.addWidget(self.journey_page)
 
         footer = QHBoxLayout()
@@ -126,6 +147,25 @@ class DoomAw02Panel(QFrame):
             footer.addWidget(button)
         root.addLayout(footer)
         self.setVisible(False)
+        # AW0.23 Journey owns the playthrough summary and primary controls.
+        for card, _value in (
+            self.status, self.time, self.run, self.rating, self.checkpoint,
+        ):
+            card.setVisible(False)
+        self.panel_title.setVisible(False)
+        self.primary_action.setVisible(False)
+        self.playthrough_selector.setVisible(False)
+        self.actions_button.setVisible(False)
+        for button in self.footer_buttons.values():
+            button.setVisible(False)
+        # Hidden AW0.2 compatibility controls must not remain as layout items:
+        # QBoxLayout still reserves inter-item spacing for empty child layouts.
+        # Journey is the sole visible workspace in AW0.23, so it receives the
+        # complete panel height and starts at the same inset as "About".
+        root.removeItem(title_row)
+        root.removeItem(summary)
+        root.removeItem(footer)
+        root.setStretchFactor(self.journey_page, 1)
 
     @staticmethod
     def _metric(caption: str):
@@ -159,10 +199,25 @@ class DoomAw02Panel(QFrame):
     def _render(self, state: DoomDetailState) -> None:
         row = state.row
         self.panel_title.setText(f"{row.title} · ЛИЧНЫЙ ПУТЬ")
-        current = state.playthroughs[-1] if state.playthroughs else None
+        current = next(
+            (
+                item for item in state.playthroughs
+                if item.playthrough_id == row.current_playthrough_id
+            ),
+            state.playthroughs[-1] if state.playthroughs else None,
+        )
         self.status[1].setText(STATUS_LABELS.get(row.playthrough_status, "НЕ НАЧИНАЛ"))
         self.time[1].setText(_duration(row.total_playtime_minutes))
-        self.run[1].setText(f"№ {current.sequence_no}" if current else "—")
+        current_display_number = next(
+            (
+                index for index, item in enumerate(state.playthroughs, 1)
+                if current is not None and item.playthrough_id == current.playthrough_id
+            ),
+            None,
+        )
+        self.run[1].setText(
+            f"№ {current_display_number}" if current_display_number is not None else "—"
+        )
         self.rating[1].setText(
             f"{row.current_personal_rating_tenths / 10:.1f}"
             if row.current_personal_rating_tenths is not None else "—"
@@ -174,47 +229,145 @@ class DoomAw02Panel(QFrame):
         self.checkpoint[1].setText(
             CHECKPOINT_LABELS.get(row.current_checkpoint or "", "—")
         )
-        selected_sequence = self.playthrough_selector.currentData()
+        selected_id = self.selected_playthrough_id
         self.playthrough_selector.blockSignals(True)
         self.playthrough_selector.clear()
-        for item in state.playthroughs:
+        for display_number, item in enumerate(state.playthroughs, 1):
             self.playthrough_selector.addItem(
-                f"Прохождение №{item.sequence_no}", item.sequence_no
+                f"Прохождение №{display_number}", item.playthrough_id
             )
         if not state.playthroughs:
             self.playthrough_selector.addItem("Новое прохождение", None)
+        available_ids = {item.playthrough_id for item in state.playthroughs}
         target = (
-            selected_sequence
-            if selected_sequence is not None
-            else current.sequence_no if current else None
+            selected_id
+            if selected_id in available_ids
+            else current.playthrough_id if current is not None
+            else state.playthroughs[-1].playthrough_id if state.playthroughs
+            else None
         )
+        self.selected_playthrough_id = target
         selector_index = self.playthrough_selector.findData(target)
         self.playthrough_selector.setCurrentIndex(max(0, selector_index))
         self.playthrough_selector.blockSignals(False)
+        official_template = (
+            self.template_registry.from_payload(state.official_journey_template)
+            or self.template_registry.doom_eternal()
+        )
         journey = self.journey_builder.build(
             state,
-            self.template_registry.doom_eternal(),
-            playthrough_sequence=self.playthrough_selector.currentData(),
+            official_template,
+            playthrough_id=self.selected_playthrough_id,
         )
         self.journey_page.set_presentation(journey)
-        self.journey_page.set_editable(
-            current is None
-            or self.playthrough_selector.currentData() == current.sequence_no
-        )
+        # Every selected playthrough is the user's personal history and can be
+        # completed with memories, screenshots and ratings later.  Selection,
+        # not recency, defines the editing target.
+        self.journey_page.set_editable(journey.playthrough_id is not None)
         self.creator_source_model = self.creator_builder.build(journey)
         actions = tuple(action for action in state.actions if action is not GameRowAction.OPEN)
         self._configure_actions(actions)
 
     def _switch_playthrough(self) -> None:
+        value = self.playthrough_selector.currentData()
+        if value is not None:
+            self.selected_playthrough_id = str(value)
         self.refresh()
+
+    def _select_journey_playthrough(self, playthrough_id: str) -> None:
+        """Reuse the stable legacy selector as adapter state without rebuilding UI."""
+        index = self.playthrough_selector.findData(playthrough_id)
+        if index < 0 or index == self.playthrough_selector.currentIndex():
+            return
+        self.playthrough_selector.blockSignals(True)
+        self.playthrough_selector.setCurrentIndex(index)
+        self.playthrough_selector.blockSignals(False)
+        self.selected_playthrough_id = playthrough_id
+        self.refresh()
+
+    def _create_playthrough(self) -> None:
+        if self.slice is None:
+            return
+        try:
+            self.selected_playthrough_id = self.slice.create_playthrough()
+            self.feedback.setStyleSheet(f"color:{SUCCESS};")
+            self.feedback.setText("Новое прохождение создано")
+            self.refresh()
+            self.changed.emit()
+        except Exception as exc:
+            self._error(str(exc))
+
+    def _request_delete_playthrough(self, playthrough_id: str) -> None:
+        if self.slice is None:
+            return
+        try:
+            state = self.slice.load_detail()
+            target = next(
+                (item for item in state.playthroughs
+                 if item.playthrough_id == playthrough_id),
+                None,
+            )
+            if target is None:
+                return
+            display_number = next(
+                index for index, item in enumerate(state.playthroughs, 1)
+                if item.playthrough_id == playthrough_id
+            )
+            if not self._confirm_delete_playthrough(display_number):
+                return
+            self.selected_playthrough_id = self.slice.delete_playthrough(
+                playthrough_id
+            )
+            self.feedback.setStyleSheet(f"color:{SUCCESS};")
+            self.feedback.setText("Прохождение удалено")
+            self.refresh()
+            self.changed.emit()
+        except Exception as exc:
+            self._error(str(exc))
+
+    def _confirm_delete_playthrough(self, sequence_no: int) -> bool:
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("Удаление прохождения")
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setText(f"Удалить «Прохождение №{sequence_no}»?")
+        dialog.setInformativeText(
+            "Все связанные с этим прохождением данные будут удалены:\n"
+            "• состояния этапов;\n"
+            "• оценки;\n"
+            "• mood;\n"
+            "• впечатления;\n"
+            "• события;\n"
+            "• пользовательские теги;\n"
+            "• время и прогресс.\n\n"
+            "Это действие нельзя отменить."
+        )
+        cancel = dialog.addButton("ОТМЕНА", QMessageBox.ButtonRole.RejectRole)
+        delete = dialog.addButton(
+            "УДАЛИТЬ", QMessageBox.ButtonRole.DestructiveRole
+        )
+        delete.setStyleSheet(
+            "QPushButton{background:#7A2026;border:1px solid #E04B4B;"
+            "color:white;font-weight:700;padding:7px 16px;border-radius:6px;}"
+            "QPushButton:hover{background:#A52B32;border-color:#FF7770;}"
+        )
+        dialog.setDefaultButton(cancel)
+        dialog.exec()
+        return dialog.clickedButton() is delete
 
     def _refresh_creator_sources(self) -> None:
         if self.slice is None:
             return
         try:
             state = self.slice.load_detail()
+            official_template = (
+                self.template_registry.from_payload(
+                    state.official_journey_template
+                )
+                or self.template_registry.doom_eternal()
+            )
             journey = self.journey_builder.build(
-                state, self.template_registry.doom_eternal()
+                state, official_template,
+                playthrough_id=self.selected_playthrough_id,
             )
             self.creator_source_model = self.creator_builder.build(journey)
         except Exception:
@@ -235,7 +388,8 @@ class DoomAw02Panel(QFrame):
         )
         self._primary_action_value = preferred
         for action, button in self.footer_buttons.items():
-            button.setVisible(action in actions)
+            # AW0.23 exposes these tasks as contextual cards inside Journey.
+            button.setVisible(False)
         menu = QMenu(self.actions_button)
         for action in actions:
             item = menu.addAction(ACTION_LABELS.get(action, action.value))
@@ -250,34 +404,31 @@ class DoomAw02Panel(QFrame):
         status: str,
         rating: float | None,
         impression: str,
+        mood_id: str | None,
     ) -> None:
         """Persist the compact editor through the existing AW0.2 services."""
         if self.slice is None:
             return
         try:
-            requested_status = {
-                "planned": "НЕ НАЧИНАЛ",
-                "playing": "ПРОХОЖУ",
-                "completed": "ПРОШЁЛ",
-                "abandoned": "БРОСИЛ",
-            }[status]
             stage_number = max(1, int(stage_id.rsplit("-", 1)[-1]))
-            stage_titles = self.template_registry.doom_eternal().stage_titles
-            stage_title = stage_titles[min(stage_number - 1, len(stage_titles) - 1)]
-            # Completing a mission is not the same as completing the entire
-            # playthrough.  Schema 1 stores playthrough status and milestone
-            # checkpoints separately, so only the final mission closes a run.
-            status_value = (
-                "ПРОХОЖУ"
-                if status == "completed" and stage_number < len(stage_titles)
-                else requested_status
+            stages = (
+                self.journey_page._model.stages
+                if self.journey_page._model is not None else ()
             )
-            self.slice.set_status(status_value)
+            stage_title = (
+                stages[min(stage_number - 1, len(stages) - 1)].title
+                if stages else f"Этап {stage_number}"
+            )
+            # A chapter state must never rewrite the lifecycle state of the
+            # whole playthrough.  Earlier code could accidentally create a new
+            # run while a player was only adding a memory to a completed one.
+            # The chapter progression is represented by its stage-bound
+            # checkpoint/rating/impression records.
             checkpoint = (
                 CheckpointType.START
                 if stage_number == 1
                 else CheckpointType.END
-                if stage_number == len(stage_titles)
+                if stage_number == len(stages)
                 else CheckpointType.MIDDLE
             )
             if rating is not None or status == "completed":
@@ -285,6 +436,7 @@ class DoomAw02Panel(QFrame):
                     checkpoint,
                     title=stage_title,
                     rating=rating,
+                    playthrough_id=self.selected_playthrough_id,
                 )
             if impression:
                 # A Journey can contain many stages while Schema 1 deliberately
@@ -296,9 +448,136 @@ class DoomAw02Panel(QFrame):
                     None,
                     progress_value=float(stage_number),
                     progress_unit="journey_stage",
+                    playthrough_id=self.selected_playthrough_id,
                 )
+            self.slice.set_stage_mood(
+                stage_id, mood_id,
+                playthrough_id=self.selected_playthrough_id,
+            )
             self.feedback.setStyleSheet(f"color:{SUCCESS};")
             self.feedback.setText("Этап сохранён")
+            self.refresh()
+            self.changed.emit()
+        except Exception as exc:
+            self._error(str(exc))
+
+    def _set_stage_state(self, stage_id: str, state: str) -> None:
+        if self.slice is None:
+            return
+        try:
+            self.slice.set_stage_state(
+                stage_id, state,
+                playthrough_id=self.selected_playthrough_id,
+            )
+            model = self.journey_page._model
+            if (
+                state == "completed" and model is not None and model.stages
+                and stage_id == model.stages[-1].stage_id
+                and QMessageBox.question(
+                    self, "Завершить прохождение",
+                    "Последний этап завершён. Завершить всё прохождение?",
+                    QMessageBox.StandardButton.No | QMessageBox.StandardButton.Yes,
+                    QMessageBox.StandardButton.No,
+                ) == QMessageBox.StandardButton.Yes
+            ):
+                self.slice.set_status("ПРОШЁЛ")
+            self.refresh()
+            self.changed.emit()
+        except Exception as exc:
+            self._error(str(exc))
+
+    def _set_stage_rating(self, stage_id: str, rating: float) -> None:
+        if self.slice is None:
+            return
+        try:
+            self.slice.set_stage_rating(
+                stage_id, rating, playthrough_id=self.selected_playthrough_id,
+            )
+            self.refresh()
+            self.changed.emit()
+        except Exception as exc:
+            self._error(str(exc))
+
+    def _set_stage_favorite(self, stage_id: str, favorite: bool) -> None:
+        if self.slice is None:
+            return
+        try:
+            self.slice.set_stage_favorite(
+                stage_id, favorite,
+                playthrough_id=self.selected_playthrough_id,
+            )
+            self.refresh()
+            self.changed.emit()
+        except Exception as exc:
+            self._error(str(exc))
+
+    def _set_stage_media(self, stage_id: str, path: str) -> None:
+        if self.slice is None:
+            return
+        try:
+            self.slice.set_stage_media(
+                stage_id, path, playthrough_id=self.selected_playthrough_id,
+            )
+            self.refresh()
+            self.changed.emit()
+        except Exception as exc:
+            self._error(str(exc))
+
+    def _save_journey_entry(self, draft) -> None:
+        """Persist a typed, explicitly stage-bound Journey event."""
+        if self.slice is None:
+            return
+        try:
+            file_path = str(draft.metadata.get("file_path", "")).strip()
+            if file_path:
+                self.slice.set_stage_media(
+                    draft.stage_id, file_path,
+                    playthrough_id=self.selected_playthrough_id,
+                )
+            event_type = {
+                "favorite": "favorite_moment", "challenge": "difficult_moment",
+                "rating": "rating_change",
+            }.get(draft.event_type, draft.event_type)
+            self.slice.add_timeline_event(
+                draft.stage_id, event_type, title=draft.title, body=draft.body,
+                tags=draft.tags, media_path=file_path or None,
+                rating_after=draft.rating, occurred_at=draft.occurred_at or None,
+                mood_id=draft.mood_id,
+                playthrough_id=self.selected_playthrough_id,
+            )
+            if draft.mood_id:
+                self.slice.set_stage_mood(
+                    draft.stage_id, draft.mood_id,
+                    playthrough_id=self.selected_playthrough_id,
+                )
+            self.refresh()
+            self.changed.emit()
+        except Exception as exc:
+            self._error(str(exc))
+
+    def _revise_journey_entry(self, value) -> None:
+        if self.slice is None:
+            return
+        event_id, draft = value
+        try:
+            self.slice.revise_timeline_event(
+                event_id, title=draft.title, body=draft.body, tags=draft.tags,
+                rating_after=draft.rating, mood_id=draft.mood_id,
+                occurred_at=draft.occurred_at or None,
+                playthrough_id=self.selected_playthrough_id,
+            )
+            self.refresh()
+            self.changed.emit()
+        except Exception as exc:
+            self._error(str(exc))
+
+    def _delete_journey_entry(self, event_id: str) -> None:
+        if self.slice is None:
+            return
+        try:
+            self.slice.delete_timeline_event(
+                event_id, playthrough_id=self.selected_playthrough_id
+            )
             self.refresh()
             self.changed.emit()
         except Exception as exc:
@@ -313,22 +592,30 @@ class DoomAw02Panel(QFrame):
             elif action is GameRowAction.ADD_PLAYTIME:
                 value = request_playtime(self)
                 if value:
-                    self.slice.add_playtime(*value)
+                    self.slice.add_playtime(
+                        *value, playthrough_id=self.selected_playthrough_id
+                    )
             elif action is GameRowAction.ADD_CHECKPOINT:
                 state = self.slice.load_detail()
                 value = request_checkpoint(
                     self, state.row.total_playtime_minutes
                 )
                 if value:
-                    self.slice.save_checkpoint(**value)
+                    self.slice.save_checkpoint(
+                        **value, playthrough_id=self.selected_playthrough_id
+                    )
             elif action is GameRowAction.ADD_IMPRESSION:
                 value = request_impression(self)
                 if value:
-                    self.slice.add_impression(*value)
+                    self.slice.add_impression(
+                        *value, playthrough_id=self.selected_playthrough_id
+                    )
             elif action is GameRowAction.RATE:
                 value = request_personal_rating(self)
                 if value:
-                    self.slice.save_personal_rating(*value)
+                    self.slice.save_personal_rating(
+                        *value, playthrough_id=self.selected_playthrough_id
+                    )
             elif action is GameRowAction.COMPLETE_PLAYTHROUGH:
                 self.slice.set_status("ПРОШЁЛ")
             self.feedback.setStyleSheet(f"color:{SUCCESS};")

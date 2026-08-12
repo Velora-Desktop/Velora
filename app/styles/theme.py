@@ -67,7 +67,7 @@ def application_stylesheet() -> str:
     QFrame#goalCard {{ background:#111222; border:1px solid #292A43; border-radius:8px; padding:5px; }}
     QProgressBar {{ background:#202035; border:0; border-radius:3px; min-height:9px; text-align:center; color:white; }}
     QProgressBar::chunk {{ background:{ACCENT}; border-radius:3px; }}
-    QCheckBox {{ spacing:9px; }}
+    QCheckBox {{ spacing:9px; background:transparent; border:0; }}
     QCheckBox::indicator {{ width:17px; height:17px; border:1px solid #44515D; border-radius:4px; background:#091118; }}
     QCheckBox::indicator:checked {{ background:{ACCENT}; border-color:#B16CFF; image:url("{check_image}"); }}
     QLabel#muted {{ color: #8D98A3; }}

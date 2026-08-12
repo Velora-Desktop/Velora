@@ -13,6 +13,9 @@ from PySide6.QtWidgets import (
 from app.core.icon_registry import IconRegistry
 from app.core.paths import APP_DATA_DIR, LOGS_DIR
 from app.services.data_backup_service import BackupValidationError, DataBackupService
+from app.styles.theme import SURFACE_PANEL
+from app.ui.velora_ui.icons import IconProvider
+from app.ui.velora_ui.components import HoverAnimatedIcon
 
 
 LANGUAGES = (
@@ -34,15 +37,22 @@ class SettingsDialog(QDialog):
 
     def __init__(self, hide_adult_content: bool, games=(), parent=None, data_service: DataBackupService | None = None) -> None:
         super().__init__(parent)
+        self.setObjectName("settingsDialog")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet(
+            f"QDialog#settingsDialog{{background:{SURFACE_PANEL};}}"
+            f"QTabWidget#settingsTabs{{background:{SURFACE_PANEL};}}"
+            f"QTabWidget#settingsTabs::pane{{background:{SURFACE_PANEL};}}"
+        )
         self.games = list(games)
         self.data_service = data_service
         self.setWindowTitle("Настройки Velora")
-        self.setWindowIcon(IconRegistry.icon("settings_gears", variant="dark", category="ui"))
+        self.setWindowIcon(IconProvider.icon("animated.settings", 20))
         self.setMinimumSize(680, 520)
         root = QVBoxLayout(self)
         title = QLabel("НАСТРОЙКИ"); title.setStyleSheet("font-size:18pt;font-weight:600;")
         root.addWidget(title)
-        tabs = QTabWidget(); root.addWidget(tabs, 1)
+        tabs = QTabWidget(); tabs.setObjectName("settingsTabs"); tabs.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True); root.addWidget(tabs, 1)
         tabs.addTab(self._build_general_tab(), "ОБЩЕЕ")
         tabs.addTab(self._build_content_tab(hide_adult_content), "КОНТЕНТ")
         tabs.addTab(self._build_data_tab(), "ДАННЫЕ")
@@ -168,8 +178,15 @@ class SettingsDialog(QDialog):
     def _build_language_tab(self) -> QWidget:
         tab = QWidget(); layout = QVBoxLayout(tab)
         heading = QHBoxLayout()
-        globe = QLabel(); globe.setPixmap(IconRegistry.pixmap("globe", 22, variant="dark", category="ui"))
-        heading.addWidget(globe); heading.addWidget(QLabel("ЯЗЫК ИНТЕРФЕЙСА")); heading.addStretch(); layout.addLayout(heading)
+        language_icon = HoverAnimatedIcon(
+            "animated.language_flag", 26,
+            frame_interval_ms=41, autoplay=True, mouse_transparent=True,
+        )
+        language_icon.setObjectName("animatedInterfaceLanguageIcon")
+        heading.addWidget(language_icon)
+        heading.addWidget(QLabel("ЯЗЫК ИНТЕРФЕЙСА"))
+        heading.addStretch()
+        layout.addLayout(heading)
         hint = QLabel("Перевод интерфейса будет добавляться постепенно. Сейчас доступен русский язык.")
         hint.setObjectName("muted"); hint.setWordWrap(True); layout.addWidget(hint)
         for name, icon_id, available in LANGUAGES:

@@ -10,10 +10,10 @@ class CatalogDuplicateTests(unittest.TestCase):
         try:
             duplicates = connection.execute(
                 """
-                SELECT lower(trim(title)), media_type, COUNT(*)
+                SELECT lower(trim(title)), media_type, release_year, COUNT(*)
                 FROM catalog_items
                 WHERE is_active=1
-                GROUP BY lower(trim(title)), media_type
+                GROUP BY lower(trim(title)), media_type, release_year
                 HAVING COUNT(*) > 1
                 """
             ).fetchall()

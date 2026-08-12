@@ -16,6 +16,10 @@ from .models import (
     CatalogItem,
     Impression,
     JourneyEvent,
+    JourneyStageFlags,
+    JourneyStageMood,
+    JourneyStageRating,
+    JourneyStageState,
     LibraryState,
     Playthrough,
     Rating,
@@ -98,6 +102,45 @@ class CatalogRepository(_Repository):
             sort_order=excluded.sort_order""",
             (catalog_id, tag_id, sort_order),
         )
+
+    def payload(self, catalog_id: str, payload_type: str) -> tuple[int, str] | None:
+        """Return an official extensible payload without leaking sqlite rows."""
+        row = self._db.execute(
+            """SELECT payload_version,payload_json
+            FROM catalog_payloads WHERE catalog_id=? AND payload_type=?""",
+            (catalog_id, payload_type),
+        ).fetchone()
+        return (int(row["payload_version"]), str(row["payload_json"])) if row else None
+
+    def upsert_payload(
+        self,
+        catalog_id: str,
+        payload_type: str,
+        payload_version: int,
+        payload_json: str,
+        revision: int = 1,
+    ) -> None:
+        self._db.execute(
+            """INSERT INTO catalog_payloads
+            (catalog_id,payload_type,payload_version,payload_json,revision)
+            VALUES(?,?,?,?,?)
+            ON CONFLICT(catalog_id,payload_type) DO UPDATE SET
+            payload_version=excluded.payload_version,
+            payload_json=excluded.payload_json,
+            revision=excluded.revision""",
+            (
+                catalog_id, payload_type, payload_version, payload_json,
+                max(1, revision),
+            ),
+        )
+
+    def delete_payload(self, catalog_id: str, payload_type: str) -> bool:
+        """Delete one official extensible payload inside the caller transaction."""
+        cursor = self._db.execute(
+            "DELETE FROM catalog_payloads WHERE catalog_id=? AND payload_type=?",
+            (catalog_id, payload_type),
+        )
+        return cursor.rowcount == 1
 
 
 class UserItemRepository(_Repository):
@@ -212,6 +255,13 @@ class PlaythroughRepository(_Repository):
 
     def get(self, playthrough_id: str) -> Playthrough | None:
         row = self._db.execute(
+            """SELECT * FROM playthroughs
+            WHERE playthrough_id=? AND deleted_at IS NULL""", (playthrough_id,)
+        ).fetchone()
+        return _playthrough(row) if row else None
+
+    def get_including_deleted(self, playthrough_id: str) -> Playthrough | None:
+        row = self._db.execute(
             "SELECT * FROM playthroughs WHERE playthrough_id=?", (playthrough_id,)
         ).fetchone()
         return _playthrough(row) if row else None
@@ -246,8 +296,53 @@ class PlaythroughRepository(_Repository):
     def list_for_item(self, source_type: SourceType, item_id: str) -> list[Playthrough]:
         return [_playthrough(row) for row in self._db.execute(
             """SELECT * FROM playthroughs WHERE source_type=? AND item_id=?
-            ORDER BY sequence_no""", (source_type.value, item_id)
+            AND deleted_at IS NULL ORDER BY sequence_no""",
+            (source_type.value, item_id)
         )]
+
+    def set_current(self, playthrough_id: str) -> None:
+        self._db.execute(
+            "UPDATE playthroughs SET is_current=1 WHERE playthrough_id=?",
+            (playthrough_id,),
+        )
+
+    def soft_delete(self, playthrough_id: str, deleted_at: str) -> None:
+        self._db.execute(
+            """UPDATE playthroughs SET is_current=0,deleted_at=?
+            WHERE playthrough_id=? AND deleted_at IS NULL""",
+            (deleted_at, playthrough_id),
+        )
+
+    def delete_personal_data(self, playthrough_id: str) -> None:
+        # Schema 1 uses SET NULL for ratings/events, so these records must be
+        # removed explicitly rather than detached from their deleted run.
+        self._db.execute(
+            "DELETE FROM user_ratings WHERE playthrough_id=?", (playthrough_id,)
+        )
+        self._db.execute(
+            "DELETE FROM journey_events WHERE playthrough_id=?", (playthrough_id,)
+        )
+        # The remaining playthrough-owned tables use ON DELETE CASCADE, but a
+        # tombstone is retained to preserve sequence history. Clear them here.
+        self._db.execute(
+            "DELETE FROM impressions WHERE playthrough_id=?", (playthrough_id,)
+        )
+        self._db.execute(
+            "DELETE FROM journey_stage_moods WHERE playthrough_id=?",
+            (playthrough_id,),
+        )
+        self._db.execute(
+            "DELETE FROM journey_stage_states WHERE playthrough_id=?",
+            (playthrough_id,),
+        )
+        self._db.execute(
+            "DELETE FROM journey_stage_ratings WHERE playthrough_id=?",
+            (playthrough_id,),
+        )
+        self._db.execute(
+            "DELETE FROM journey_stage_flags WHERE playthrough_id=?",
+            (playthrough_id,),
+        )
 
     def next_sequence(self, source_type: SourceType, item_id: str) -> int:
         return int(self._db.execute(
@@ -354,6 +449,178 @@ class RatingRepository(_Repository):
         return [_rating(row) for row in self._db.execute(
             """SELECT * FROM user_ratings WHERE source_type=? AND item_id=?
             ORDER BY created_at,rating_id""", (source_type.value, item_id)
+        )]
+
+    def restore_latest_final(
+        self, source_type: SourceType, item_id: str, updated_at: str,
+    ) -> None:
+        row = self._db.execute(
+            """SELECT rating_id FROM user_ratings
+            WHERE source_type=? AND item_id=? AND rating_type='final'
+            ORDER BY created_at DESC,rating_id DESC LIMIT 1""",
+            (source_type.value, item_id),
+        ).fetchone()
+        if row is not None:
+            self._db.execute(
+                """UPDATE user_ratings SET is_current=1,superseded_at=NULL,
+                updated_at=? WHERE rating_id=?""",
+                (updated_at, row["rating_id"]),
+            )
+
+
+class JourneyStageMoodRepository(_Repository):
+    def set(self, playthrough_id: str, stage_id: str, mood_id: str, updated_at: str) -> None:
+        self._db.execute(
+            """INSERT INTO journey_stage_moods(playthrough_id,stage_id,mood_id,updated_at)
+            VALUES(?,?,?,?) ON CONFLICT(playthrough_id,stage_id) DO UPDATE SET
+            mood_id=excluded.mood_id,updated_at=excluded.updated_at""",
+            (playthrough_id, stage_id, mood_id, updated_at),
+        )
+
+    def clear(self, playthrough_id: str, stage_id: str) -> None:
+        self._db.execute(
+            "DELETE FROM journey_stage_moods WHERE playthrough_id=? AND stage_id=?",
+            (playthrough_id, stage_id),
+        )
+
+    def list_for_playthrough(self, playthrough_id: str) -> dict[str, str]:
+        return {
+            row["stage_id"]: row["mood_id"]
+            for row in self._db.execute(
+                """SELECT stage_id,mood_id FROM journey_stage_moods
+                WHERE playthrough_id=? ORDER BY stage_id""", (playthrough_id,)
+            )
+        }
+
+    def list_records_for_playthrough(
+        self, playthrough_id: str,
+    ) -> list[JourneyStageMood]:
+        return [
+            JourneyStageMood(
+                row["playthrough_id"], row["stage_id"], row["mood_id"],
+                row["updated_at"],
+            )
+            for row in self._db.execute(
+                """SELECT playthrough_id,stage_id,mood_id,updated_at
+                FROM journey_stage_moods WHERE playthrough_id=?
+                ORDER BY stage_id""",
+                (playthrough_id,),
+            )
+        ]
+
+
+class JourneyStageStateRepository(_Repository):
+    ALLOWED = frozenset((
+        "not_started", "current", "in_progress", "completed", "skipped",
+    ))
+
+    def set(
+        self, playthrough_id: str, stage_id: str, state: str, updated_at: str,
+    ) -> None:
+        if state not in self.ALLOWED:
+            raise ValueError(f"Unknown Journey stage state: {state}")
+        self._db.execute(
+            """INSERT INTO journey_stage_states(
+            playthrough_id,stage_id,state,updated_at) VALUES(?,?,?,?)
+            ON CONFLICT(playthrough_id,stage_id) DO UPDATE SET
+            state=excluded.state,updated_at=excluded.updated_at""",
+            (playthrough_id, stage_id, state, updated_at),
+        )
+
+    def list_for_playthrough(self, playthrough_id: str) -> dict[str, str]:
+        return {
+            row["stage_id"]: row["state"]
+            for row in self._db.execute(
+                """SELECT stage_id,state FROM journey_stage_states
+                WHERE playthrough_id=? ORDER BY stage_id""", (playthrough_id,)
+            )
+        }
+
+    def list_records_for_playthrough(
+        self, playthrough_id: str,
+    ) -> list[JourneyStageState]:
+        return [
+            JourneyStageState(
+                row["playthrough_id"], row["stage_id"], row["state"],
+                row["updated_at"],
+            )
+            for row in self._db.execute(
+                """SELECT playthrough_id,stage_id,state,updated_at
+                FROM journey_stage_states WHERE playthrough_id=?
+                ORDER BY stage_id""",
+                (playthrough_id,),
+            )
+        ]
+
+
+class JourneyStageRatingRepository(_Repository):
+    def set(self, playthrough_id: str, stage_id: str, value_tenths: int, updated_at: str) -> None:
+        if not 10 <= value_tenths <= 100:
+            raise ValueError("Journey stage rating must be between 10 and 100")
+        self._db.execute(
+            """INSERT INTO journey_stage_ratings(playthrough_id,stage_id,value_tenths,updated_at)
+            VALUES(?,?,?,?) ON CONFLICT(playthrough_id,stage_id) DO UPDATE SET
+            value_tenths=excluded.value_tenths,updated_at=excluded.updated_at""",
+            (playthrough_id, stage_id, value_tenths, updated_at),
+        )
+
+    def get(self, playthrough_id: str, stage_id: str) -> int | None:
+        row = self._db.execute(
+            "SELECT value_tenths FROM journey_stage_ratings WHERE playthrough_id=? AND stage_id=?",
+            (playthrough_id, stage_id),
+        ).fetchone()
+        return int(row["value_tenths"]) if row else None
+
+    def list_for_playthrough(self, playthrough_id: str) -> dict[str, int]:
+        return {row["stage_id"]: int(row["value_tenths"]) for row in self._db.execute(
+            """SELECT stage_id,value_tenths FROM journey_stage_ratings
+            WHERE playthrough_id=? ORDER BY stage_id""", (playthrough_id,)
+        )}
+
+    def list_records_for_playthrough(self, playthrough_id: str) -> list[JourneyStageRating]:
+        return [JourneyStageRating(
+            row["playthrough_id"], row["stage_id"], int(row["value_tenths"]),
+            row["updated_at"],
+        ) for row in self._db.execute(
+            """SELECT playthrough_id,stage_id,value_tenths,updated_at
+            FROM journey_stage_ratings WHERE playthrough_id=? ORDER BY stage_id""",
+            (playthrough_id,),
+        )]
+
+
+class JourneyStageFlagsRepository(_Repository):
+    def set(self, playthrough_id: str, stage_id: str, *, favorite: bool,
+            difficult: bool, updated_at: str) -> None:
+        self._db.execute(
+            """INSERT INTO journey_stage_flags(
+            playthrough_id,stage_id,favorite,difficult,updated_at) VALUES(?,?,?,?,?)
+            ON CONFLICT(playthrough_id,stage_id) DO UPDATE SET
+            favorite=excluded.favorite,difficult=excluded.difficult,
+            updated_at=excluded.updated_at""",
+            (playthrough_id, stage_id, int(favorite), int(difficult), updated_at),
+        )
+
+    def get(self, playthrough_id: str, stage_id: str) -> tuple[bool, bool]:
+        row = self._db.execute(
+            """SELECT favorite,difficult FROM journey_stage_flags
+            WHERE playthrough_id=? AND stage_id=?""", (playthrough_id, stage_id)
+        ).fetchone()
+        return (bool(row["favorite"]), bool(row["difficult"])) if row else (False, False)
+
+    def list_for_playthrough(self, playthrough_id: str) -> dict[str, tuple[bool, bool]]:
+        return {row["stage_id"]: (bool(row["favorite"]), bool(row["difficult"]))
+                for row in self._db.execute(
+                    """SELECT stage_id,favorite,difficult FROM journey_stage_flags
+                    WHERE playthrough_id=? ORDER BY stage_id""", (playthrough_id,))}
+
+    def list_records_for_playthrough(self, playthrough_id: str) -> list[JourneyStageFlags]:
+        return [JourneyStageFlags(
+            row["playthrough_id"], row["stage_id"], bool(row["favorite"]),
+            bool(row["difficult"]), row["updated_at"],
+        ) for row in self._db.execute(
+            """SELECT playthrough_id,stage_id,favorite,difficult,updated_at
+            FROM journey_stage_flags WHERE playthrough_id=? ORDER BY stage_id""",
+            (playthrough_id,),
         )]
 
 

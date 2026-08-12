@@ -322,15 +322,27 @@ def main() -> None:
         if "chronology_json" not in columns:
             connection.execute("ALTER TABLE catalog_items ADD COLUMN chronology_json TEXT NOT NULL DEFAULT '[]'")
         games = connection.execute(
-            "SELECT catalog_id,title,cover_path FROM catalog_items WHERE catalog_id LIKE 'g-%'"
+            "SELECT catalog_id,title,release_year,cover_path FROM catalog_items WHERE catalog_id LIKE 'g-%'"
         ).fetchall()
-        by_title = {row["title"].casefold(): row for row in games}
+        # A title alone is not an identity: Doom (1993/2016), God of War
+        # (2005/2018), remakes and reboots must remain distinct chronology
+        # nodes.  Prefer the exact title/year pair and only use a title-only
+        # fallback when that title is unambiguous in the catalog.
+        by_title_year = {
+            (row["title"].casefold(), int(row["release_year"] or 0)): row
+            for row in games
+        }
+        title_matches: dict[str, list[sqlite3.Row]] = {}
+        for row in games:
+            title_matches.setdefault(row["title"].casefold(), []).append(row)
         updated: set[str] = set()
         for franchise, raw_entries in SERIES.items():
             entries: list[dict[str, object]] = []
             linked_ids: list[str] = []
             for position, (title, year, status) in enumerate(raw_entries, 1):
-                match = by_title.get(title.casefold())
+                match = by_title_year.get((title.casefold(), int(year or 0)))
+                if match is None and len(title_matches.get(title.casefold(), ())) == 1:
+                    match = title_matches[title.casefold()][0]
                 catalog_id = match["catalog_id"] if match else ""
                 cover_path = match["cover_path"] if match else ""
                 if catalog_id: linked_ids.append(catalog_id)

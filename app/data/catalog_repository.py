@@ -92,6 +92,7 @@ def load_catalog_items() -> list[GameData]:
             architectures=json_value(row,"architectures_json",[]),
             programming_languages=json_value(row,"programming_languages_json",[]),
             distribution_model=value(row,"distribution_model",""), stores=json_value(row,"stores_json",[]),
+            engine=value(row, "engine", ""), anti_cheat=value(row, "anti_cheat", ""),
             budget_amount=value(row,"budget_amount"), budget_currency=value(row,"budget_currency",""),
             system_tags=json_value(row, "catalog_tags_json", []),
             franchise_name=value(row, "franchise_name", ""),

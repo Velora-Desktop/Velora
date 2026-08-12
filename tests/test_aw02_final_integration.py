@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import sys
 import tempfile
@@ -95,7 +96,22 @@ class FinalIntegrationTests(unittest.TestCase):
                 release_year=2020,
                 description="Проверенное описание Studio 0.1",
             )
-            self.assertTrue(AW02CatalogBridge(self.paths).save_if_supported(item))
+            journey_configuration = SimpleNamespace(
+                official_payload=lambda: {
+                    "payload_version": 1,
+                    "template_id": "story_campaign",
+                    "name": "Кампания из Studio",
+                    "stages": [
+                        {"number": 1, "title": "Пролог", "visible": True},
+                        {"number": 2, "title": "Финал", "visible": True},
+                    ],
+                }
+            )
+            self.assertTrue(
+                AW02CatalogBridge(self.paths).save_if_supported(
+                    item, journey_configuration
+                )
+            )
             self.assertEqual(storage.user_db.read_bytes(), before)
             db = sqlite3.connect(storage.catalog_db)
             try:
@@ -105,6 +121,15 @@ class FinalIntegrationTests(unittest.TestCase):
                         (DOOM_ETERNAL_ID,),
                     ).fetchone()[0],
                     item.description,
+                )
+                payload = db.execute(
+                    """SELECT payload_json FROM catalog_payloads
+                    WHERE catalog_id=? AND payload_type='journey_template'""",
+                    (DOOM_ETERNAL_ID,),
+                ).fetchone()
+                self.assertIsNotNone(payload)
+                self.assertEqual(
+                    json.loads(payload[0])["stages"][0]["title"], "Пролог"
                 )
             finally:
                 db.close()

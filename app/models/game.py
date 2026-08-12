@@ -61,6 +61,8 @@ class GameData:
     architectures: list[str] = field(default_factory=list)
     programming_languages: list[str] = field(default_factory=list)
     distribution_model: str = ""
+    engine: str = ""
+    anti_cheat: str = ""
     stores: list[str] = field(default_factory=list)
     budget_amount: float | None = None
     budget_currency: str = ""

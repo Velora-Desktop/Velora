@@ -125,6 +125,39 @@ class Impression:
 
 
 @dataclass(frozen=True, slots=True)
+class JourneyStageMood:
+    playthrough_id: str
+    stage_id: str
+    mood_id: str
+    updated_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class JourneyStageState:
+    playthrough_id: str
+    stage_id: str
+    state: str
+    updated_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class JourneyStageRating:
+    playthrough_id: str
+    stage_id: str
+    value_tenths: int
+    updated_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class JourneyStageFlags:
+    playthrough_id: str
+    stage_id: str
+    favorite: bool
+    difficult: bool
+    updated_at: str
+
+
+@dataclass(frozen=True, slots=True)
 class Tag:
     tag_id: str
     name: str

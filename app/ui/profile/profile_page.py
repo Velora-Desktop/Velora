@@ -12,6 +12,7 @@ from app.ui.profile.assistant_page import AssistantPage
 from app.ui.profile.creator_page import CreatorPage
 from app.ui.profile.profile_dialog import ProfileDialog
 from app.navigation.routes import catalog_uri
+from app.styles.theme import SURFACE_PANEL
 
 
 class SortableItem(QTableWidgetItem):
@@ -22,17 +23,25 @@ class SortableItem(QTableWidgetItem):
 
 class ProfilePage(QWidget):
     catalog_item_requested = Signal(str)
+    journey_item_requested = Signal(str)
     def __init__(self, repository: UserRepository, parent=None) -> None:
-        super().__init__(parent); self.repository = repository; self.games = []
+        super().__init__(parent); self.setObjectName("profilePage"); self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True); self.repository = repository; self.games = []
+        self.setStyleSheet(
+            f"QWidget#profilePage{{background:{SURFACE_PANEL};}}"
+            f"QTabWidget#profileTabs{{background:{SURFACE_PANEL};}}"
+            f"QTabWidget#profileTabs::pane{{background:{SURFACE_PANEL};border:0;}}"
+            f"QTabBar#profileTabBar{{background:{SURFACE_PANEL};}}"
+        )
         root = QVBoxLayout(self); root.setContentsMargins(24, 18, 24, 22); root.setSpacing(14)
         heading = QHBoxLayout(); title = QLabel("МОЙ VELORA"); title.setStyleSheet("font-family:Georgia; font-size:26pt; letter-spacing:2px;")
         heading.addWidget(title); heading.addStretch(); snapshot = QPushButton("СОХРАНИТЬ СНИМОК PNG"); snapshot.clicked.connect(self._save_snapshot); heading.addWidget(snapshot); self.profile_name = QLabel(); self.profile_name.setStyleSheet("font-size:14pt; font-weight:600;"); heading.addWidget(self.profile_name)
         root.addLayout(heading)
-        self.tabs = QTabWidget(); self.tabs.setObjectName("profileTabs"); self.tabs.setDocumentMode(True); self.tabs.setTabBar(GlowingTabBar())
+        self.tabs = QTabWidget(); self.tabs.setObjectName("profileTabs"); self.tabs.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True); self.tabs.setDocumentMode(True); self.tabs.setTabBar(GlowingTabBar())
         self.tabs.addTab(self._build_overview_tab(), "ОБЗОР")
         self.tabs.addTab(self._build_assistant_tab(), "АССИСТЕНТ")
         self.creator = CreatorPage()
         self.tabs.addTab(self.creator, "CREATOR")
+        self.tabs.addTab(self._build_journey_tab(), "JOURNEY")
         self.tabs.addTab(self._build_ratings_tab(), "МОИ ОЦЕНКИ")
         self.tabs.addTab(self._build_favorites_tab(), "ИЗБРАННОЕ")
         self.tabs.addTab(self._build_statistics_tab(), "СТАТИСТИКА")
@@ -73,6 +82,29 @@ class ProfilePage(QWidget):
         tab = QWidget(); layout = QVBoxLayout(tab); self.ratings_empty = QLabel(); self.ratings_empty.setObjectName("muted"); layout.addWidget(self.ratings_empty)
         self.ratings_table = self._table(("Тип", "Название", "Категория", "Подгруппа", "Моя оценка", "Общая оценка", "Статус")); layout.addWidget(self.ratings_table, 1); return tab
 
+    def _build_journey_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 14, 0, 0)
+        heading = QLabel("МОИ JOURNEY")
+        heading.setObjectName("profileSectionHeading")
+        layout.addWidget(heading)
+        hint = QLabel(
+            "Продолжайте текущие прохождения или вернитесь к завершённым "
+            "историям. Нажмите название игры, чтобы открыть её Journey."
+        )
+        hint.setObjectName("muted")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+        self.journey_empty = QLabel()
+        self.journey_empty.setObjectName("muted")
+        layout.addWidget(self.journey_empty)
+        self.journey_table = self._table(
+            ("Тип", "Название", "Категория", "Моя оценка", "Статус")
+        )
+        layout.addWidget(self.journey_table, 1)
+        return tab
+
     def _build_statistics_tab(self) -> QWidget:
         self.statistics_dashboard = StatisticsDashboard(); return self.statistics_dashboard
 
@@ -103,14 +135,36 @@ class ProfilePage(QWidget):
         self.overview.refresh_today(self.repository.goals(), self.games)
         favorites = [game for game in self.games if game.favorite]
         rated = [game for game in self.games if game.personal_score != "—"]
+        journey_games = [
+            game for game in self.games
+            if game.media_type == "Игры"
+            and game.status != "НЕ НАЧИНАЛ"
+        ]
         self.favorites_table.setSortingEnabled(False); self.ratings_table.setSortingEnabled(False)
         self._fill(self.favorites_table, [(g.media_type, g.title, g.category, g.subgroup or "—", g.personal_score, g.general_score, g.status) for g in favorites])
         self._fill(self.ratings_table, [(g.media_type, g.title, g.category, g.subgroup or "—", g.personal_score, g.general_score, g.status) for g in rated])
         self._bind_links(self.favorites_table, favorites)
         self._bind_links(self.ratings_table, rated)
+        self._fill(
+            self.journey_table,
+            [
+                (
+                    game.media_type, game.title, game.category,
+                    game.personal_score, game.status,
+                )
+                for game in journey_games
+            ],
+        )
+        self.journey_table.setProperty("openJourney", True)
+        self._bind_links(self.journey_table, journey_games)
         self.favorites_table.setSortingEnabled(True); self.ratings_table.setSortingEnabled(True)
         self.favorites_empty.setText("Избранных объектов пока нет" if not favorites else f"В избранном: {len(favorites)}")
         self.ratings_empty.setText("Вы ещё ничего не оценили" if not rated else f"Оценено: {len(rated)}")
+        self.journey_empty.setText(
+            "Начатых Journey пока нет"
+            if not journey_games
+            else f"Прохождений в личной истории: {len(journey_games)}"
+        )
         started = [g for g in self.games if g.status != "НЕ НАЧИНАЛ"]
         completed = [g for g in self.games if g.status == "ПРОШЁЛ"]
         average = sum(float(g.personal_score) for g in rated) / len(rated) if rated else None
@@ -120,7 +174,10 @@ class ProfilePage(QWidget):
         self.tabs.setCurrentIndex(0)
 
     def _open_section(self, section: str) -> None:
-        indexes = {"assistant": 1, "creator": 2, "ratings": 3, "favorites": 4, "statistics": 5}
+        indexes = {
+            "assistant": 1, "creator": 2, "journey": 3,
+            "ratings": 4, "favorites": 5, "statistics": 6,
+        }
         if section in indexes:
             self.tabs.setCurrentIndex(indexes[section])
 
@@ -134,13 +191,22 @@ class ProfilePage(QWidget):
     def _fill(table: QTableWidget, rows) -> None:
         sorting = table.isSortingEnabled(); table.setSortingEnabled(False)
         table.setRowCount(len(rows))
+        status_column = next(
+            (
+                column for column in range(table.columnCount())
+                if table.horizontalHeaderItem(column)
+                and table.horizontalHeaderItem(column).text() == "Статус"
+            ),
+            -1,
+        )
         for row_index, values in enumerate(rows):
             table.setRowHeight(row_index, 46)
             for column, value in enumerate(values):
                 item = SortableItem(str(value));
-                if column in (4, 5): item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                if column >= 3 and column != status_column:
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 if column == 0: item.setForeground(__import__('PySide6.QtGui',fromlist=['QColor']).QColor('#B67AFF'))
-                if column == 6:
+                if column == status_column:
                     colors={"ПРОШЁЛ":"#18D647","ПРОХОЖУ":"#FFC400","БРОСИЛ":"#FF4B45","НЕ НАЧИНАЛ":"#89949E"}; item.setForeground(__import__('PySide6.QtGui',fromlist=['QColor']).QColor(colors.get(str(value),'#C8D0D7')))
                 table.setItem(row_index, column, item)
         table.setSortingEnabled(sorting)
@@ -161,7 +227,10 @@ class ProfilePage(QWidget):
         item = table.item(row, column)
         catalog_id = item.data(Qt.ItemDataRole.UserRole) if item else None
         if catalog_id:
-            self.catalog_item_requested.emit(catalog_id)
+            if table.property("openJourney"):
+                self.journey_item_requested.emit(catalog_id)
+            else:
+                self.catalog_item_requested.emit(catalog_id)
 
     @staticmethod
     def _hover_link(table: QTableWidget, row: int, column: int) -> None:

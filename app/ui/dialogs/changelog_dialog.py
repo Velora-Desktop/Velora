@@ -135,11 +135,11 @@ AW010_GROUPS = (
 
 CURRENT_CYCLE_GROUPS = (
     (
-        "ЭТАЛОННАЯ КАРТОЧКА ИГРЫ",
+        "JOURNEY 1.0",
         (
-            "<b>Завершён UX-цикл AW0.22.</b>",
-            "Doom Eternal станет эталонной карточкой для последующего масштабирования Games UI.",
-            "Работа ведётся поверх Contracts 1, Schema 1 и готового ядра AW0.2 без новой схемы данных.",
+            "<b>Выпущен универсальный Journey для игровых карточек.</b>",
+            "Doom Eternal остаётся эталонной реализацией, но runtime больше не зависит от конкретной игры.",
+            "Прохождения, этапы, rating, mood, события и аналитика сохраняются локально в Schema 1.",
         ),
     ),
     (
@@ -151,11 +151,11 @@ CURRENT_CYCLE_GROUPS = (
         ),
     ),
     (
-        "ГРАНИЦЫ ЦИКЛА",
+        "КАТАЛОГ AW0.301",
         (
-            "<b>Journey проектируется как универсальный пользовательский путь</b> поверх существующего доменного ядра.",
-            "Массовое подключение игр, AI-рекомендации, Creator Backend, DOCX Export и новая Schema в AW0.22 не входят.",
-            "Новые элементы карточки должны выделяться в переиспользуемые компоненты, а не закрепляться за Doom.",
+            "<b>Обновлены обложки, descriptions и подтверждённые metadata.</b>",
+            "Описания игр доведены до 101/101; разные издания и совпадающие названия разделены.",
+            "Journey rollout различает Published, Template only, Not Applicable и Manual Review.",
         ),
     ),
 )
@@ -327,6 +327,18 @@ def catalog_changelog_html() -> str:
 
 def _scrollable(widget: QWidget) -> QScrollArea:
     scroll = QScrollArea()
+    scroll.setObjectName("changelogScroll")
+    scroll.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+    scroll.viewport().setObjectName("changelogViewport")
+    scroll.viewport().setStyleSheet("background:#071016;border:0;")
+    widget.setObjectName("changelogScrollContent")
+    widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+    widget.setStyleSheet(
+        "QWidget#changelogScrollContent{background:#071016;border:0;}"
+        "QWidget#changelogScrollContent QLabel{background:transparent;border:0;}"
+        "QFrame#changelogCard{background:#0B141C;border:1px solid #2D3A44;"
+        "border-radius:8px;}"
+    )
     widget.setMinimumWidth(0)
     widget.setSizePolicy(
         QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
@@ -378,6 +390,8 @@ def _release_history_card() -> QFrame:
 class ChangelogDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setObjectName("changelogDialog")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setWindowTitle("История изменений Velora")
         self.setWindowIcon(IconRegistry.icon("history_recent", variant="dark", category="ui"))
         self.setModal(True)
@@ -393,9 +407,9 @@ class ChangelogDialog(QDialog):
         root.addWidget(title)
 
         cycle = QLabel(
-            "<b>AW0.22 — ЗАВЕРШЁННЫЙ UX-ЦИКЛ</b><br>"
-            "<span style='color:#91A1B2'>Цикл эталонной карточки Doom Eternal "
-            "открыт поверх стабильного ядра AW0.2, Schema 1 и Catalog 0.21.</span>"
+            "<b>AW0.3 — JOURNEY 1.0 · ТЕКУЩИЙ МИКРОПАТЧ AW0.301</b><br>"
+            "<span style='color:#91A1B2'>Универсальный Journey, UI Kit и Asset System "
+            "выпущены поверх стабильного ядра, Schema 1 и Catalog 0.21.</span>"
         )
         cycle.setTextFormat(Qt.TextFormat.RichText)
         cycle.setWordWrap(True)
@@ -411,7 +425,7 @@ class ChangelogDialog(QDialog):
         major_widget = QWidget()
         major_layout = QVBoxLayout(major_widget)
         major_layout.setContentsMargins(0, 0, 4, 0)
-        current_title = QLabel("ИЗМЕНЕНИЯ AW0.22")
+        current_title = QLabel("КРУПНЫЕ ИЗМЕНЕНИЯ AW0.3 / AW0.301")
         current_title.setStyleSheet("font-size:12pt;font-weight:800;color:#F0F1F4;")
         major_layout.addWidget(current_title)
         current_grid = QGridLayout()
@@ -474,6 +488,10 @@ class ChangelogDialog(QDialog):
         root.addLayout(columns, 1)
         self.setStyleSheet(
             self.styleSheet()
+            + "QDialog#changelogDialog{background:#071016;}"
+            "QScrollArea#changelogScroll{background:#071016;border:0;}"
+            "QWidget#changelogViewport{background:#071016;border:0;}"
+            "QWidget#changelogScrollContent{background:#071016;border:0;}"
             + "QFrame#changelogCard{background:#0B141C;border:1px solid #2D3A44;"
             "border-radius:8px;}"
         )

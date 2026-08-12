@@ -1,0 +1,19 @@
+{
+  "pack": "Velora Company Logo Pack 1.0",
+  "source": "Wikimedia Commons",
+  "icons": [
+    {"id":"company.electronic_arts","company_name":"Electronic Arts","category":"company","path":"electronic_arts.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Electronic-Arts-Logo.svg","original_filename":"Electronic-Arts-Logo.svg","status":"current"},
+    {"id":"company.sony_interactive_entertainment","company_name":"Sony Interactive Entertainment","category":"company","path":"sony_interactive_entertainment.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Sony_Interactive_Entertainment_logo_(2016).svg","original_filename":"Sony Interactive Entertainment logo (2016).svg","status":"current"},
+    {"id":"company.bethesda_softworks","company_name":"Bethesda Softworks","category":"company","path":"bethesda_softworks.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Bethesda_Softworks_Logo.svg","original_filename":"Bethesda Softworks Logo.svg","status":"current"},
+    {"id":"company.xbox_game_studios","company_name":"Xbox Game Studios","category":"company","path":"xbox_game_studios.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Xbox_Game_Studios.svg","original_filename":"Xbox Game Studios.svg","status":"current"},
+    {"id":"company.two_k_games","company_name":"2K Games","category":"company","path":"two_k_games.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:2K_Games_Logo.svg","original_filename":"2K Games Logo.svg","status":"current"},
+    {"id":"company.blizzard_entertainment","company_name":"Blizzard Entertainment","category":"company","path":"blizzard_entertainment.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Blizzard_Entertainment_Logo.svg","original_filename":"Blizzard Entertainment Logo.svg","status":"current"},
+    {"id":"company.deep_silver","company_name":"Deep Silver","category":"company","path":"deep_silver.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Deep_Silver_Logo.svg","original_filename":"Deep Silver Logo.svg","status":"current"},
+    {"id":"company.capcom","company_name":"Capcom","category":"company","path":"capcom.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Capcom_logo.svg","original_filename":"Capcom logo.svg","status":"current"},
+    {"id":"company.warner_bros_games","company_name":"Warner Bros. Games","category":"company","path":"warner_bros_games.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Warner_Bros._Games_2023.svg","original_filename":"Warner Bros. Games 2023.svg","status":"current"},
+    {"id":"company.rockstar_games","company_name":"Rockstar Games","category":"company","path":"rockstar_games.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Rockstar_Games_Logo.svg","original_filename":"Rockstar Games Logo.svg","status":"current"},
+    {"id":"company.ubisoft","company_name":"Ubisoft","category":"company","path":"ubisoft.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Ubisoft_logo.svg","original_filename":"Ubisoft logo.svg","status":"current"},
+    {"id":"company.cd_projekt_red","company_name":"CD Projekt RED","category":"company","path":"cd_projekt_red.svg","format":"svg","wikimedia_source":"https://commons.wikimedia.org/wiki/File:Cdprojectred-logo.svg","original_filename":"Cdprojectred-logo.svg","status":"current"}
+  ],
+  "manual_review": ["FromSoftware", "id Software", "Naughty Dog", "Larian Studios", "Paradox Interactive", "Riot Games", "Sega", "Square Enix"]
+}
